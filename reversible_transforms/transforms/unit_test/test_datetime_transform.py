@@ -2,28 +2,30 @@ import shutil
 import tempfile
 import unittest
 import reversible_transforms.utils.test_helpers as th
-import reversible_transforms.transforms.num_transform as n
+import reversible_transforms.transforms.datetime_transform as n
 import os
 import pandas as pd
 import numpy as np
+import datetime
 
-class TestNumTransform(unittest.TestCase):
+
+class TestDateTimeTransform(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
         self.array = np.array([
-          [1, 2, np.nan],
-          [4, np.nan, np.nan],
-          [7, 8, np.nan],
-          [10, 11, np.nan]
-        ])
+          ['2019-01-01', '2019-01-01', np.datetime64('NaT')],
+          ['2019-01-02', np.datetime64('NaT'), np.datetime64('NaT')],
+          ['2019-01-03', '2019-02-01', np.datetime64('NaT')],
+          ['2019-01-01', '2019-03-01', np.datetime64('NaT')]
+        ], dtype=np.datetime64)
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
 
     def test_no_norm(self):
-        trans = n.NumTransform(
+        trans = n.DateTimeTransform(
           col_index=0,
-          name='num'
+          name='datetime'
         )
         trans.calc_global_values(self.array)
         ci = trans.col_index
@@ -32,17 +34,17 @@ class TestNumTransform(unittest.TestCase):
         val = trans.backward_transform(arrays_dict, verbose=False)
 
         th.assert_arrays_equal(self, np.zeros((4, 1), dtype=np.bool), arrays_dict['isnan'])
-        th.assert_arrays_equal(self, self.array[:, ci: ci + 1], arrays_dict['data'])
+        th.assert_arrays_equal(self, (self.array[:, ci: ci + 1] - trans.zero_datetime) / np.timedelta64(1, "s"), arrays_dict['data'])
         th.assert_arrays_equal(self, self.array[:, ci: ci + 1], val)
 
     def test_nan(self):
       def fill(array, col_index):
         col = np.array(array[:, col_index: col_index + 1], copy=True)
-        col[np.isnan(col)] = 0.0
+        col[np.isnat(col)] = datetime.datetime(1970, 1, 1)
         return col
-      trans = n.NumTransform(
+      trans = n.DateTimeTransform(
         col_index=1,
-        name='num',
+        name='datetime',
         fill_nan_func=fill
       )
       trans.calc_global_values(self.array)
@@ -53,7 +55,7 @@ class TestNumTransform(unittest.TestCase):
 
       isnan = np.zeros((4, 1), dtype=np.bool)
       isnan[1] = True
-      data = np.array(self.array[:, ci: ci + 1], copy=True)
+      data = np.array((self.array[:, ci: ci + 1] - trans.zero_datetime) / np.timedelta64(1, 's'), copy=True)
       data = data[~isnan]
       th.assert_arrays_equal(self, isnan, arrays_dict['isnan'])
       th.assert_arrays_equal(self, data, arrays_dict['data'][~isnan])
@@ -63,12 +65,12 @@ class TestNumTransform(unittest.TestCase):
     def test_mean_std(self):
       def fill(array, col_index):
         col = np.array(array[:, col_index: col_index + 1], copy=True)
-        col[np.isnan(col)] = 0.0
+        col[np.isnat(col)] = datetime.datetime(1970, 1, 1)
         return col
 
-      trans = n.NumTransform(
+      trans = n.DateTimeTransform(
         col_index=1,
-        name='num',
+        name='datetime',
         norm_mode='mean_std',
         fill_nan_func=fill
       )
@@ -80,7 +82,7 @@ class TestNumTransform(unittest.TestCase):
 
       isnan = np.zeros((4, 1), dtype=np.bool)
       isnan[1] = True
-      data = np.array(self.array[:, ci: ci + 1], copy=True)
+      data = np.array((self.array[:, ci: ci + 1] - trans.zero_datetime) / np.timedelta64(1, 's'), copy=True)
       data = (data[~isnan] - trans.mean)/trans.std
 
       th.assert_arrays_equal(self, isnan, arrays_dict['isnan'])
@@ -90,11 +92,11 @@ class TestNumTransform(unittest.TestCase):
     def test_min_max(self):
       def fill(array, col_index):
         col = np.array(array[:, col_index: col_index + 1], copy=True)
-        col[np.isnan(col)] = 0.0
+        col[np.isnat(col)] = datetime.datetime(1970, 1, 1)
         return col
-      trans = n.NumTransform(
+      trans = n.DateTimeTransform(
         col_index=1,
-        name='num',
+        name='datetime',
         norm_mode='min_max',
         fill_nan_func=fill
       )
@@ -106,7 +108,7 @@ class TestNumTransform(unittest.TestCase):
 
       isnan = np.zeros((4, 1), dtype=np.bool)
       isnan[1] = True
-      data = np.array(self.array[:, ci: ci + 1], copy=True)
+      data = np.array((self.array[:, ci: ci + 1] - trans.zero_datetime) / np.timedelta64(1, 's'), copy=True)
       data = (data[~isnan] - trans.min)/(trans.max - trans.min)
 
       th.assert_arrays_equal(self, isnan, arrays_dict['isnan'])
@@ -115,28 +117,28 @@ class TestNumTransform(unittest.TestCase):
 
     def test_errors(self):
       with self.assertRaises(ValueError):
-        trans = n.NumTransform(
-          name='num'
+        trans = n.DateTimeTransform(
+          name='datetime'
         )
 
       with self.assertRaises(ValueError):
-        trans = n.NumTransform(
+        trans = n.DateTimeTransform(
           norm_mode='whatever',
-          name='num'
+          name='datetime'
         )
 
-      trans = n.NumTransform(
+      trans = n.DateTimeTransform(
         col_index=2,
-        name='num',
+        name='datetime',
         norm_mode='min_max',
       )
 
       with self.assertRaises(ValueError):
         trans.calc_global_values(self.array)
 
-      trans = n.NumTransform(
+      trans = n.DateTimeTransform(
         col_index=2,
-        name='num',
+        name='datetime',
         norm_mode='mean_std',
       )
 

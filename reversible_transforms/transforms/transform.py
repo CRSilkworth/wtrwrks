@@ -46,6 +46,9 @@ class Transform(object):
       else:
         setattr(self, key, attribute_dict[key])
 
+    if self.col_index is None:
+      raise ValueError("Must specify a column index.")
+
   def row_to_vector(self, row):
     """Abstract method to be defined by the subclasses."""
     pass

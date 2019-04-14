@@ -4,7 +4,7 @@ import os
 import reversible_transforms.utils.dir_functions as d
 import imp
 import inspect as i
-
+import datetime
 
 def assert_arrays_equal(test_obj, a1, a2, threshold=None):
   """Shortcut for testing whether two numpy arrays are close enough to equal. Prints out the arrays and throws a unittest exception if they aren't.
@@ -26,18 +26,27 @@ def assert_arrays_equal(test_obj, a1, a2, threshold=None):
   # Check that the arrays are the same shape.
   test_obj.assertEqual(a1.shape, a2.shape)
 
+  if np.issubdtype(a1.dtype, np.datetime64) or np.issubdtype(a1.dtype, np.timedelta64):
+    test_obj.assertTrue(
+      (np.isnat(a1) == np.isnat(a2)).all()
+    )
+    a1[np.isnat(a1)] = datetime.datetime(1970, 1, 1)
+    a2[np.isnat(a2)] = datetime.datetime(1970, 1, 1)
+
+  try:
+    test_obj.assertTrue(
+      (np.isnan(a1.astype(np.float64)) == np.isnan(a2.astype(np.float64))).all()
+    )
+    a1[np.isnan(a1.astype(np.float64))] = 0.0
+    a2[np.isnan(a2.astype(np.float64))] = 0.0
+  except ValueError:
+    pass
+
   # Catch the exception so the arrays can be printed first.
   try:
     # If no threshold is given then require exact match. Otherwise, test if
     # the values are just within some threshold of each other.
-    try:
-      test_obj.assertTrue(
-        (np.isnan(a1.astype(np.float64)) == np.isnan(a2.astype(np.float64))).all()
-      )
-      a1[np.isnan(a1.astype(np.float64))] = 0.0
-      a2[np.isnan(a2.astype(np.float64))] = 0.0
-    except ValueError:
-      pass
+
     if threshold is None:
       test_obj.assertTrue((a1 == a2).all())
     else:
@@ -47,6 +56,7 @@ def assert_arrays_equal(test_obj, a1, a2, threshold=None):
     # Print the arrays then raise the orginal exception.
     print a1
     print a2
+    print a1.dtype
     raise e
 
 
