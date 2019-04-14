@@ -24,7 +24,7 @@ class NumTransform(n.Transform):
 
   """
 
-  attribute_dict = {'col_index': None, 'norm_mode': None, 'fill_null_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': np.float64}
+  attribute_dict = {'col_index': None, 'norm_mode': None, 'fill_null_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': np.float64, 'input_dtype': None}
 
   def _setattributes(self, **kwargs):
     super(NumTransform, self)._setattributes(self.attribute_dict, **kwargs)
@@ -35,19 +35,22 @@ class NumTransform(n.Transform):
       raise ValueError("Must specify a column index.")
 
   def calc_global_values(self, array, verbose=True):
-    """Set all the relevant attributes for this subclass that are needed in order to do the final transformation on the individual values of the col_array. e.g. find the mean/std for the mean/std normalization. Null values will be ignored during this step.
+    """Set all the attributes which use global information for this subclass that are needed in order to do the final transformation on the individual values of the col_array. e.g. find the mean/std for the mean/std normalization. Null values will be ignored during this step.
 
     Parameters
     ----------
-    col_array : np.array(
-      shape=[num_examples],
+    array : np.array(
+      shape=[num_examples, total_input_dim],
       dtype=self.dtype
     )
-      The numpy with all the data used to define the mappings.
+      The numpy with all the data needed to define the mappings.
     verbose : bool
       Whether or not to print out warnings, supplementary info, etc.
 
     """
+    # Set the input dtype
+    self.input_dtype = array.dtype
+
     # Pull out the relevant column
     col_array = array[:, self.col_index]
 
@@ -77,13 +80,7 @@ class NumTransform(n.Transform):
       # Test to make sure that min and max are not equal. If they are replace
       # with default values.
       if self.min == self.max:
-        if self.min > 0:
-          self.min = self.min - self.min
-        elif self.min == 0:
-          self.min = self.min - self.min
-          self.max = self.max - self.max + 1
-        else:
-          self.max = self.max - self.max
+        self.max = self.max + 1
 
         if verbose:
           warnings.warn("NumTransform " + self.name + " the same values for min and max, replacing with " + self.min + " " + self.max + " respectively.")
@@ -107,6 +104,7 @@ class NumTransform(n.Transform):
       Description of returned object.
 
     """
+    assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
     # Pull out each column value, put them in an array.
     val = row_array[self.col_index: self.col_index + 1].astype(self.dtype)
     is_null = np.zeros((1,), dtype=np.bool)
@@ -143,6 +141,8 @@ class NumTransform(n.Transform):
       A row in a dataframe where the index is the column name and the value is the column value.
 
     """
+    assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
+
     if (arrays_dict['is_null'] == True).any():
       nan = np.ones((1,), dtype=self.dtype)
       nan[:] = np.nan
@@ -157,4 +157,4 @@ class NumTransform(n.Transform):
     elif self.norm_mode == 'min_max':
       val = val * (self.max - self.min) + self.min
 
-    return val
+    return val.astype(self.input_dtype)

@@ -21,7 +21,8 @@ def assert_arrays_equal(test_obj, a1, a2, threshold=None):
     The allowed difference in values in a1 and a2 to still be considered equal
 
   """
-
+  a1 = np.array(a1, copy=True)
+  a2 = np.array(a2, copy=True)
   # Check that the arrays are the same shape.
   test_obj.assertEqual(a1.shape, a2.shape)
 
@@ -29,6 +30,14 @@ def assert_arrays_equal(test_obj, a1, a2, threshold=None):
   try:
     # If no threshold is given then require exact match. Otherwise, test if
     # the values are just within some threshold of each other.
+    try:
+      test_obj.assertTrue(
+        (np.isnan(a1.astype(np.float64)) == np.isnan(a2.astype(np.float64))).all()
+      )
+      a1[np.isnan(a1.astype(np.float64))] = 0.0
+      a2[np.isnan(a2.astype(np.float64))] = 0.0
+    except ValueError:
+      pass
     if threshold is None:
       test_obj.assertTrue((a1 == a2).all())
     else:

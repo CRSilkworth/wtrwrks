@@ -3,6 +3,8 @@ import reversible_transforms.utils.dir_functions as d
 import pandas as pd
 import numpy as np
 import pprint
+import warnings
+
 
 class CatTransform(n.Transform):
   """Class used to create mappings from raw categorical to vectorized, normalized data and vice versa.
@@ -25,9 +27,17 @@ class CatTransform(n.Transform):
 
   """
 
-  attribute_list = ['index_to_cat_val', 'cat_val_to_index', 'means', 'stds', 'columns', 'key', 'other_cat_vals', 'mean_std', 'as_int']
+  attribute_dict = {'col_index': None, 'norm_mode': None, 'ignore_null': False, 'name': '', 'valid_cats': None, 'mean': None, 'std': None, 'dtype': np.float64, 'input_dtype': None, 'index_to_cat_val': None, 'cat_val_to_index': None}
 
-  def _setattributes(self, df, columns, other_cat_vals=None, key=None, mean_std=True, as_int=False, **kwargs):
+  def _setattributes(self, **kwargs):
+    super(CatTransform, self)._setattributes(self.attribute_dict, **kwargs)
+
+    if self.norm_mode not in (None, 'mean_std'):
+      raise ValueError(self.norm_mode + " not a valid norm mode.")
+    if self.col_index is None:
+      raise ValueError("Must specify a column index.")
+
+  def calc_global_values(self, array, verbose=True):
     """Set all the relevant attributes for this subclass. Called by the constructor for the Transform class.
 
     Parameters
@@ -38,61 +48,89 @@ class CatTransform(n.Transform):
       The column names of all the relevant columns that make up the data to be taken from the dataframe
 
     """
-    self.columns = columns
-    self.other_cat_vals = other_cat_vals
-    self.key = key
-    self.mean_std = mean_std
-    self.means = None
-    self.stds = None
-    self.as_int = as_int
+    # Set the input dtype
+    self.input_dtype = array.dtype
 
-    if key is None:
-      self.key = self.columns[0]
+    # Pull out the relevant column
+    col_array = array[:, self.col_index]
+
     # Get all the unique category values
-    uniques = set()
-    for column_name in columns:
-      uniques = uniques | set(df[column_name].unique())
+    if self.valid_cats is not None:
+      uniques = sorted(set(self.valid_cats))
+    else:
+      uniques = sorted(set(np.unique(col_array)))
 
-    # Add in any additional category values
-    if other_cat_vals is not None:
-      uniques = uniques | set(other_cat_vals)
+    # If null are to be ignored then remove them.
+    if self.ignore_null:
+      if None in uniques:
+        uniques.remove(None)
+      if np.nan in uniques:
+        uniques.remove(np.nan)
 
     # Create the mapping from category values to index in the vector and
     # vice versa
-    self.index_to_cat_val = []
-    for unique in sorted(uniques):
+    self.index_to_cat_val = uniques
+    self.cat_val_to_index = {}
+    for unique_num, unique in enumerate(uniques):
       if isinstance(unique, float) and np.isnan(unique):
-        self.index_to_cat_val.append(None)
-      else:
-        self.index_to_cat_val.append(unique)
+        self.index_to_cat_val[unique_num] = None
+      cat_val = self.index_to_cat_val[unique_num]
+      self.cat_val_to_index[cat_val] = unique_num
 
-    self.cat_val_to_index = {
-      cat_val: num for num, cat_val in enumerate(self.index_to_cat_val)
-    }
-
-    if mean_std:
-      # Create many hot vectors for each row.
-      one_hots = np.zeros([len(df), len(uniques)], dtype=np.float64)
-      row_nums = np.arange(len(df), dtype=np.int32)
-      for column_num, column_name in enumerate(columns):
-        indices = df[column_name].map(self.cat_val_to_index)
-        one_hots[row_nums, indices.values] += 1
+    if self.norm_mode == 'mean_std':
+      # Create one hot vectors for each row.
+      col_array = col_array[np.isin(col_array, self.index_to_cat_val)]
+      if not len(col_array):
+        raise ValueError("Inputted col_array has no non null values.")
+      
+      one_hots = np.zeros([len(col_array), len(uniques)], dtype=np.float64)
+      row_nums = np.arange(len(col_array), dtype=np.int32)
+      indices = np.vectorize(self.cat_val_to_index.get)(col_array)
+      one_hots[row_nums, indices] += 1
 
       # Find the means and standard deviation of the whole dataframe.
-      self.means = np.mean(one_hots, axis=0)
-      self.stds = np.std(one_hots, axis=0)
+      self.mean = np.mean(one_hots, axis=0)
+      self.std = np.std(one_hots, axis=0)
 
       # If there are any standard deviations of 0, replace them with 1's,
       # print out a warning.
-      if len(self.stds[self.stds == 0]):
+      if len(self.std[self.std == 0]):
         zero_std_cat_vals = []
-        for index in np.where(self.stds == 0.0)[0]:
+        for index in np.where(self.std == 0.0)[0]:
           zero_std_cat_vals.append(self.index_to_cat_val[index])
-        print "WARNING:",  self.key, "has zero-valued stds at",  zero_std_cat_vals, "replacing with 1's"
 
-        self.stds[self.stds == 0] = 1.0
+        if verbose:
+          warnings.warn("WARNING: " + self.name + " has zero-valued stds at " + str(zero_std_cat_vals) + " replacing with 1's")
 
-  def row_to_vector(self, row, verbose=True):
+        self.std[self.std == 0] = 1.0
+
+      # elif self.norm_mode == 'min_max':
+      #   # Create one hot vectors for each row.
+      #   col_array = col_array[np.isin(col_array, self.cat_val_to_index)]
+      #   one_hots = np.zeros([len(col_array), len(uniques)], dtype=np.float64)
+      #   row_nums = np.arange(len(col_array), dtype=np.int32)
+      #   indices = np.vectorize(self.cat_val_to_index.get)(col_array)
+      #   one_hots[row_nums, indices.values] += 1
+      #
+      #   # Find the mins and maxes of the whole dataframe.
+      #   self.min = np.min(one_hots, axis=0)
+      #   self.max = np.max(one_hots, axis=0)
+      #
+      #   # If there are any standard deviations of 0, replace them with 1's,
+      #   # print out a warning.
+      #   equal_locations = np.where(self.min == self.max)[0]
+      #   if len(equal_locations):
+      #     equal_location_cat_vals = []
+      #     for index in equal_locations:
+      #       equal_location_cat_vals.append(self.index_to_cat_val[index])
+      #
+      #     if verbose:
+      #       warnings.warn("CatTransform " + self.name + " has equal valued min/max at " + str(equal_location_cat_vals) + " replacing maxes by max + 1")
+      #
+      #     # Add one to all the maxes where they min and max are equal.
+      #     self.max[equal_locations] = self.max[equal_locations] + 1
+
+  def forward_transform(self, row_array, row_index=None, verbose=True):
     """Convert a row in a dataframe to a vector.
 
     Parameters
@@ -111,20 +149,23 @@ class CatTransform(n.Transform):
       The vectorized and normalized data.
 
     """
-    # Pull out each of the category values.
-    cat_vals = [row[c] for c in self.columns]
+    assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
 
     # Find the indices for each category, filling with -1 if the category
     # value is not found in the mapping.
-    indices = []
-    for cat_val in cat_vals:
-      index = self.nan_safe_cat_val_to_index(cat_val, verbose=verbose)
-      indices.append(index)
+    index = self.nan_safe_cat_val_to_index(
+      row_array[self.col_index],
+      verbose=verbose)
+    vector = self.index_to_vector(index)
+
+    found = np.ones([1], dtype=np.bool)
+    if index == -1:
+      found[0] = False
 
     # Convert the indices to a vector
-    return self.indices_to_vector(indices)
+    return {'val': vector, 'is_valid': found, 'cat_val': row_array[self.col_index: self.col_index + 1], 'index': np.array(index, dtype=np.int32)}
 
-  def indices_to_vector(self, indices):
+  def index_to_vector(self, index):
     """Convert a the indices of categories (given by cat_val_to_index) to a vector.
 
     Parameters
@@ -144,21 +185,19 @@ class CatTransform(n.Transform):
     # Create the many hot vectors by replacing the zeros with ones in the
     # index's location
     vector = np.zeros([len(self.cat_val_to_index)], dtype=np.float64)
-    for index in indices:
-      if index == -1:
-        continue
+    if index != -1:
       vector[index] += 1.0
 
     # Subtract out the mean and divide by the standard deviation to give a
     # mean of zero and standard deviation of one.
-    if self.mean_std:
-      vector = (vector - self.means)/self.stds
+    if self.norm_mode == 'mean_std':
+      vector = (vector - self.mean)/self.std
+    # elif self.norm_mode == 'min_max':
+    #   vector = (vector - self.min)/(self.max - self.min)
 
-    if self.as_int:
-      vector = vector.astype(np.int64)
     return vector
 
-  def vector_to_indices(self, vector, verbose=True, cutoff=0.000001,):
+  def vector_to_index(self, one_hot, verbose=True, cutoff=1e-8,):
     """Convert a vector into a list of indices corresponding to category values.
 
     Parameters
@@ -176,15 +215,17 @@ class CatTransform(n.Transform):
 
     """
     # Undo the standard deviation and mean transformations to give back the original means and standard deviations.
-    if self.mean_std:
-      one_hot = vector * self.stds + self.means
+    if self.norm_mode == 'mean_std':
+      one_hot = one_hot * self.std + self.mean
+    # elif self.norm_mode == 'min_max':
+    #   one_hot = one_hot * (self.max - self.min) + self.min
 
     # Find all the locations where it's greater than zero.
-    indices = np.where(one_hot > cutoff)[0]
+    index = np.where(one_hot > cutoff)[0]
 
-    return indices.tolist()
+    return index
 
-  def vector_to_row(self, vector, verbose=True):
+  def backward_transform(self, arrays_dict, verbose=True):
     """Convert the vectorized and normalized data back into it's raw dataframe row.
 
     Parameters
@@ -203,17 +244,22 @@ class CatTransform(n.Transform):
       A row in a dataframe where the index is the column name and the value is the column value.
 
     """
+    assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
+
+    vector = arrays_dict['val']
+
     # Get the indices of the category values from the vector
-    indices = self.vector_to_indices(vector, verbose)
+    index = self.vector_to_index(vector, verbose)
 
     # Fill a dictionary representing the original row. Convert the index to
     # a category value
-    row = {c: None for c in self.columns}
-    for column, index in zip(self.columns, indices):
-      row[column] = self.index_to_cat_val[index]
+    if arrays_dict['is_valid'][0]:
+      cat_val = self.index_to_cat_val[index[0]]
+    else:
+      cat_val = arrays_dict['cat_val'][0]
 
-    # Conver the dict into a pandas series, representing the row.
-    return pd.Series([row[c] for c in self.columns], index=self.columns)
+    # Convert the dict into numpy array
+    return np.array([cat_val]).astype(self.input_dtype)
 
   def nan_safe_cat_val_to_index(self, cat_val, verbose=True):
     """Convert a category value to it's corresponding index while mapping nans to None.
@@ -234,69 +280,18 @@ class CatTransform(n.Transform):
     # If the category value is in the dictionary, use it to map to index
     if cat_val in self.cat_val_to_index:
       index = self.cat_val_to_index[cat_val]
+
     # If the category value is s a nan, use the None mapping.
     elif isinstance(cat_val, float) and np.isnan(cat_val) and None in self.cat_val_to_index:
       index = self.cat_val_to_index[None]
+
     # Otherwise return -1
     else:
       if verbose:
-        print "WARNING:", self.key, "'s", cat_val, "not in list of values.", sorted(self.cat_val_to_index.keys())
+        warnings.warn("CatTransform " + self.name + "'s " + str(cat_val) + " not in list of values." + str(sorted(self.cat_val_to_index.keys())))
       index = -1
-
     return index
 
-  def input_summary(self, key, rows, verbose=True, tabs=0):
-    """Create a summary and print out some summary statistics of the the whole dataframe given by rows.
-
-    Parameters
-    ----------
-    key : str
-      A key used to identify the data in tensorboard.
-    rows : pd.DataFrame
-      The dataframe with all the data to be summarized.
-    verbose : bool
-      Whether or not to print out the summary statistics.
-    tabs : int (default 0)
-      Number of tabs to indent the summary statistics.
-
-    Returns
-    -------
-    tf.Summary
-      The summary object used to create the tensorboard histogram.
-
-    """
-    # Get all the indices corresponding to the category values.
-    indices = []
-    for row in rows:
-      for cat_val in row:
-        index = self.nan_safe_cat_val_to_index(cat_val, verbose=verbose)
-        indices.append(index)
-
-    # Find the maximum index
-    max_index = np.max(indices)
-
-    # Create a histogram with each index getting it's own bin.
-    hist_summary = so.summary_histogram(key, indices, bins=np.arange(max_index + 2), subtract_one=True)
-
-    # Print out some summary statistics
-    if verbose:
-      print '\t'*tabs, '-'*50
-      print '\t'*tabs, key, 'summary info:'
-      print '\t'*tabs, '-'*50
-      print '\t' * (tabs + 1), 'Index to category value:'
-      for num, val in enumerate(self.index_to_cat_val):
-        print '\t' * (tabs + 1), num, val
-
-      print
-      print '\t' * (tabs + 1), 'Category value to index:'
-      for key in sorted(self.cat_val_to_index):
-        print '\t' * (tabs + 1), key, self.cat_val_to_index[key]
-
-      counts = np.bincount(indices)
-      sorted_indices = np.argsort(counts)[::-1]
-
-      print
-      print '\t' * (tabs + 1), 'Category values sorted by num occurences:'
-      for index in sorted_indices:
-        print '\t' * (tabs + 1), self.index_to_cat_val[index], counts[index]
-    return hist_summary
+  def __len__(self):
+    assert self.input_dtype is not None, ("Run calc_global_values before attempting to get the length.")
+    return len(self.index_to_cat_val)
