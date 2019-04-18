@@ -29,14 +29,17 @@ class TestDateTimeTransform(unittest.TestCase):
         )
         trans.calc_global_values(self.array)
         ci = trans.col_index
+        for i in xrange(2):
+          arrays_dict = trans.forward_transform(self.array, verbose=False)
+          val = trans.backward_transform(arrays_dict, verbose=False)
 
-        arrays_dict = trans.forward_transform(self.array, verbose=False)
-        val = trans.backward_transform(arrays_dict, verbose=False)
+          th.assert_arrays_equal(self, np.zeros((4, 1), dtype=np.bool), arrays_dict['isnan'])
+          th.assert_arrays_equal(self, (self.array[:, ci: ci + 1] - trans.zero_datetime) / np.timedelta64(1, "s"), arrays_dict['data'])
+          th.assert_arrays_equal(self, self.array[:, ci: ci + 1], val)
 
-        th.assert_arrays_equal(self, np.zeros((4, 1), dtype=np.bool), arrays_dict['isnan'])
-        th.assert_arrays_equal(self, (self.array[:, ci: ci + 1] - trans.zero_datetime) / np.timedelta64(1, "s"), arrays_dict['data'])
-        th.assert_arrays_equal(self, self.array[:, ci: ci + 1], val)
-
+          temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+          trans.save_to_file(temp_file_path)
+          trans = n.DateTimeTransform(from_file=temp_file_path)
     def test_nan(self):
       def fill(array, col_index):
         col = np.array(array[:, col_index: col_index + 1], copy=True)
@@ -49,18 +52,22 @@ class TestDateTimeTransform(unittest.TestCase):
       )
       trans.calc_global_values(self.array)
       ci = trans.col_index
+      for i in xrange(2):
+        arrays_dict = trans.forward_transform(self.array, verbose=False)
+        val = trans.backward_transform(arrays_dict, verbose=False)
 
-      arrays_dict = trans.forward_transform(self.array, verbose=False)
-      val = trans.backward_transform(arrays_dict, verbose=False)
+        isnan = np.zeros((4, 1), dtype=np.bool)
+        isnan[1] = True
+        data = np.array((self.array[:, ci: ci + 1] - trans.zero_datetime) / np.timedelta64(1, 's'), copy=True)
+        data = data[~isnan]
+        th.assert_arrays_equal(self, isnan, arrays_dict['isnan'])
+        th.assert_arrays_equal(self, data, arrays_dict['data'][~isnan])
 
-      isnan = np.zeros((4, 1), dtype=np.bool)
-      isnan[1] = True
-      data = np.array((self.array[:, ci: ci + 1] - trans.zero_datetime) / np.timedelta64(1, 's'), copy=True)
-      data = data[~isnan]
-      th.assert_arrays_equal(self, isnan, arrays_dict['isnan'])
-      th.assert_arrays_equal(self, data, arrays_dict['data'][~isnan])
+        th.assert_arrays_equal(self, val, self.array[:, ci: ci + 1])
 
-      th.assert_arrays_equal(self, val, self.array[:, ci: ci + 1])
+        temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+        trans.save_to_file(temp_file_path)
+        trans = n.DateTimeTransform(from_file=temp_file_path)
 
     def test_mean_std(self):
       def fill(array, col_index):
@@ -76,18 +83,22 @@ class TestDateTimeTransform(unittest.TestCase):
       )
       trans.calc_global_values(self.array)
       ci = trans.col_index
+      for i in xrange(2):
+        arrays_dict = trans.forward_transform(self.array, verbose=False)
+        val = trans.backward_transform(arrays_dict, verbose=False)
 
-      arrays_dict = trans.forward_transform(self.array, verbose=False)
-      val = trans.backward_transform(arrays_dict, verbose=False)
+        isnan = np.zeros((4, 1), dtype=np.bool)
+        isnan[1] = True
+        data = np.array((self.array[:, ci: ci + 1] - trans.zero_datetime) / np.timedelta64(1, 's'), copy=True)
+        data = (data[~isnan] - trans.mean)/trans.std
 
-      isnan = np.zeros((4, 1), dtype=np.bool)
-      isnan[1] = True
-      data = np.array((self.array[:, ci: ci + 1] - trans.zero_datetime) / np.timedelta64(1, 's'), copy=True)
-      data = (data[~isnan] - trans.mean)/trans.std
+        th.assert_arrays_equal(self, isnan, arrays_dict['isnan'])
+        th.assert_arrays_equal(self, data, arrays_dict['data'][~isnan])
+        th.assert_arrays_equal(self, val, self.array[:, ci: ci + 1])
 
-      th.assert_arrays_equal(self, isnan, arrays_dict['isnan'])
-      th.assert_arrays_equal(self, data, arrays_dict['data'][~isnan])
-      th.assert_arrays_equal(self, val, self.array[:, ci: ci + 1])
+        temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+        trans.save_to_file(temp_file_path)
+        trans = n.DateTimeTransform(from_file=temp_file_path)
 
     def test_min_max(self):
       def fill(array, col_index):
@@ -102,18 +113,22 @@ class TestDateTimeTransform(unittest.TestCase):
       )
       trans.calc_global_values(self.array)
       ci = trans.col_index
+      for i in xrange(2):
+        arrays_dict = trans.forward_transform(self.array, verbose=False)
+        val = trans.backward_transform(arrays_dict, verbose=False)
 
-      arrays_dict = trans.forward_transform(self.array, verbose=False)
-      val = trans.backward_transform(arrays_dict, verbose=False)
+        isnan = np.zeros((4, 1), dtype=np.bool)
+        isnan[1] = True
+        data = np.array((self.array[:, ci: ci + 1] - trans.zero_datetime) / np.timedelta64(1, 's'), copy=True)
+        data = (data[~isnan] - trans.min)/(trans.max - trans.min)
 
-      isnan = np.zeros((4, 1), dtype=np.bool)
-      isnan[1] = True
-      data = np.array((self.array[:, ci: ci + 1] - trans.zero_datetime) / np.timedelta64(1, 's'), copy=True)
-      data = (data[~isnan] - trans.min)/(trans.max - trans.min)
+        th.assert_arrays_equal(self, isnan, arrays_dict['isnan'])
+        th.assert_arrays_equal(self, data, arrays_dict['data'][~isnan])
+        th.assert_arrays_equal(self, val, self.array[:, ci: ci + 1])
 
-      th.assert_arrays_equal(self, isnan, arrays_dict['isnan'])
-      th.assert_arrays_equal(self, data, arrays_dict['data'][~isnan])
-      th.assert_arrays_equal(self, val, self.array[:, ci: ci + 1])
+        temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+        trans.save_to_file(temp_file_path)
+        trans = n.DateTimeTransform(from_file=temp_file_path)
 
     def test_errors(self):
       with self.assertRaises(ValueError):

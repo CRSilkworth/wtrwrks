@@ -81,7 +81,7 @@ class CatTransform(n.Transform):
         raise ValueError("Inputted col_array has no non null values.")
 
       one_hots = np.zeros([len(col_array), len(uniques)], dtype=np.float64)
-      row_nums = np.arange(len(col_array), dtype=np.int32)
+      row_nums = np.arange(len(col_array), dtype=np.int64)
 
       indices = np.vectorize(self.cat_val_to_index.get)(col_array)
       one_hots[row_nums, indices] += 1

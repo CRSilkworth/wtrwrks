@@ -21,7 +21,6 @@ class Transform(object):
     The list of attributes that need to be saved in order to fully reconstruct the transform object. Must start with the attribute which has the same length as the outputed vector from row_to_vector.
 
   """
-  attribute_list = ['columns']
 
   def __init__(self, from_file=None, save_dict=None, **kwargs):
 
@@ -83,13 +82,13 @@ class Transform(object):
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""
     save_dict = {}
-    for key in self.attribute_list:
+    for key in self.attribute_dict:
       save_dict[key] = getattr(self, key)
     return save_dict
 
   def _from_save_dict(self, save_dict):
     """Reconstruct the transform object from the dictionary of attributes."""
-    for key in self.attribute_list:
+    for key in self.attribute_dict:
       setattr(self, key, save_dict[key])
 
   def save_to_file(self, path):

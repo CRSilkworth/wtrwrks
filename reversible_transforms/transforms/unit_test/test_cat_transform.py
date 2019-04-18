@@ -29,22 +29,25 @@ class TestCatTransform(unittest.TestCase):
       )
       trans.calc_global_values(self.array)
       ci = trans.col_index
+      for i in xrange(2):
+        arrays_dict = trans.forward_transform(self.array, verbose=False)
+        val = trans.backward_transform(arrays_dict, verbose=False)
 
-      arrays_dict = trans.forward_transform(self.array, verbose=False)
-      val = trans.backward_transform(arrays_dict, verbose=False)
+        data = np.array([
+          [1, 0, 0],
+          [0, 1, 0],
+          [0, 0, 1],
+          [1, 0, 0]
+        ])
+        index = np.expand_dims(np.array([0, 1, 2, 0]), axis=1)
+        th.assert_arrays_equal(self, data, arrays_dict['data'])
+        th.assert_arrays_equal(self, index, arrays_dict['index'])
+        th.assert_arrays_equal(self, self.array[:, ci: ci + 1], arrays_dict['cat_val'])
+        th.assert_arrays_equal(self, self.array[:, ci: ci + 1], val)
 
-      data = np.array([
-        [1, 0, 0],
-        [0, 1, 0],
-        [0, 0, 1],
-        [1, 0, 0]
-      ])
-      index = np.expand_dims(np.array([0, 1, 2, 0]), axis=1)
-      th.assert_arrays_equal(self, data, arrays_dict['data'])
-      th.assert_arrays_equal(self, index, arrays_dict['index'])
-      th.assert_arrays_equal(self, self.array[:, ci: ci + 1], arrays_dict['cat_val'])
-      th.assert_arrays_equal(self, self.array[:, ci: ci + 1], val)
-
+        temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+        trans.save_to_file(temp_file_path)
+        trans = n.CatTransform(from_file=temp_file_path)
     def test_valid_cats(self):
       trans = n.CatTransform(
         col_index=0,
@@ -53,21 +56,25 @@ class TestCatTransform(unittest.TestCase):
       )
       trans.calc_global_values(self.array)
       ci = trans.col_index
+      for i in xrange(2):
+        arrays_dict = trans.forward_transform(self.array, verbose=False)
+        val = trans.backward_transform(arrays_dict, verbose=False)
 
-      arrays_dict = trans.forward_transform(self.array, verbose=False)
-      val = trans.backward_transform(arrays_dict, verbose=False)
+        data = np.array([
+          [1, 0],
+          [0, 1],
+          [0, 0],
+          [1, 0]
+        ])
+        index = np.expand_dims(np.array([0, 1, -1, 0]), axis=1)
+        th.assert_arrays_equal(self, data, arrays_dict['data'])
+        th.assert_arrays_equal(self, index, arrays_dict['index'])
+        th.assert_arrays_equal(self, self.array[:, ci: ci + 1], arrays_dict['cat_val'])
+        th.assert_arrays_equal(self, self.array[:, ci: ci + 1], val)
 
-      data = np.array([
-        [1, 0],
-        [0, 1],
-        [0, 0],
-        [1, 0]
-      ])
-      index = np.expand_dims(np.array([0, 1, -1, 0]), axis=1)
-      th.assert_arrays_equal(self, data, arrays_dict['data'])
-      th.assert_arrays_equal(self, index, arrays_dict['index'])
-      th.assert_arrays_equal(self, self.array[:, ci: ci + 1], arrays_dict['cat_val'])
-      th.assert_arrays_equal(self, self.array[:, ci: ci + 1], val)
+        temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+        trans.save_to_file(temp_file_path)
+        trans = n.CatTransform(from_file=temp_file_path)
 
     def test_null(self):
       trans = n.CatTransform(
@@ -76,20 +83,24 @@ class TestCatTransform(unittest.TestCase):
       )
       trans.calc_global_values(self.array)
       ci = trans.col_index
+      for i in xrange(2):
+        arrays_dict = trans.forward_transform(self.array, verbose=False)
+        val = trans.backward_transform(arrays_dict, verbose=False)
+        data = np.array([
+          [0, 1, 0],
+          [0, 0, 1],
+          [1, 0, 0],
+          [0, 1, 0]
+        ])
+        index = np.expand_dims(np.array([1, 2, 0, 1]), axis=1)
+        th.assert_arrays_equal(self, data, arrays_dict['data'])
+        th.assert_arrays_equal(self, index, arrays_dict['index'])
+        th.assert_arrays_equal(self, self.array[:, ci: ci + 1], arrays_dict['cat_val'])
+        th.assert_arrays_equal(self, self.array[:, ci: ci + 1], val)
 
-      arrays_dict = trans.forward_transform(self.array, verbose=False)
-      val = trans.backward_transform(arrays_dict, verbose=False)
-      data = np.array([
-        [0, 1, 0],
-        [0, 0, 1],
-        [1, 0, 0],
-        [0, 1, 0]
-      ])
-      index = np.expand_dims(np.array([1, 2, 0, 1]), axis=1)
-      th.assert_arrays_equal(self, data, arrays_dict['data'])
-      th.assert_arrays_equal(self, index, arrays_dict['index'])
-      th.assert_arrays_equal(self, self.array[:, ci: ci + 1], arrays_dict['cat_val'])
-      th.assert_arrays_equal(self, self.array[:, ci: ci + 1], val)
+        temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+        trans.save_to_file(temp_file_path)
+        trans = n.CatTransform(from_file=temp_file_path)
 
     def test_ignore_null(self):
       trans = n.CatTransform(
@@ -99,21 +110,25 @@ class TestCatTransform(unittest.TestCase):
       )
       trans.calc_global_values(self.array)
       ci = trans.col_index
+      for i in xrange(2):
+        arrays_dict = trans.forward_transform(self.array, verbose=False)
+        val = trans.backward_transform(arrays_dict, verbose=False)
 
-      arrays_dict = trans.forward_transform(self.array, verbose=False)
-      val = trans.backward_transform(arrays_dict, verbose=False)
+        data = np.array([
+          [1, 0],
+          [0, 1],
+          [0, 0],
+          [1, 0]
+        ])
+        index = np.expand_dims(np.array([0, 1, -1, 0]), axis=1)
+        th.assert_arrays_equal(self, data, arrays_dict['data'])
+        th.assert_arrays_equal(self, index, arrays_dict['index'])
+        th.assert_arrays_equal(self, self.array[:, ci: ci + 1], arrays_dict['cat_val'])
+        th.assert_arrays_equal(self, self.array[:, ci: ci + 1], val)
 
-      data = np.array([
-        [1, 0],
-        [0, 1],
-        [0, 0],
-        [1, 0]
-      ])
-      index = np.expand_dims(np.array([0, 1, -1, 0]), axis=1)
-      th.assert_arrays_equal(self, data, arrays_dict['data'])
-      th.assert_arrays_equal(self, index, arrays_dict['index'])
-      th.assert_arrays_equal(self, self.array[:, ci: ci + 1], arrays_dict['cat_val'])
-      th.assert_arrays_equal(self, self.array[:, ci: ci + 1], val)
+        temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+        trans.save_to_file(temp_file_path)
+        trans = n.CatTransform(from_file=temp_file_path)
 
     def test_mean_std(self):
       trans = n.CatTransform(
@@ -123,23 +138,26 @@ class TestCatTransform(unittest.TestCase):
       )
       trans.calc_global_values(self.array)
       ci = trans.col_index
+      for i in xrange(2):
+        arrays_dict = trans.forward_transform(self.array, verbose=False)
+        val = trans.backward_transform(arrays_dict, verbose=False)
 
-      arrays_dict = trans.forward_transform(self.array, verbose=False)
-      val = trans.backward_transform(arrays_dict, verbose=False)
+        data = np.array([
+          [0, 1, 0],
+          [1, 0, 0],
+          [0, 1, 0],
+          [0, 0, 1],
+        ])
+        data = (data - trans.mean)/trans.std
+        index = np.expand_dims(np.array([1, 0, 1, 2]), axis=1)
+        th.assert_arrays_equal(self, data, arrays_dict['data'])
+        th.assert_arrays_equal(self, index, arrays_dict['index'])
+        th.assert_arrays_equal(self, self.array[:, ci: ci + 1], arrays_dict['cat_val'])
+        th.assert_arrays_equal(self, self.array[:, ci: ci + 1], val)
 
-      data = np.array([
-        [0, 1, 0],
-        [1, 0, 0],
-        [0, 1, 0],
-        [0, 0, 1],
-      ])
-      data = (data - trans.mean)/trans.std
-      index = np.expand_dims(np.array([1, 0, 1, 2]), axis=1)
-      th.assert_arrays_equal(self, data, arrays_dict['data'])
-      th.assert_arrays_equal(self, index, arrays_dict['index'])
-      th.assert_arrays_equal(self, self.array[:, ci: ci + 1], arrays_dict['cat_val'])
-      th.assert_arrays_equal(self, self.array[:, ci: ci + 1], val)
-    #
+        temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+        trans.save_to_file(temp_file_path)
+        trans = n.CatTransform(from_file=temp_file_path)
     def test_errors(self):
       with self.assertRaises(ValueError):
         trans = n.CatTransform(

@@ -13,17 +13,6 @@ from chop.mmseg import Tokenizer as MMSEGTokenizer
 import operator
 import konlpy
 
-def get_wordnet_pos(treebank_tag):
-  if treebank_tag.startswith('J'):
-    return wordnet.ADJ
-  elif treebank_tag.startswith('V'):
-    return wordnet.VERB
-  elif treebank_tag.startswith('N'):
-    return wordnet.NOUN
-  elif treebank_tag.startswith('R'):
-    return wordnet.ADV
-  else:
-    return wordnet.NOUN
 
 
 class StringTransform(n.Transform):
@@ -58,10 +47,33 @@ class StringTransform(n.Transform):
     The list of attributes that need to be saved in order to fully reconstruct the transform object.
 
   """
+  supported_languages = {'en': 'English', 'ja': 'Japanese', 'zh_hans': 'Simplified Chinese', 'zh_hant': 'Traditional Chinese', 'ko': 'Korean'}
 
-  attribute_list = ['index_to_word', 'word_to_index', 'columns', 'key', 'language', 'lower', 'half_width', 'lemmatize', 'remove_stopwords', 'normalize_whitespace', 'max_vocab_size', 'vector_size']
+  attribute_dict = {'col_index': None, 'name': '', 'dtype': np.int64, 'input_dtype': None, 'language': None, 'normalizer': None, 'normalizer_kwargs': None, 'index_to_word': None, 'word_to_index': None, 'max_vocab_size': None, 'max_sent_len': 20, 'tokenizer': None}
 
-  def _setattributes(self, df, columns, language, lower=False, half_width=False, lemmatize=False, normalize_whitespace=True, remove_stopwords=False, vector_size=10, max_vocab_size=10000, **kwargs):
+  def _setattributes(self, **kwargs):
+    super(StringTransform, self)._setattributes(self.attribute_dict, **kwargs)
+
+    if self.norm_mode not in (None, 'mean_std'):
+      raise ValueError(self.norm_mode + " not a valid norm mode.")
+
+    if self.index_to_word is None and self.max_vocab_size is None:
+      raise ValueError("Must supply a max_vocab_size when, no index_to_word is given.")
+    if self.index_to_word is not None and self.index_to_word[0] != '__UNK__':
+      raise ValueError("First element of the index_to_word map must be the default '__UNK__' token")
+
+    if self.normalizer is None:
+      if self.language in self.supported_languages:
+        mod_name = 'reversible_transforms.string_manipulations.' + self.language + '_normalizers'
+        mod = __import__(mod_name, globals(), locals(), ['default_normalizer'])
+        self.normalizer = getattr(mod, 'default_normalizer')
+      else:
+        raise ValueError("Must supply a tokenizer when using a non supported language.")
+
+    if self.normalizer_kwargs is None:
+      self.normalizer_kwargs = {}
+
+  def calc_global_values(self, array, verbose=True):
     """Set all the relevant attributes for this subclass. Called by the constructor for the Transform class.
 
     Parameters
@@ -83,50 +95,39 @@ class StringTransform(n.Transform):
     max_vocab_size:
       The maximum number of words allowed to be a part of the known vocabulary.
     """
-    self.columns = columns
-    self.language = language
-    self.lower = lower
-    self.half_width = half_width
-    self.lemmatize = lemmatize
-    self.remove_stopwords = remove_stopwords
-    self.max_vocab_size = max_vocab_size
-    self.vector_size = vector_size
-    self.normalize_whitespace = normalize_whitespace
+    self.input_dtype = array.dtype
 
-    # Set some various attributes used to normalize the string
-    if lemmatize:
-      self.lemmatizer = WordNetLemmatizer()
-    if remove_stopwords:
-      self.stopwords = set(nltk.corpus.stopwords.words('english'))
-    if language == 'zh_hans':
-      self.tokenizer = HMMTokenizer()
-    elif language == 'zh_hant':
-      self.tokenizer = MMSEGTokenizer()
-    elif language == 'ja':
-      self.tokenizer = tinysegmenter.TinySegmenter()
-    elif language == 'ko':
-      self.tokenizer = konlpy.tag.Kkma()
+    if self.index_to_word is None:
+      # Get all the words and the number of times they appear
+      all_words = {}
 
-    # Get all the words and the number of times they appear
-    all_words = {}
-    for column_name in columns:
-      for string in df[column_name]:
-        # Tokenize each request, add the tokens to the set of all words
-        tokens = self._normalize_string(string)
+      # Define the key word arguments for the normalizer, ensuring that inverse
+      # is set to false.
+      kwargs = {}
+      kwargs.update(self.normalizer_kwargs)
+      kwargs['inverse'] = False
+
+      # Tokenize each request, add the tokens to the set of all words
+      for string in array[:, self.col_index]:
+        tokens = self.normalizer(string)
         for token_num, token in enumerate(tokens):
           all_words.setdefault(token, 0)
           all_words[token] += 1
 
-    # Sort the dict by the number of times the words appear
-    sorted_words = sorted(all_words.items(), key=operator.itemgetter(1), reverse=True)
+      # Sort the dict by the number of times the words appear
+      sorted_words = sorted(all_words.items(), key=operator.itemgetter(1), reverse=True)
 
-    # Pull out the first 'max_vocab_size' words
-    sorted_words = [w for w, c in sorted_words[:max_vocab_size - 1]]
+      # Pull out the first 'max_vocab_size' words
+      sorted_words = [w for w, c in sorted_words[:self.max_vocab_size - 1]]
 
-    # Create the mapping from category values to index in the vector and
-    # vice versa
-    self.index_to_word = sorted(sorted_words)
-    self.index_to_word = ['__UNK__'] + self.index_to_word
+      # Create the mapping from category values to index in the vector and
+      # vice versa
+      self.index_to_word = sorted(sorted_words)
+      self.index_to_word = ['__UNK__'] + self.index_to_word
+
+    # Ensure the max_vocab_size agrees with the index_to_word, and define the
+    # reverse mapping word_to_index.
+    self.max_vocab_size = len(self.index_to_word)
     self.word_to_index = {
       word: num for num, word in enumerate(self.index_to_word)
     }
@@ -322,7 +323,7 @@ class StringTransform(n.Transform):
       r_tokens.append(token)
     return r_tokens
 
-  def row_to_vector(self, row, verbose=True):
+  def forward_transform(self, array, verbose=True):
     """Convert a row in a dataframe to a vector.
 
     Parameters
@@ -341,29 +342,27 @@ class StringTransform(n.Transform):
       The vectorized and normalized data.
 
     """
-
     # Find the indices for each word, filling with -1 if the vector is
     # longer than the number of tokens.
-    indices = -1 * np.ones([self.vector_size], dtype=np.int64)
+    indices = -1 * np.ones([array.shape[0], self.max_sent_len], dtype=np.int64)
     token_num = 0
-    for column in self.columns:
-      string = row[column]
-      tokens = self._normalize_string(string)
-      for token in tokens:
-        # If the max size has been reached then break.
-        if token_num == self.vector_size:
-          break
+    string = row[column]
+    tokens = self._normalize_string(string)
+    for token in tokens:
+      # If the max size has been reached then break.
+      if token_num == self.mat_sent_len:
+        break
 
-        # If the word isn't known, fill it with the 'UNK' index.
-        # Otherwise pull out the relevant index.
-        if token not in self.word_to_index:
-          index = self.word_to_index['__UNK__']
-        else:
-          index = self.word_to_index[token]
+      # If the word isn't known, fill it with the 'UNK' index.
+      # Otherwise pull out the relevant index.
+      if token not in self.word_to_index:
+        index = self.word_to_index['__UNK__']
+      else:
+        index = self.word_to_index[token]
 
-        # Fill the array and increase the token number.
-        indices[token_num] = index
-        token_num += 1
+      # Fill the array and increase the token number.
+      indices[token_num] = index
+      token_num += 1
 
     return indices
 
@@ -402,61 +401,7 @@ class StringTransform(n.Transform):
     # Conver the dict into a pandas series, representing the row.
     return pd.Series([row[c] for c in self.columns], index=self.columns)
 
-  def input_summary(self, key, rows, verbose=True, tabs=0, top_words=20):
-    """Create a summary and print out some summary statistics of the the whole dataframe given by rows.
 
-    Parameters
-    ----------
-    key : str
-      A key used to identify the data in tensorboard.
-    rows : pd.DataFrame
-      The dataframe with all the data to be summarized.
-    verbose : bool
-      Whether or not to print out the summary statistics.
-    tabs : int (default 0)
-      Number of tabs to indent the summary statistics.
-
-    Returns
-    -------
-    tf.Summary
-      The summary object used to create the tensorboard histogram.
-
-    """
-    # Get the lengths of all the strings
-    string_lengths = []
-    all_words = {}
-    for row in rows:
-      string_lengths.append(len(row[0].split(' ')))
-
-      # Count the number of the occurences of each word
-      string = row[0]
-      tokens = string.split(' ')
-      for token in tokens:
-        all_words.setdefault(token, 0)
-        all_words[token] += 1
-    sorted_words = sorted(all_words.items(), key=operator.itemgetter(1), reverse=True)
-
-    max_word = sorted_words[0][1]
-
-    # Create a histogram with each index getting it's own bin.
-    lengths_summary = so.summary_histogram(key + '_lengths', string_lengths, bins=np.arange(self.vector_size + 1))
-    counts_summary = so.summary_histogram(key + '_word_counts', all_words.values(), bins=np.arange(max_word + 1))
-
-    # Print out some summary statistics
-    if verbose:
-      print '\t'*tabs, '-'*50
-      print '\t'*tabs, key, 'summary info:'
-      print '\t'*tabs, '-'*50
-      print '\t' * (tabs + 1), 'Vocabulary size:', len(self.word_to_index)
-
-      print
-      print '\t' * (tabs + 1), 'Top words by num occurences:'
-      for word_num, (word, count) in enumerate(sorted_words):
-        if word_num == top_words:
-          break
-        print '\t' * (tabs + 1), word, count
-
-    return [lengths_summary, counts_summary]
 
   def _from_save_dict(self, save_dict):
     """Reconstruct the transform object from the dictionary of attributes."""
@@ -476,4 +421,4 @@ class StringTransform(n.Transform):
 
   def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""
-    return self.vector_size
+    return self.max_sent_len
