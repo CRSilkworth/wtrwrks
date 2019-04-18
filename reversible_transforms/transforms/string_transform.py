@@ -109,7 +109,7 @@ class StringTransform(n.Transform):
 
       # Tokenize each request, add the tokens to the set of all words
       for string in array[:, self.col_index]:
-        tokens = self.normalizer(string)
+        tokens = self.normalizer(string, **kwargs)
         for token_num, token in enumerate(tokens):
           all_words.setdefault(token, 0)
           all_words[token] += 1
@@ -342,27 +342,33 @@ class StringTransform(n.Transform):
       The vectorized and normalized data.
 
     """
+    # Define the key word arguments for the normalizer, ensuring that inverse
+    # is set to false.
+    kwargs = {}
+    kwargs.update(self.normalizer_kwargs)
+    kwargs['inverse'] = False
+
     # Find the indices for each word, filling with -1 if the vector is
     # longer than the number of tokens.
     indices = -1 * np.ones([array.shape[0], self.max_sent_len], dtype=np.int64)
     token_num = 0
-    string = row[column]
-    tokens = self._normalize_string(string)
-    for token in tokens:
-      # If the max size has been reached then break.
-      if token_num == self.mat_sent_len:
-        break
+    for row_num, string in enumerate(array[:, self.col_index]):
+      tokens = self._normalize_string(string, **kwargs)
+      for token in tokens:
+        # If the max size has been reached then break.
+        if token_num == self.mat_sent_len:
+          break
 
-      # If the word isn't known, fill it with the 'UNK' index.
-      # Otherwise pull out the relevant index.
-      if token not in self.word_to_index:
-        index = self.word_to_index['__UNK__']
-      else:
-        index = self.word_to_index[token]
+        # If the word isn't known, fill it with the 'UNK' index.
+        # Otherwise pull out the relevant index.
+        if token not in self.word_to_index:
+          index = self.word_to_index['__UNK__']
+        else:
+          index = self.word_to_index[token]
 
-      # Fill the array and increase the token number.
-      indices[token_num] = index
-      token_num += 1
+        # Fill the array and increase the token number.
+        indices[token_num] = index
+        token_num += 1
 
     return indices
 
