@@ -54,9 +54,6 @@ class StringTransform(n.Transform):
   def _setattributes(self, **kwargs):
     super(StringTransform, self)._setattributes(self.attribute_dict, **kwargs)
 
-    if self.norm_mode not in (None, 'mean_std'):
-      raise ValueError(self.norm_mode + " not a valid norm mode.")
-
     if self.index_to_word is None and self.max_vocab_size is None:
       raise ValueError("Must supply a max_vocab_size when, no index_to_word is given.")
     if self.index_to_word is not None and self.index_to_word[0] != '__UNK__':
@@ -109,7 +106,8 @@ class StringTransform(n.Transform):
 
       # Tokenize each request, add the tokens to the set of all words
       for string in array[:, self.col_index]:
-        tokens = self.normalizer(string, **kwargs)
+        r_dict = self.normalizer(string, self.max_sent_len, **kwargs)
+        tokens = r_dict['tokens']
         for token_num, token in enumerate(tokens):
           all_words.setdefault(token, 0)
           all_words[token] += 1
@@ -131,197 +129,6 @@ class StringTransform(n.Transform):
     self.word_to_index = {
       word: num for num, word in enumerate(self.index_to_word)
     }
-
-  def _normalize_string(self, string):
-    """Tokenize, lemmatize, maybe strip out stop words, maybe lemmatize a string in a consistent manner.
-
-    Parameters
-    ----------
-    string : str
-      The string to be tokenized and normalized
-
-    Returns
-    -------
-    list of strs
-      The tokenized and normalized strings
-
-    """
-    if self.normalize_whitespace:
-      string = ' '.join(string.split())
-    if self.language == 'en':
-      string = self._en_normalize(string)
-    elif self.language == 'ja':
-      string = self._ja_normalize(string)
-    elif self.language == 'ko':
-      string = self._ko_normalize(string)
-    elif self.language == 'zh_hans':
-      string = self._zh_hans_normalize(string)
-    elif self.language == 'zh_hant':
-      string = self._zh_hant_normalize(string)
-
-    return string
-
-  def _en_normalize(self, string):
-    """Tokenize, lemmatize, maybe strip out stop words, maybe lemmatize an English string in a consistent manner.
-
-    Parameters
-    ----------
-    string : str
-      The string to be tokenized and normalized
-
-    Returns
-    -------
-    list of strs
-      The tokenized and normalized strings
-
-    """
-    r_tokens = []
-
-    # Split the string into individual words/punctuation.
-    tokens = nltk.word_tokenize(string)
-
-    # If lemmatize, then stem the words according to their part of speech.
-    if self.lemmatize:
-      pos_tags = nltk.pos_tag(tokens)
-    for token_num, token in enumerate(tokens):
-
-      # If you're lower casing everything then do it here.
-      if self.lower:
-        token = token.lower()
-
-      # If you're removing stop words and this is a stop word continue.
-      if self.remove_stopwords and token in self.stopwords:
-        continue
-
-      # If lemmatize, then lemmatize it
-      if self.lemmatize:
-        pos_tag = get_wordnet_pos(pos_tags[token_num][1])
-        token = self.lemmatizer.lemmatize(token, pos_tag)
-
-      r_tokens.append(token)
-    return r_tokens
-
-  def _ja_normalize(self, string):
-    """Tokenize, lemmatize, maybe strip out stop words, maybe lemmatize a Japanese string in a consistent manner.
-
-    Parameters
-    ----------
-    string : str
-      The string to be tokenized and normalized
-
-    Returns
-    -------
-    list of strs
-      The tokenized and normalized strings
-
-    """
-    r_tokens = []
-
-    # If half_width then convert all full width characters to half width
-    if self.half_width:
-      string = unicodedata.normalize('NFKC', unicode(string))
-
-    # Split the string into individual words/punctuation. Iterate through.
-    for token in self.tokenizer.tokenize(string):
-
-      # If you're removing stop words and this is a stop word continue.
-      if self.remove_stopwords and token in jas.stopwords:
-        continue
-      r_tokens.append(token)
-    return r_tokens
-
-  def _ko_normalize(self, string):
-    """Tokenize, lemmatize, maybe strip out stop words, maybe lemmatize a Korean string in a consistent manner.
-
-    Parameters
-    ----------
-    string : str
-      The string to be tokenized and normalized
-
-    Returns
-    -------
-    list of strs
-      The tokenized and normalized strings
-
-    """
-    r_tokens = []
-
-    # If half_width then convert all full width characters to half width
-    if self.half_width:
-      string = unicodedata.normalize('NFKC', unicode(string))
-
-    # konlpy messes up try except blocks for some reason. Only load when
-    # needed.
-    # if not hasattr(self, 'tokenizer'):
-    #   self.tokenizer = konlpy.tag.Kkma()
-
-    # Split the string into individual words/punctuation. Iterate through.
-    # for token, pos in self.tokenizer.pos(string):
-    for token in string.split():
-      # If you're removing stop words and this is a stop word continue.
-      if self.remove_stopwords and token in kos.stopwords:
-        continue
-      r_tokens.append(token)
-
-    return r_tokens
-
-  def _zh_hans_normalize(self, string):
-    """Tokenize, lemmatize, maybe strip out stop words, maybe lemmatize a simplified Chinese string in a consistent manner.
-
-    Parameters
-    ----------
-    string : str
-      The string to be tokenized and normalized
-
-    Returns
-    -------
-    list of strs
-      The tokenized and normalized strings
-
-    """
-    r_tokens = []
-
-    # If half_width then convert all full width characters to half width
-    if self.half_width:
-      string = unicodedata.normalize('NFKC', unicode(string))
-
-    # Split the string into individual words/punctuation. Iterate through.
-    for token in self.tokenizer.cut(string):
-
-      # If you're removing stop words and this is a stop word continue.
-      if self.remove_stopwords and token in zss.stopwords:
-        continue
-      r_tokens.append(token)
-    return r_tokens
-
-  def _zh_hant_normalize(self, string):
-    """Tokenize, lemmatize, maybe strip out stop words, maybe lemmatize a traditional Chinese string in a consistent manner.
-
-    Parameters
-    ----------
-    string : str
-      The string to be tokenized and normalized
-
-    Returns
-    -------
-    list of strs
-      The tokenized and normalized strings
-
-    """
-    r_tokens = []
-
-    # If half_width then convert all full width characters to half width
-    if self.half_width:
-      string = unicodedata.normalize('NFKC', unicode(string))
-
-    # Split the string into individual words/punctuation. Iterate through.
-    for token in self.tokenizer.cut(string):
-
-      # If you're removing stop words and this is a stop word continue.
-      if self.remove_stopwords and token in zss.stopwords:
-        continue
-      r_tokens.append(token)
-    return r_tokens
 
   def forward_transform(self, array, verbose=True):
     """Convert a row in a dataframe to a vector.
@@ -351,28 +158,28 @@ class StringTransform(n.Transform):
     # Find the indices for each word, filling with -1 if the vector is
     # longer than the number of tokens.
     indices = -1 * np.ones([array.shape[0], self.max_sent_len], dtype=np.int64)
-    token_num = 0
+    diff_string = np.empty([array.shape[0]], dtype=object)
+    unks = np.empty([array.shape[0], self.max_sent_len], dtype=object)
+    unks.fill('')
     for row_num, string in enumerate(array[:, self.col_index]):
-      tokens = self._normalize_string(string, **kwargs)
-      for token in tokens:
-        # If the max size has been reached then break.
-        if token_num == self.mat_sent_len:
-          break
+      r_dict = self.normalizer(string, self.max_sent_len, **kwargs)
+      tokens = r_dict['tokens']
 
+      for token_num, token in enumerate(tokens):
         # If the word isn't known, fill it with the 'UNK' index.
         # Otherwise pull out the relevant index.
         if token not in self.word_to_index:
           index = self.word_to_index['__UNK__']
+          unks[row_num, token_num] = token
         else:
           index = self.word_to_index[token]
 
         # Fill the array and increase the token number.
-        indices[token_num] = index
-        token_num += 1
+        indices[row_num, token_num] = index
+      diff_string[row_num] = r_dict['diff_string']
+    return {'data': indices, 'diff_string': diff_string.astype(np.unicode), 'unknowns': unks}
 
-    return indices
-
-  def vector_to_row(self, vector, verbose=True):
+  def backward_transform(self, arrays_dict, verbose=True):
     """Convert the vectorized and normalized data back into it's raw form. Although a lot of information is lost and so it's best to also keep some outside reference to the original row in the dataframe.
 
     Parameters
@@ -393,37 +200,20 @@ class StringTransform(n.Transform):
     """
     # Fill a dictionary representing the original row. Convert the index to
     # a category value
-    row = {c: None for c in self.columns}
-    first_column = self.columns[0]
+    kwargs = {}
+    kwargs.update(self.normalizer_kwargs)
+    kwargs['inverse'] = True
 
-    words = []
-    for index in vector:
-      if index == - 1:
-        continue
-      words.append(self.index_to_word[index])
+    array = np.empty([arrays_dict['data'].shape[0], 1], dtype=object)
+    for row_num, (indices, diff_string, unks) in enumerate(zip(arrays_dict['data'], arrays_dict['diff_string'], arrays_dict['unknowns'])):
 
-    row[first_column] = ' '.join(words)
+      tokens = [self.index_to_word[i] if i != 0 else unks[num] for num, i in enumerate(indices) if i != -1]
 
-    # Conver the dict into a pandas series, representing the row.
-    return pd.Series([row[c] for c in self.columns], index=self.columns)
+      string = self.normalizer({'tokens': tokens, 'diff_string': diff_string}, self.max_sent_len, **kwargs)
 
+      array[row_num] = string
 
-
-  def _from_save_dict(self, save_dict):
-    """Reconstruct the transform object from the dictionary of attributes."""
-    for key in self.attribute_list:
-      setattr(self, key, save_dict[key])
-
-    if self.language == 'zh_hans':
-      self.tokenizer = HMMTokenizer()
-    elif self.language == 'zh_hant':
-      self.tokenizer = MMSEGTokenizer()
-    elif self.language == 'ja':
-      self.tokenizer = tinysegmenter.TinySegmenter()
-    # konlpy messes up try except blocks for some reason. Only load when
-    # needed.
-    # elif self.language == 'ko':
-    #   self.tokenizer = konlpy.tag.Kkma()
+    return array.astype(self.input_dtype)
 
   def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""

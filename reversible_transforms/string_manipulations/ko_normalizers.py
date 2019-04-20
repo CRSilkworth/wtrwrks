@@ -1,9 +1,9 @@
 import reversible_transforms.string_manipulations.diff as df
 import unicodedata
-import production.nlp.ko_stopwords as kos
+import reversible_transforms.string_manipulations.ko_stopwords as kos
 
 
-def default_normalizer(string_or_dict, half_width=False, remove_stopwords=False, inverse=False):
+def default_normalizer(string_or_dict, max_sent_len, half_width=False, remove_stopwords=False, inverse=False):
   """Tokenize, lemmatize, maybe strip out stop words, maybe lemmatize a Korean string in a consistent manner.
 
   Parameters
@@ -33,6 +33,7 @@ def default_normalizer(string_or_dict, half_width=False, remove_stopwords=False,
         continue
       r_tokens.append(token)
 
+    r_tokens = r_tokens[:max_sent_len]
     diff_string = df.get_diff_string(' '.join(r_tokens), string)
 
     return {'tokens': r_tokens, 'diff_string': diff_string}

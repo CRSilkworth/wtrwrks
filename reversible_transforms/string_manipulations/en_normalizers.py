@@ -1,6 +1,6 @@
 import nltk
 from nltk.stem.wordnet import WordNetLemmatizer
-import nltk.stem.wordnet as wordnet
+from nltk.corpus import wordnet
 import reversible_transforms.string_manipulations.diff as df
 
 
@@ -8,7 +8,7 @@ word_net_lemmatizer = WordNetLemmatizer()
 stopwords = set(nltk.corpus.stopwords.words('english'))
 
 
-def default_normalizer(string_or_dict, lemmatize=False, lowercase=False, remove_stopwords=False, inverse=False):
+def default_normalizer(string_or_dict, max_sent_len, lemmatize=False, lowercase=False, remove_stopwords=False, inverse=False):
   """Tokenize, lemmatize, maybe strip out stop words, maybe lemmatize an English string in a consistent manner. In the case that inverse is True then it undoes everything to give back the original string.
 
   Parameters
@@ -49,6 +49,7 @@ def default_normalizer(string_or_dict, lemmatize=False, lowercase=False, remove_
 
       r_tokens.append(token)
 
+    r_tokens = r_tokens[:max_sent_len]
     diff_string = df.get_diff_string(' '.join(r_tokens), string)
 
     return {'tokens': r_tokens, 'diff_string': diff_string}

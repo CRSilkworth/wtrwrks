@@ -144,66 +144,6 @@ class CatTransform(n.Transform):
 
     return {'data': data, 'cat_val': array[:, self.col_index: self.col_index + 1], 'index': np.expand_dims(indices, axis=1)}
 
-  def index_to_vector(self, indices):
-    """Convert a the indices of categories (given by cat_val_to_index) to a vector.
-
-    Parameters
-    ----------
-    indices: list of ints
-      The indices of each category value to be converted to a vector
-
-    Returns
-    -------
-    np.array(
-      shape=[len(self)],
-      dtype=np.float64
-    )
-      The vectorized and normalized data.
-
-    """
-    # Create the many hot vectors by replacing the zeros with ones in the
-    # index's location
-    vector = np.zeros([len(self.cat_val_to_index)], dtype=np.float64)
-    if index != -1:
-      vector[index] += 1.0
-
-    # Subtract out the mean and divide by the standard deviation to give a
-    # mean of zero and standard deviation of one.
-    if self.norm_mode == 'mean_std':
-      vector = (vector - self.mean)/self.std
-    # elif self.norm_mode == 'min_max':
-    #   vector = (vector - self.min)/(self.max - self.min)
-
-    return vector
-
-  def vector_to_index(self, one_hot, verbose=True, cutoff=1e-8,):
-    """Convert a vector into a list of indices corresponding to category values.
-
-    Parameters
-    ----------
-    vector: np.array(
-      shape=[len(self)],
-      dtype=np.float64
-    )
-      The vectorized and normalized data.
-
-    Returns
-    -------
-    list of ints
-      The indices of each category value.
-
-    """
-    # Undo the standard deviation and mean transformations to give back the original means and standard deviations.
-    if self.norm_mode == 'mean_std':
-      one_hot = one_hot * self.std + self.mean
-    # elif self.norm_mode == 'min_max':
-    #   one_hot = one_hot * (self.max - self.min) + self.min
-
-    # Find all the locations where it's greater than zero.
-    index = np.where(one_hot > cutoff)[0]
-
-    return index
-
   def backward_transform(self, arrays_dict, verbose=True):
     """Convert the vectorized and normalized data back into it's raw dataframe row.
 
