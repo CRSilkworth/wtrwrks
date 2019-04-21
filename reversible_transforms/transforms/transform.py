@@ -102,4 +102,4 @@ class Transform(object):
 
   def __str__(self):
     """Return the stringified values for each of the attributes in attribute list."""
-    return str({a: str(getattr(self, a)) for a in self.attribute_list})
+    return str({a: str(getattr(self, a)) for a in self.attribute_dict})

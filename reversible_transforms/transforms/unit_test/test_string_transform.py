@@ -37,11 +37,16 @@ class TestStringTransform(unittest.TestCase):
       max_sent_len=10
     )
     norm.calc_global_values(strings)
-    array_dict = norm.forward_transform(strings)
-    th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
+    for i in xrange(2):
+      array_dict = norm.forward_transform(strings)
+      th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
 
-    out_array = norm.backward_transform(array_dict)
-    th.assert_arrays_equal(self, out_array, strings)
+      out_array = norm.backward_transform(array_dict)
+      th.assert_arrays_equal(self, out_array, strings)
+
+      temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+      norm.save_to_file(temp_file_path)
+      norm = n.StringTransform(from_file=temp_file_path)
 
   def test_en_normalize_2(self):
     indices = np.array([
@@ -62,11 +67,16 @@ class TestStringTransform(unittest.TestCase):
       normalizer_kwargs={'lowercase': True, 'lemmatize': True, 'remove_stopwords': True}
     )
     norm.calc_global_values(strings)
-    array_dict = norm.forward_transform(strings)
-    th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
+    for i in xrange(2):
+      array_dict = norm.forward_transform(strings)
+      th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
 
-    out_array = norm.backward_transform(array_dict)
-    th.assert_arrays_equal(self, out_array, strings)
+      out_array = norm.backward_transform(array_dict)
+      th.assert_arrays_equal(self, out_array, strings)
+
+      temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+      norm.save_to_file(temp_file_path)
+      norm = n.StringTransform(from_file=temp_file_path)
 
   def test_ja_normalize(self):
     indices = np.array([
@@ -86,12 +96,16 @@ class TestStringTransform(unittest.TestCase):
       max_sent_len=15
     )
     norm.calc_global_values(strings)
-    array_dict = norm.forward_transform(strings)
+    for i in xrange(2):
+      array_dict = norm.forward_transform(strings)
+      th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
 
-    th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
+      out_array = norm.backward_transform(array_dict)
+      th.assert_arrays_equal(self, out_array, strings)
 
-    out_array = norm.backward_transform(array_dict)
-    th.assert_arrays_equal(self, out_array, strings)
+      temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+      norm.save_to_file(temp_file_path)
+      norm = n.StringTransform(from_file=temp_file_path)
 
   def test_ja_normalize_2(self):
     indices = np.array([
@@ -111,11 +125,16 @@ class TestStringTransform(unittest.TestCase):
       normalizer_kwargs={'half_width': True, 'remove_stopwords': True}
     )
     norm.calc_global_values(strings)
-    array_dict = norm.forward_transform(strings)
-    th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
+    for i in xrange(2):
+      array_dict = norm.forward_transform(strings)
+      th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
 
-    out_array = norm.backward_transform(array_dict)
-    th.assert_arrays_equal(self, out_array, strings)
+      out_array = norm.backward_transform(array_dict)
+      th.assert_arrays_equal(self, out_array, strings)
+
+      temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+      norm.save_to_file(temp_file_path)
+      norm = n.StringTransform(from_file=temp_file_path)
 
   def test_zh_hans_normalize(self):
     indices = np.array([
@@ -133,10 +152,16 @@ class TestStringTransform(unittest.TestCase):
       max_sent_len=15,
     )
     norm.calc_global_values(strings)
-    array_dict = norm.forward_transform(strings)
-    th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
-    out_array = norm.backward_transform(array_dict)
-    th.assert_arrays_equal(self, out_array, strings)
+    for i in xrange(2):
+      array_dict = norm.forward_transform(strings)
+      th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
+
+      out_array = norm.backward_transform(array_dict)
+      th.assert_arrays_equal(self, out_array, strings)
+
+      temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+      norm.save_to_file(temp_file_path)
+      norm = n.StringTransform(from_file=temp_file_path)
 
   def test_zh_hans_normalize_2(self):
     indices = np.array([
@@ -155,10 +180,16 @@ class TestStringTransform(unittest.TestCase):
       normalizer_kwargs={'half_width': True, 'remove_stopwords': True}
     )
     norm.calc_global_values(strings)
-    array_dict = norm.forward_transform(strings)
-    th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
-    out_array = norm.backward_transform(array_dict)
-    th.assert_arrays_equal(self, out_array, strings)
+    for i in xrange(2):
+      array_dict = norm.forward_transform(strings)
+      th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
+
+      out_array = norm.backward_transform(array_dict)
+      th.assert_arrays_equal(self, out_array, strings)
+
+      temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+      norm.save_to_file(temp_file_path)
+      norm = n.StringTransform(from_file=temp_file_path)
 
   def test_zh_hant_normalize(self):
     indices = np.array([
@@ -176,10 +207,16 @@ class TestStringTransform(unittest.TestCase):
       max_sent_len=15,
     )
     norm.calc_global_values(strings)
-    array_dict = norm.forward_transform(strings)
-    th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
-    out_array = norm.backward_transform(array_dict)
-    th.assert_arrays_equal(self, out_array, strings)
+    for i in xrange(2):
+      array_dict = norm.forward_transform(strings)
+      th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
+
+      out_array = norm.backward_transform(array_dict)
+      th.assert_arrays_equal(self, out_array, strings)
+
+      temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+      norm.save_to_file(temp_file_path)
+      norm = n.StringTransform(from_file=temp_file_path)
 
   def test_zh_hant_normalize_2(self):
     indices = np.array([
@@ -198,10 +235,16 @@ class TestStringTransform(unittest.TestCase):
       normalizer_kwargs={'half_width': True, 'remove_stopwords': True}
     )
     norm.calc_global_values(strings)
-    array_dict = norm.forward_transform(strings)
-    th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
-    out_array = norm.backward_transform(array_dict)
-    th.assert_arrays_equal(self, out_array, strings)
+    for i in xrange(2):
+      array_dict = norm.forward_transform(strings)
+      th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
+
+      out_array = norm.backward_transform(array_dict)
+      th.assert_arrays_equal(self, out_array, strings)
+
+      temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+      norm.save_to_file(temp_file_path)
+      norm = n.StringTransform(from_file=temp_file_path)
 
   def test_ko_normalize(self):
     indices = np.array([
@@ -219,11 +262,16 @@ class TestStringTransform(unittest.TestCase):
       max_sent_len=15,
     )
     norm.calc_global_values(strings)
-    array_dict = norm.forward_transform(strings)
+    for i in xrange(2):
+      array_dict = norm.forward_transform(strings)
+      th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
 
-    th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
-    out_array = norm.backward_transform(array_dict)
-    th.assert_arrays_equal(self, out_array, strings)
+      out_array = norm.backward_transform(array_dict)
+      th.assert_arrays_equal(self, out_array, strings)
+
+      temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+      norm.save_to_file(temp_file_path)
+      norm = n.StringTransform(from_file=temp_file_path)
 
   def test_ko_normalize_2(self):
     indices = np.array([
@@ -242,11 +290,15 @@ class TestStringTransform(unittest.TestCase):
       normalizer_kwargs={'half_width': True, 'remove_stopwords': True}
     )
     norm.calc_global_values(strings)
-    array_dict = norm.forward_transform(strings)
+    for i in xrange(2):
+      array_dict = norm.forward_transform(strings)
+      th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
 
-    th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
+      out_array = norm.backward_transform(array_dict)
+      th.assert_arrays_equal(self, out_array, strings)
 
-    out_array = norm.backward_transform(array_dict)
-    th.assert_arrays_equal(self, out_array, strings)
+      temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
+      norm.save_to_file(temp_file_path)
+      norm = n.StringTransform(from_file=temp_file_path)
 if __name__ == "__main__":
   unittest.main()
