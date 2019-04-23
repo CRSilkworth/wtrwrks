@@ -133,6 +133,7 @@ class Graph(object):
 
       return op_order
 
+
 if __name__ == '__main__':
   with Graph() as graph:
     ph1 = o.Placeholder('ph1', graph)
