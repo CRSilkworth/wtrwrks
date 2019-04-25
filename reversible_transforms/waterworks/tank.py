@@ -250,6 +250,13 @@ class Tank(wp.WaterworkPart):
       if type(tube) is not tu.Tube:
         continue
 
+      if tube.slot is not None:
+        other_slot = tube.slot
+        clone = Clone(a=tube)
+
+        other_slot.tube = clone['a']
+        slot.tube = clone['a']
+
       tube.slot = slot
       slot.tube = tube
 
@@ -371,3 +378,14 @@ class Tank(wp.WaterworkPart):
     # Set the vals
     for key in slot_dict:
       self.slots[key].set_val(slot_dict[key])
+
+
+class Clone(Tank):
+  slot_keys = ['a']
+  tube_keys = ['a', 'b']
+
+  def _pour(self, a):
+    return {'a': a, 'b': a}
+
+  def _pump(self, a, b):
+    return {'a': a}
