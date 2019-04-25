@@ -1,6 +1,7 @@
 import reversible_transforms.waterworks.globs as gl
 import reversible_transforms.waterworks.tank as ta
-
+import os
+import pprint
 
 class Waterwork(object):
   """The full graph of tanks (i.e. operations) on the data, along with all slots and tubes which define the inputs/outputs of operations and hold their values. Can be thought of as a larger reversible operation that are composed of many smaller reversible operations.
@@ -33,7 +34,7 @@ class Waterwork(object):
   })
     All of the tanks (or operations) defined within the waterwork.
   """
-  def __init__(self, name=None):
+  def __init__(self, name=''):
     """Initialize the waterwork to have empty funnels, slots, tanks, and taps."""
     self.funnels = {}
     self.tubes = {}
@@ -44,6 +45,8 @@ class Waterwork(object):
 
   def __enter__(self):
     """When entering, set the global _default_waterwork to this waterwork."""
+    if gl._default_waterwork is not None:
+      raise ValueError("_default_waterwork is already set. Cannot be reset until context is exitted. Are you within the with statement of another waterwork?")
     gl._default_waterwork = self
     return self
 
@@ -211,6 +214,90 @@ class Waterwork(object):
 
     return self.tubes[str((tank.name, key))]
 
+  def merge(self, other, join_dict, name='merged'):
+    """Create a new waterwork by combining first self and then other (in the pour direction).
+
+    Parameters
+    ----------
+    other : waterwork
+        The waterwork to merge with self to create a new waterwork object.
+    join_dict : dict({
+      keys - slots from other
+      values - tubes from self
+    })
+        The dictionary that describes the connections between self and other.
+    name : str
+        The name of the new waterwork to be created.
+
+    Returns
+    -------
+    waterwork
+        The waterwork formed by merging self and other together.
+
+    """
+    if self.name == other.name:
+      raise ValueError("Cannot merge two waterworks with the same name.")
+
+    with Waterwork() as ww:
+      # Go throuh each self's tanks and create a copy for the new waterwork
+      tank_order = self._pour_tank_order()
+      for tank in tank_order:
+
+        # Create the input_dict to feed to the tank's constructor by taking
+        # each of self's tank's slots, finding the corresponding tube (if
+        # applicable) and creating a new tube with all the same parameters.
+        input_dict = {}
+        for slot_key in tank.slots:
+          slot = tank.slots[slot_key]
+          if slot.tube is None:
+            input_dict[slot_key] = None
+          else:
+            parent_tank_name = os.path.join(name, slot.tube.tank.name)
+            new_tube_name = str((parent_tank_name, slot.tube.key))
+            input_dict[slot_key] = ww.tubes[new_tube_name]
+
+        # Create the tank using input_dict defined above and then set all the
+        # vals of the slots and tubes.
+        cls = tank.__class__
+        new_tank = cls(name=os.path.join(name, tank.name), **input_dict)
+        for slot_key in tank.slots:
+          new_tank.slots[slot_key].set_val(tank.slots[slot_key].val)
+        for tube_key in tank.tubes:
+          new_tank.tubes[tube_key].set_val(tank.tubes[tube_key].val)
+
+      # Go throuh each other's tanks and create a copy for the new waterwork
+      tank_order = other._pour_tank_order()
+      for tank in tank_order:
+
+        # Create the input_dict to feed to the tank's constructor by taking
+        # each of other's tank's slots, finding the corresponding tube, whether it
+        # be from within other or from self, as defined by join_dict (if
+        # applicable) and creating a new tube with all the same parameters.
+        input_dict = {}
+        for slot_key in tank.slots:
+          slot = tank.slots[slot_key]
+          if slot in join_dict:
+            parent_tank_name = os.path.join(name, join_dict[slot].tank.name)
+            new_tube_name = str((parent_tank_name, join_dict[slot].key))
+            input_dict[slot_key] = ww.tubes[new_tube_name]
+          elif slot.tube is None:
+            input_dict[slot_key] = None
+          else:
+            parent_tank_name = os.path.join(name, slot.tube.tank.name)
+            new_tube_name = str((parent_tank_name, slot.tube.key))
+            input_dict[slot_key] = ww.tubes[new_tube_name]
+
+        # Create the tank using input_dict defined above and then set all the
+        # vals of the slots and tubes.
+        cls = tank.__class__
+        new_tank = cls(name=os.path.join(name, tank.name), **input_dict)
+        for slot_key in tank.slots:
+          new_tank.slots[slot_key].set_val(tank.slots[slot_key].val)
+        for tube_key in tank.tubes:
+          new_tank.tubes[tube_key].set_val(tank.tubes[tube_key].val)
+
+    return ww
+
   def pour(self, funnel_dict):
     """Run all the operations of the waterwork in the pour (or forward) direction.
 
@@ -232,7 +319,15 @@ class Waterwork(object):
     """
     # Set all the values of the funnels from the inputted arguments.
     for funnel in funnel_dict:
-      funnel.set_val(funnel_dict[funnel])
+      funnel_obj = funnel
+      if type(funnel) in (tuple, str, unicode):
+        funnel_obj = self.funnels[str(funnel)]
+      funnel_obj.set_val(funnel_dict[funnel])
+
+    # Check that all funnels have a value
+    for funnel in self.funnels:
+      if self.funnels[funnel].get_val() is None:
+        raise ValueError("All funnels must have a set value. " + str(funnel) + " is not set.")
 
     # Run all the tanks (operations) in the pour direction, filling all slots'
     # and tubes' val attributes as you go.
@@ -276,7 +371,15 @@ class Waterwork(object):
     """
     # Set all the values of the taps from the inputted arguments.
     for tap in tap_dict:
-      tap.set_val(tap_dict[tap])
+      tap_obj = tap
+      if type(tap) in (tuple, str, unicode):
+        tap_obj = self.taps[str(tap)]
+      tap_obj.set_val(tap_dict[tap])
+
+    # Check that all funnels have a value
+    for tap in self.taps:
+      if self.taps[tap].get_val() is None:
+        raise ValueError("All taps must have a set value. " + str(tap) + " is not set.")
 
     # Run all the tanks (operations) in the pump direction, filling all slots'
     # and tubes' val attributes as you go.

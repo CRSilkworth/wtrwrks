@@ -82,5 +82,48 @@ class TestWaterwork(unittest.TestCase):
     for funnel in funnel_dict:
       th.assert_arrays_equal(self, funnel_dict[funnel], true_funnel_dict[funnel])
 
+  def test_merge(self):
+    with wa.Waterwork(name='ww1') as ww1:
+      cl0 = cl.Clone(a=np.array([1, 2]))
+      add0 = ad.Add(a=cl0['a'], b=np.array([3, 4]))
+      add1 = ad.Add(a=add0['data'], b=cl0['b'])
+
+    with wa.Waterwork(name='ww2') as ww2:
+      cl1 = cl.Clone(a=None, name='ww2/Clone_1')
+      add2 = ad.Add(a=cl1['a'], b=None, name='ww2/Add_2')
+
+    join_dict = {
+      cl1.get_slot('a'): add0['a'],
+      add2.get_slot('b'): add1['a']
+    }
+
+    ww3 = ww1.merge(ww2, join_dict, name='ww3')
+
+    true_funnel_dict = {
+      ('ww3/ww1/Clone_0', 'a'): np.array([1, 2]),
+      ('ww3/ww1/Add_0', 'b'): np.array([3, 4])
+    }
+
+    tap_dict = ww3.pour(true_funnel_dict)
+
+    true_tap_dict = {
+        ('ww3/ww2/Clone_1', 'b'): np.array([1, 2]),
+        ('ww3/ww1/Add_1', 'data'): np.array([5, 8]),
+        ('ww3/ww2/Add_2', 'a'): np.array([1, 2]),
+        ('ww3/ww2/Add_2', 'data'): np.array([5, 8]),
+    }
+    tap_dict = {(t.tank.name, t.key): v for t, v in tap_dict.iteritems()}
+
+    self.assertEqual(sorted(tap_dict.keys()), sorted(true_tap_dict.keys()))
+    for tap in tap_dict:
+      th.assert_arrays_equal(self, tap_dict[tap], true_tap_dict[tap])
+
+    funnel_dict = ww3.pump(true_tap_dict)
+
+    funnel_dict = {(t.tank.name, t.key): v for t, v in funnel_dict.iteritems()}
+    self.assertEqual(sorted(funnel_dict.keys()), sorted(true_funnel_dict.keys()))
+    for funnel in funnel_dict:
+      th.assert_arrays_equal(self, funnel_dict[funnel], true_funnel_dict[funnel])
+
 if __name__ == "__main__":
     unittest.main()

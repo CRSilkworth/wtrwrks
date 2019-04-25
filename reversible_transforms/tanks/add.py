@@ -1,6 +1,8 @@
 import reversible_transforms.waterworks.waterwork_part as wp
 import reversible_transforms.waterworks.tank as ta
 
+def add(a, b):
+  pass
 
 class Add(ta.Tank):
   slot_keys = ['a', 'b']

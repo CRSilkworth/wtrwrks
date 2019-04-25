@@ -34,7 +34,7 @@ class WaterworkPart(object):
     # Set the tank name. Check and make sure it's valid.
     self.name = name
     if name is None:
-      self.name = self._get_default_name()
+      self.name = self._get_default_name(prefix=self.waterwork.name)
     elif type(name) not in (str, unicode):
       raise TypeError("'name' must be of type str or unicode. Got " + str(type(name)))
 

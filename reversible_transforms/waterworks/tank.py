@@ -2,6 +2,8 @@ import reversible_transforms.waterworks.globs as gl
 import reversible_transforms.waterworks.waterwork_part as wp
 import reversible_transforms.waterworks.slot as sl
 import reversible_transforms.waterworks.tube as tu
+import os
+import pprint
 
 
 class Tank(wp.WaterworkPart):
@@ -200,7 +202,7 @@ class Tank(wp.WaterworkPart):
       waterwork.tubes[tube.name] = tube
       waterwork.taps[tube.name] = tube
 
-  def _get_default_name(self):
+  def _get_default_name(self, prefix=''):
     """Create the default name of the tank, of the form '<TankSubClass>_<num>'.
 
 
@@ -215,10 +217,10 @@ class Tank(wp.WaterworkPart):
 
     # Start with the name being '<TankSubClass>_0'. If that is already taken,
     # keep increasing the number from 0 until an unused name is found.
-    full_name = cls_name + '_' + str(num)
+    full_name = os.path.join(prefix, cls_name + '_' + str(num))
     while full_name in gl._default_waterwork.tanks:
       num += 1
-      full_name = cls_name + '_' + str(num)
+      full_name = os.path.join(prefix, cls_name + '_' + str(num))
 
     return full_name
 
