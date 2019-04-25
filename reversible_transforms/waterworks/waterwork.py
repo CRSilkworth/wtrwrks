@@ -1,23 +1,300 @@
 import reversible_transforms.waterworks.globs as gl
-import reversible_transforms.waterworks.waterwork_part as wp
+import reversible_transforms.waterworks.tank as ta
+
 
 class Waterwork(object):
+  """The full graph of tanks (i.e. operations) on the data, along with all slots and tubes which define the inputs/outputs of operations and hold their values. Can be thought of as a larger reversible operation that are composed of many smaller reversible operations.
+
+  Attributes
+  ----------
+  funnels : dict({
+    keys - strs. Names of the funnels.
+    values - Slot objects.
+  })
+    All of the slots defined within the waterwork which are not connected to some other tube. i.e. the 'open' slots that need data in order to produce an output in the pour direction.
+  taps : dict({
+    keys - strs. Names of the taps.
+    values - Tube objects.
+  })
+    All of the tubes defined within the waterwork which are not connected to some other slot. i.e. the 'open' tubes that need data in order to produce an output in the pump direction.
+  slots : dict({
+    keys - strs. Names of the slots.
+    values - Slot objects.
+  })
+    All of the slots defined within the waterwork.
+  tubes : dict({
+    keys - strs. Names of the tubes.
+    values - Tube objects.
+  })
+    All of the tubes defined within the waterwork.
+  tanks : dict({
+    keys - strs. Names of the tanks.
+    values - Tube objects.
+  })
+    All of the tanks (or operations) defined within the waterwork.
+  """
   def __init__(self, name=None):
+    """Initialize the waterwork to have empty funnels, slots, tanks, and taps."""
     self.funnels = {}
     self.tubes = {}
     self.slots = {}
     self.tanks = {}
     self.taps = {}
+    self.name = name
 
   def __enter__(self):
+    """When entering, set the global _default_waterwork to this waterwork."""
     gl._default_waterwork = self
     return self
 
   def __exit__(self, exc_type, exc_val, exc_tb):
+    """When exiting, set the global _default_waterwork back to None."""
     gl._default_waterwork = None
 
+  def _pour_tank_order(self):
+    """Get the order to calculate the tanks in the pour direction.
+
+    Returns
+    -------
+    list of tank objects
+        The tanks ordered in such a way that they are guaranteed to have all the information to perform the operation.
+
+    """
+    # tank_order is the variable to be returned, tanks is the list of tanks to
+    # be consumed in the while look and visited is a set of tanks to ensure no
+    # double including of tanks occurs.
+    tank_order = []
+    tanks = []
+    visited = set()
+
+    # Starting from the taps (i.e. unconnected tubes) add them to the variables
+    # defined above, skipping over already visited ones.
+    for tube_name in self._sorted_tap_names():
+      tank = self.taps[tube_name].tank
+      if tank in visited:
+        continue
+      visited.add(tank)
+      tank_order.insert(0, tank)
+      tanks.append(tank)
+
+    # While there are still tanks to be consumed.
+    while tanks:
+      tank = tanks.pop()
+
+      # Go through each of the slots of the current tank, to get to the
+      # 'parent_tank', i.e. the tank that has outputs which are needed for the
+      # current tanks inputs. Put the parent tank before the current one.
+      for slot_name in tank.slots:
+        slot = tank.slots[slot_name]
+
+        # If the slot is not connected to any tube (i.e. is a funnel) continue.
+        if slot.tube is None:
+          continue
+
+        parent_tank = slot.tube.tank
+
+        # Skip if already visited.
+        if parent_tank in visited:
+          continue
+
+        tanks.append(parent_tank)
+        tank_order.insert(0, parent_tank)
+        visited.add(parent_tank)
+
+    return tank_order
+
+  def _pump_tank_order(self):
+    """Get the order to calculate the tanks in the pump direction.
+
+    Returns
+    -------
+    list of tank objects
+        The tanks ordered in such a way that they are guaranteed to have all the information to perform the operation.
+
+    """
+    # tank_order is the variable to be returned, tanks is the list of tanks to
+    # be consumed in the while look and visited is a set of tanks to ensure no
+    # double including of tanks occurs.
+    tank_order = []
+    tanks = []
+    visited = set()
+
+    # Starting from the funnels (i.e. unconnected slots) add them to the variables
+    # defined above, skipping over already visited ones.
+    for slot_name in self._sorted_funnel_names():
+      tank = self.funnels[slot_name].tank
+      if tank in visited:
+        continue
+      visited.add(tank)
+      tank_order.insert(0, tank)
+      tanks.append(tank)
+
+    while tanks:
+      tank = tanks.pop()
+
+      # Go through each of the tubes of the current tank, to get to the
+      # 'parent_tank', i.e. the tank that has outputs which are needed for the
+      # current tanks inputs. Put the parent tank before the current one.
+      for tube_name in tank.tubes:
+        tube = tank.tubes[tube_name]
+
+        # If the tube is not connected to any slot (i.e. is a tap) continue.
+        if tube.slot is None:
+          continue
+
+        parent_tank = tube.slot.tank
+
+        # Skip if already visited.
+        if parent_tank in visited:
+          continue
+
+        tanks.append(parent_tank)
+        tank_order.insert(0, parent_tank)
+        visited.add(parent_tank)
+
+    return tank_order
+
+  def _sorted_tap_names(self):
+    """Sort all the taps in such a way that the taps corresponding to tanks that have none of their tubes being consumed by another tank appear first. """
+    def sort_key(k):
+      return len(self.taps[k].tank.paired_tubes())
+    return sorted(self.taps, key=sort_key)
+
+  def _sorted_funnel_names(self):
+    """Sort all the funnels in such a way that the funnels corresponding to tanks that have none of their slots being filled by another tank's tube appear first. """
+    def sort_key(k):
+      return len(self.funnels[k].tank.paired_slots())
+    return sorted(self.funnels, key=sort_key)
+
+  def get_slot(self, tank, key):
+    """Get a particular tank's slot.
+
+    Parameters
+    ----------
+    tank : Tank or str
+        Either the tank object or the name of the tank.
+    key : str
+        The slot key of the slot for that tank.
+
+    Returns
+    -------
+    Slot
+        The slot object
+
+    """
+    if issubclass(type(tank), ta.Tank):
+      pass
+    elif type(tank) in (str, unicode):
+      tank = self.tanks[tank]
+
+    return self.slots[str((tank.name, key))]
+
+  def get_tube(self, tank, key):
+    """Get a particular tank's slot.
+
+    Parameters
+    ----------
+    tank : Tank or str
+        Either the tank object or the name of the tank.
+    key : str
+        The slot key of the slot for that tank.
+
+    Returns
+    -------
+    Slot
+        The slot object.
+    """
+    if issubclass(type(tank), ta.Tank):
+      pass
+    elif type(tank) in (str, unicode):
+      tank = self.tanks[tank]
+
+    return self.tubes[str((tank.name, key))]
+
   def pour(self, funnel_dict):
-    pass
+    """Run all the operations of the waterwork in the pour (or forward) direction.
+
+    Parameters
+    ----------
+    funnel_dict : dict({
+      keys - Slot objects. The 'funnels' (i.e. unconnected slots) of the waterwork.
+      values - valid input data types
+    })
+        The inputs to the waterwork's full pour function.
+
+    Returns
+    -------
+    dict({
+      keys - Tube objects. The 'taps' (i.e. unconnected tubes) of the waterwork.
+    })
+        The outputs of the waterwork's full pour function
+
+    """
+    # Set all the values of the funnels from the inputted arguments.
+    for funnel in funnel_dict:
+      funnel.set_val(funnel_dict[funnel])
+
+    # Run all the tanks (operations) in the pour direction, filling all slots'
+    # and tubes' val attributes as you go.
+    tanks = self._pour_tank_order()
+    for tank in tanks:
+      kwargs = {k: tank.slots[k].get_val() for k in tank.slots}
+      tube_dict = tank.pour(**kwargs)
+
+      for key in tube_dict:
+        slot = tank.tubes[key].slot
+
+        if slot is not None:
+          slot.set_val(tube_dict[key])
+
+    # Create the dictionary to return
+    r_dict = {}
+    for tap_name in self.taps:
+      tap = self.taps[tap_name]
+      r_dict[tap] = tap.get_val()
+
+    return r_dict
 
   def pump(self, tap_dict):
-    pass
+    """Run all the operations of the waterwork in the pump (or backward) direction.
+
+    Parameters
+    ----------
+    funnel_dict : ict({
+      keys - Tube objects. The 'taps' (i.e. unconnected tubes) of the waterwork.
+    })
+        The inputs of the waterwork's full pump function
+
+    Returns
+    -------
+    dict({
+      keys - Slot objects. The 'funnels' (i.e. unconnected slots) of the waterwork.
+      values - valid input data types
+    })
+        The outputs to the waterwork's full pump function.
+
+    """
+    # Set all the values of the taps from the inputted arguments.
+    for tap in tap_dict:
+      tap.set_val(tap_dict[tap])
+
+    # Run all the tanks (operations) in the pump direction, filling all slots'
+    # and tubes' val attributes as you go.
+    tanks = self._pour_tank_order()
+    for tank in tanks:
+      kwargs = {k: tank.slots[k].get_val() for k in tank.slots}
+      tube_dict = tank.pour(**kwargs)
+
+      for key in tube_dict:
+        slot = tank.tubes[key].slot
+
+        if slot is not None:
+          slot.set_val(tube_dict[key])
+
+    # Create the dictionary to return
+    r_dict = {}
+    for funnel_name in self.funnels:
+      funnel = self.funnels[funnel_name]
+      r_dict[funnel] = funnel.get_val()
+
+    return r_dict

@@ -2,12 +2,12 @@ import reversible_transforms.waterworks.waterwork_part as wp
 import reversible_transforms.waterworks.tank as ta
 
 
-class Add(ta.Tank):
+class Mul(ta.Tank):
   slot_keys = ['a', 'b']
-  tube_keys = ['a', 'data']
+  tube_keys = ['', 'data']
 
-  def _pour(self, a, b):
+  def pour(self, a, b):
     return {'data': a + b, 'a': a}
 
-  def _pump(self, a, data):
+  def pump(self, a, data):
     return {'a': a, 'b': data - a}
