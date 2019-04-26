@@ -2,15 +2,10 @@ import shutil
 import tempfile
 import unittest
 import reversible_transforms.utils.test_helpers as th
-import reversible_transforms.transforms.num_transform as n
 import reversible_transforms.tanks.add as ad
 import reversible_transforms.waterworks.tank as ta
 import reversible_transforms.waterworks.waterwork as wa
-import reversible_transforms.waterworks.globs as gl
-import os
-import pandas as pd
 import numpy as np
-import pprint
 
 class TestWaterwork(unittest.TestCase):
   def setUp(self):

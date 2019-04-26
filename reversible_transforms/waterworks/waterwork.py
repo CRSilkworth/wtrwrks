@@ -159,13 +159,13 @@ class Waterwork(object):
     return tank_order
 
   def _sorted_tap_names(self):
-    """Sort all the taps in such a way that the taps corresponding to tanks that have none of their tubes being consumed by another tank appear first. """
+    """Sort all the taps in such a way that the taps corresponding to tanks that have none of their tubes being consumed by another tank appear first."""
     def sort_key(k):
       return len(self.taps[k].tank.paired_tubes())
     return sorted(self.taps, key=sort_key)
 
   def _sorted_funnel_names(self):
-    """Sort all the funnels in such a way that the funnels corresponding to tanks that have none of their slots being filled by another tank's tube appear first. """
+    """Sort all the funnels in such a way that the funnels corresponding to tanks that have none of their slots being filled by another tank's tube appear first."""
     def sort_key(k):
       return len(self.funnels[k].tank.paired_slots())
     return sorted(self.funnels, key=sort_key)
@@ -207,6 +207,7 @@ class Waterwork(object):
     -------
     Slot
         The slot object.
+
     """
     if issubclass(type(tank), ta.Tank):
       pass
@@ -300,7 +301,7 @@ class Waterwork(object):
     return ww
 
   def pour(self, funnel_dict):
-    """Run all the operations of the waterwork in the pour (or forward) direction.
+    """Run all the operations of the waterwork in the pour(or forward) direction.
 
     Parameters
     ----------
