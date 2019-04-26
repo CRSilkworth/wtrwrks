@@ -5,6 +5,87 @@ import reversible_transforms.utils.dir_functions as d
 import imp
 import inspect as i
 import datetime
+import unittest
+import shutil
+import tempfile
+import reversible_transforms.waterworks.waterwork as wa
+
+class TestTank (unittest.TestCase):
+  def setUp(self):
+      self.temp_dir = tempfile.mkdtemp()
+
+  def tearDown(self):
+      shutil.rmtree(self.temp_dir)
+
+  def pour_pump(self, tank_func, input_dict, output_dict, type_dict=None):
+    with wa.Waterwork() as ww:
+      # test eager
+      tank = tank_func(type_dict=None, **input_dict)
+      out_dict = {t: v.val for t, v in tank.get_tubes().iteritems()}
+      self.assertEqual(out_dict.keys(), output_dict.keys())
+      for key in out_dict:
+        self.equals(out_dict[key], output_dict[key])
+
+    # test pour
+    out_dict = tank.pour(**input_dict)
+
+    out_dict = {t: v for t, v in out_dict.iteritems()}
+    self.assertEqual(out_dict.keys(), output_dict.keys())
+    for key in out_dict:
+      self.equals(out_dict[key], output_dict[key])
+
+    in_dict = tank.pump(**out_dict)
+    self.assertEqual(in_dict.keys(), input_dict.keys())
+    for key in in_dict:
+      self.equals(in_dict[key], input_dict[key])
+
+  def equals(self, first, second):
+    if type(first) is not np.ndarray:
+      self.assertEqual(first, second)
+    else:
+      try:
+        self.assertTrue(arrays_equal(first, second))
+      except AssertionError as e:
+        error_str = "Arrays not equal"
+        print '-'*20 + error_str + '-'*20
+        print 'SHAPES', first.shape, np.array(second).shape
+        print "FIRST", first
+        print "SECOND", second
+        print '-'*20 + '-'*len(error_str) + '-'*20
+        raise e
+
+
+def arrays_equal(first, second, threshold=0.001):
+  first = np.array(first, copy=True)
+  second = np.array(second, copy=True)
+
+  # Check that the arrays are the same shape.
+  if first.shape != second.shape:
+    return False
+
+  if np.issubdtype(first.dtype, np.datetime64) or np.issubdtype(first.dtype, np.timedelta64):
+
+    if not (np.isnat(first) == np.isnat(second)).all():
+      return False
+
+    first[np.isnat(first)] = datetime.datetime(1970, 1, 1)
+    second[np.isnat(second)] = datetime.datetime(1970, 1, 1)
+
+  try:
+    if not (np.isnan(first.astype(np.float64)) == np.isnan(second.astype(np.float64))).all():
+      return False
+
+    first[np.isnan(first.astype(np.float64))] = 0.0
+    second[np.isnan(second.astype(np.float64))] = 0.0
+
+  except ValueError:
+    pass
+
+  if threshold is None:
+    return (first == second).all()
+  else:
+    return (np.abs(first - second) < threshold).all()
+
 
 def assert_arrays_equal(test_obj, a1, a2, threshold=None):
   """Shortcut for testing whether two numpy arrays are close enough to equal. Prints out the arrays and throws a unittest exception if they aren't.
@@ -219,7 +300,3 @@ if __name__ == "__main__":
   test_file_name = 'test_' + file_name
   with open(os.path.join(unit_test_dir, test_file_name), 'w') as test_file:
     test_file.write(template)
-
-
-if __name__ == "__main__":
-  create_test_skeleton('create_data.py', 'TestCreateData', 'cr')

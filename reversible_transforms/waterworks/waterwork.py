@@ -35,6 +35,7 @@ class Waterwork(object):
   })
     All of the tanks (or operations) defined within the waterwork.
   """
+
   def __init__(self, name=''):
     """Initialize the waterwork to have empty funnels, slots, tanks, and taps."""
     self.funnels = {}

@@ -2,8 +2,8 @@ import reversible_transforms.waterworks.globs as gl
 import reversible_transforms.waterworks.waterwork_part as wp
 import reversible_transforms.waterworks.slot as sl
 import reversible_transforms.waterworks.tube as tu
+import reversible_transforms.tanks.utils as ut
 import os
-import pprint
 
 
 class Tank(wp.WaterworkPart):
@@ -29,6 +29,7 @@ class Tank(wp.WaterworkPart):
     values - Slot object.
   })
     The tube objects that define the pour direction outputs (or pump direction inputs) of the tank.
+
   """
 
   slot_keys = None
@@ -252,10 +253,10 @@ class Tank(wp.WaterworkPart):
 
       if tube.slot is not None:
         other_slot = tube.slot
-        clone = Clone(a=tube)
+        cl = clone(a=tube)
 
-        other_slot.tube = clone['a']
-        slot.tube = clone['a']
+        other_slot.tube = cl['a']
+        slot.tube = cl['a']
 
       tube.slot = slot
       slot.tube = tube
@@ -379,13 +380,20 @@ class Tank(wp.WaterworkPart):
     for key in slot_dict:
       self.slots[key].set_val(slot_dict[key])
 
+    return slot_dict
+
+
+def clone(a, type_dict=None, waterwork=None, name=None):
+  # type_type = ut.infer_types(type_dict, a=a, b=b)
+  return Clone(a=a, waterwork=waterwork, name=name)
+
 
 class Clone(Tank):
   slot_keys = ['a']
   tube_keys = ['a', 'b']
 
   def _pour(self, a):
-    return {'a': a, 'b': a}
+    return {'a': ut.maybe_copy(a), 'b': ut.maybe_copy(a)}
 
   def _pump(self, a, b):
-    return {'a': a}
+    return {'a': ut.maybe_copy(a)}
