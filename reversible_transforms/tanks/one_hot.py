@@ -3,8 +3,8 @@ import reversible_transforms.waterworks.tank as ta
 import reversible_transforms.tanks.utils as ut
 
 
-def mul(a, b, type_dict=None, waterwork=None, name=None):
-  """Multiply two objects together in a reversible manner. This function selects out the proper Mul subclass depending on the types of 'a' and 'b'.
+def one_hot(a, depth, axis=-1, type_dict=None, waterwork=None, name=None):
+  """OneHottiply two objects together in a reversible manner. This function selects out the proper OneHot subclass depending on the types of 'a' and 'b'.
 
   Parameters
   ----------
@@ -29,24 +29,36 @@ def mul(a, b, type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, a=a, b=b)
+  type_dict = ut.infer_types(type_dict, a=a, depth=depth)
 
-  class MulTyped(Mul):
+  class OneHotTyped(OneHot):
     tube_dict = {
       'target': ut.decide_type(type_dict['a'], type_dict['b']),
       'a': type_dict['a'],
-      'b': type_dict['b']
+      'depth': dict
     }
 
-  return MulTyped(a=a, b=b, waterwork=waterwork, name=name)
+  return OneHotTyped(a=a, depth, waterwork=waterwork, name=name)
 
 
-class Mul(ta.Tank):
-  slot_keys = ['a', 'b']
+class OneHot(ta.Tank):
+  slot_keys = ['a', 'depth']
   tube_dict = {
-    'target': None,
-    'a': None,
-    'b': None
+    'target': np.ndarray,
+    'index_to_cat': dict
+  }
+
+  def _pour(self, a, b):
+    return {'target': a * b, 'a': ut.maybe_copy(a), 'b': ut.maybe_copy(b)}
+
+  def _pump(self, a, b, target):
+    return {'a': ut.maybe_copy(a), 'b': ut.maybe_copy(b)}
+
+class OneHotIndex(ta.Tank):
+  slot_keys = ['a', 'depth']
+  tube_dict = {
+    'target': np.ndarray,
+    'index_to_cat': dict
   }
 
   def _pour(self, a, b):

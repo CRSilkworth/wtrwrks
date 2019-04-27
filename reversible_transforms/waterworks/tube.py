@@ -16,7 +16,7 @@ class Tube(wp.WaterworkPart):
   name : str
     The string used to identify the tube within the entire waterwork. Must be unique among all other tubes of this waterwork.
   """
-  def __init__(self, tank, key, val=None, slot=None):
+  def __init__(self, tank, key, val_type=None, val=None, slot=None):
     """Initialize the tube.
 
     Parameters
@@ -35,6 +35,7 @@ class Tube(wp.WaterworkPart):
     self.slot = slot
     self.name = str((tank.name, key))
     self.val = val
+    self.val_type = val_type
 
     super(Tube, self).__init__(tank.waterwork, self.name)
     if self.name in self.waterwork.tubes:

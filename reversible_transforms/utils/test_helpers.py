@@ -24,34 +24,50 @@ class TestTank (unittest.TestCase):
       out_dict = {t: v.val for t, v in tank.get_tubes().iteritems()}
       self.assertEqual(out_dict.keys(), output_dict.keys())
       for key in out_dict:
-        self.equals(out_dict[key], output_dict[key])
+        try:
+          self.equals(out_dict[key], output_dict[key])
+        except AssertionError as e:
+          print 'Pour direction, key:', key
+          raise e
 
     # test pour
     out_dict = tank.pour(**input_dict)
-
     out_dict = {t: v for t, v in out_dict.iteritems()}
+
     self.assertEqual(out_dict.keys(), output_dict.keys())
     for key in out_dict:
-      self.equals(out_dict[key], output_dict[key])
+      try:
+        self.equals(out_dict[key], output_dict[key])
+      except AssertionError as e:
+        print 'Pour direction, key:', key
+        raise e
 
     in_dict = tank.pump(**out_dict)
+
     self.assertEqual(in_dict.keys(), input_dict.keys())
     for key in in_dict:
-      self.equals(in_dict[key], input_dict[key])
+      try:
+        self.equals(in_dict[key], input_dict[key])
+      except AssertionError as e:
+        print 'Pump direction, key:', key
+        raise e
 
   def equals(self, first, second):
     if type(first) is not np.ndarray:
-      self.assertEqual(first, second)
+      try:
+        self.assertEqual(first, second)
+      except AssertionError as e:
+        print "FIRST", first
+        print "SECOND", second
+        raise e
     else:
       try:
         self.assertTrue(arrays_equal(first, second))
       except AssertionError as e:
         error_str = "Arrays not equal"
-        print '-'*20 + error_str + '-'*20
         print 'SHAPES', first.shape, np.array(second).shape
         print "FIRST", first
         print "SECOND", second
-        print '-'*20 + '-'*len(error_str) + '-'*20
         raise e
 
 
@@ -75,8 +91,20 @@ def arrays_equal(first, second, threshold=0.001):
     if not (np.isnan(first.astype(np.float64)) == np.isnan(second.astype(np.float64))).all():
       return False
 
+    if not (np.isneginf(first.astype(np.float64)) == np.isneginf(second.astype(np.float64))).all():
+      return False
+
+    if not (np.isposinf(first.astype(np.float64)) == np.isposinf(second.astype(np.float64))).all():
+      return False
+
     first[np.isnan(first.astype(np.float64))] = 0.0
     second[np.isnan(second.astype(np.float64))] = 0.0
+
+    first[np.isneginf(first.astype(np.float64))] = 0.0
+    second[np.isneginf(second.astype(np.float64))] = 0.0
+
+    first[np.isposinf(first.astype(np.float64))] = 0.0
+    second[np.isposinf(second.astype(np.float64))] = 0.0
 
   except ValueError:
     pass

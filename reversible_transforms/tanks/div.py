@@ -3,15 +3,15 @@ import reversible_transforms.waterworks.tank as ta
 import reversible_transforms.tanks.utils as ut
 
 
-def mul(a, b, type_dict=None, waterwork=None, name=None):
-  """Multiply two objects together in a reversible manner. This function selects out the proper Mul subclass depending on the types of 'a' and 'b'.
+def div(a, b, type_dict=None, waterwork=None, name=None):
+  """Divide one object by another in a reversible manner. This function selects out the proper Div subclass depending on the types of 'a' and 'b'.
 
   Parameters
   ----------
-  a : Tube, type that can be multiplied or None
-      First object to be multiplied, or if None, a 'funnel' to fill later with data.
-  b : Tube, type that can be multiplied or None
-      Second object to be multiplied, or if None, a 'funnel' to fill later with data.
+  a : Tube, type that can be divided or None
+      First object to be divided, or if None, a 'funnel' to fill later with data.
+  b : Tube, type that can be divided or None
+      Second object to be divided, or if None, a 'funnel' to fill later with data.
   type_dict : dict({
     keys - ['a', 'b']
     values - type of argument 'a' type of argument 'b'.
@@ -31,17 +31,17 @@ def mul(a, b, type_dict=None, waterwork=None, name=None):
   """
   type_dict = ut.infer_types(type_dict, a=a, b=b)
 
-  class MulTyped(Mul):
+  class DivBasicTyped(DivBasic):
     tube_dict = {
       'target': ut.decide_type(type_dict['a'], type_dict['b']),
       'a': type_dict['a'],
       'b': type_dict['b']
     }
 
-  return MulTyped(a=a, b=b, waterwork=waterwork, name=name)
+  return DivBasicTyped(a=a, b=b, waterwork=waterwork, name=name)
 
 
-class Mul(ta.Tank):
+class DivBasic(ta.Tank):
   slot_keys = ['a', 'b']
   tube_dict = {
     'target': None,
@@ -50,7 +50,7 @@ class Mul(ta.Tank):
   }
 
   def _pour(self, a, b):
-    return {'target': a * b, 'a': ut.maybe_copy(a), 'b': ut.maybe_copy(b)}
+    return {'target': a / b, 'a': ut.maybe_copy(a), 'b': ut.maybe_copy(b)}
 
   def _pump(self, a, b, target):
     return {'a': ut.maybe_copy(a), 'b': ut.maybe_copy(b)}

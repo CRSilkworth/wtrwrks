@@ -17,23 +17,26 @@ class Tank(wp.WaterworkPart):
     The name of the part within the waterwork. Must be unique. If None, it will be set to a default value depending on the subclass.
   slot_keys : list of str
     The tank's (operation's) argument keys. They define the names of the inputs to the tank.
-  tube_keys : list of str
-    The tank's (operation's) output keys. They define the names of tanks outputs.
-  slots : dict({
+  tube_dict : dict(
+    keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
+    values - types. The types of the arguments outputs.
+  )
+    The tank's (operation's) output keys and their corresponding types.
+  slots : dict(
     keys - strs. equal to that of the slot_keys.
     values - Slot object.
-  })
+  )
     The slot objects that define the pour direction inputs (or pump direction outputs) of the tank.
-  tubes : dict({
+  tubes : dict(
     keys - strs. equal to that of the tube_keys.
     values - Slot object.
-  })
+  )
     The tube objects that define the pour direction outputs (or pump direction inputs) of the tank.
 
   """
 
   slot_keys = None
-  tube_keys = None
+  tube_dict = None
 
   def __init__(self, waterwork=None, name=None, **input_dict):
     """Create a Tank. Eagerly run the pour function if all the input values are known at creation.
@@ -70,7 +73,7 @@ class Tank(wp.WaterworkPart):
     self.slots = {}
     self.tubes = {}
     self._create_slots(self.slot_keys, self.waterwork)
-    self._create_tubes(self.tube_keys, self.waterwork)
+    self._create_tubes(self.tube_dict, self.waterwork)
 
     # Join the this tank's slots to the tubes of the other tanks which are
     # inputted in as an argument (input_dict).
@@ -104,10 +107,10 @@ class Tank(wp.WaterworkPart):
 
     Parameters
     ----------
-    input_dict : dict({
+    input_dict : dict(
         keys - Slot keys. Must be the same as the attribute slot_keys.
         values - Tube, None or some valid input data type.
-      })
+      )
       The inputs to the tank.
 
     Returns
@@ -142,18 +145,18 @@ class Tank(wp.WaterworkPart):
 
     Parameters
     ----------
-    input_dict : dict({
+    input_dict : dict(
         keys - Slot keys. Must be the same as the attribute slot_keys.
         values - Tube, None or some valid input data type.
-      })
+      )
       The inputs to the tank.
 
     Returns
     -------
-    dict({
+    dict(
       keys - Slot keys. Must be the same as the attribute slot_keys.
       values - valid input data type.
-    })
+    )
         The inputted dict with the Tube objects replaced by the 'val' attribute of the tube.
 
     """
@@ -184,7 +187,7 @@ class Tank(wp.WaterworkPart):
       waterwork.slots[slot.name] = slot
       waterwork.funnels[slot.name] = slot
 
-  def _create_tubes(self, tube_keys, waterwork):
+  def _create_tubes(self, tube_dict, waterwork):
     """Create all the tube objects for the tank and add to the waterwork directory.
 
     Parameters
@@ -196,8 +199,8 @@ class Tank(wp.WaterworkPart):
       The waterwork that the part will be added to.
 
     """
-    for key in tube_keys:
-      tube = tu.Tube(self, key)
+    for key in tube_dict:
+      tube = tu.Tube(self, key, tube_dict[key])
       self.tubes[key] = tube
 
       waterwork.tubes[tube.name] = tube
@@ -230,10 +233,10 @@ class Tank(wp.WaterworkPart):
 
     Parameters
     ----------
-    input_dict : dict({
+    input_dict : dict(
         keys - Slot keys. Must be the same as the attribute slot_keys.
         values - Tube, None or some valid input data type.
-      })
+      )
       The inputs to the tank.
     waterwork : Waterwork
       The waterwork that the part will be added to.
@@ -255,11 +258,12 @@ class Tank(wp.WaterworkPart):
         other_slot = tube.slot
         cl = clone(a=tube)
 
-        other_slot.tube = cl['a']
+        other_slot.tube = cl['b']
         slot.tube = cl['a']
 
       tube.slot = slot
       slot.tube = tube
+      slot.val_type = tube.val_type
 
       del waterwork.funnels[slot.name]
       del waterwork.taps[tube.name]
@@ -330,7 +334,7 @@ class Tank(wp.WaterworkPart):
     Returns
     -------
     kwargs = {
-        keys - Tube keys. The same as the attribute tube_keys.
+        keys - Tube keys. The same as the keys from attribute tube_dict.
         values - The data_types outputted by the tank.
       }
         All of the ouputs the tank gives in the 'pour' (i.e. forward) direction.
@@ -355,7 +359,7 @@ class Tank(wp.WaterworkPart):
     Parameters
     ----------
     **kwargs : kwargs = {
-        keys - Tube keys. Must be the same as the attribute tube_keys.
+        keys - Tube keys. Must be the same as the keys from attribute tube_dict.
         values - valid data types
       }
       The inputs to the backward transformation of the tank.
@@ -370,8 +374,8 @@ class Tank(wp.WaterworkPart):
 
     """
     # Check that the inputs are valid
-    if set(kwargs.keys()) != set(self.tube_keys):
-      raise ValueError("Must pass " + str(kwargs.keys()) + " as arguments, got " + str(self.tube_keys))
+    if set(kwargs.keys()) != set(self.tube_dict.keys()):
+      raise ValueError("Must pass " + str(kwargs.keys()) + " as arguments, got " + str(self.tube_dict.keys()))
 
     # Run the function defined by the subclass
     slot_dict = self._pump(**kwargs)
@@ -384,13 +388,23 @@ class Tank(wp.WaterworkPart):
 
 
 def clone(a, type_dict=None, waterwork=None, name=None):
-  # type_type = ut.infer_types(type_dict, a=a, b=b)
-  return Clone(a=a, waterwork=waterwork, name=name)
+  type_dict = ut.infer_types(type_dict, a=a)
+
+  class CloneTyped(Clone):
+    tube_dict = {
+      'a': type_dict['a'],
+      'b': type_dict['a']
+    }
+
+  return CloneTyped(a=a, waterwork=waterwork, name=name)
 
 
 class Clone(Tank):
   slot_keys = ['a']
-  tube_keys = ['a', 'b']
+  tube_dict = {
+    'a': None,
+    'b': None
+  }
 
   def _pour(self, a):
     return {'a': ut.maybe_copy(a), 'b': ut.maybe_copy(a)}

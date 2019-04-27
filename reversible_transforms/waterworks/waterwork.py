@@ -9,30 +9,30 @@ class Waterwork(object):
 
   Attributes
   ----------
-  funnels : dict({
+  funnels : dict(
     keys - strs. Names of the funnels.
     values - Slot objects.
-  })
+  )
     All of the slots defined within the waterwork which are not connected to some other tube. i.e. the 'open' slots that need data in order to produce an output in the pour direction.
-  taps : dict({
+  taps : dict(
     keys - strs. Names of the taps.
     values - Tube objects.
-  })
+  )
     All of the tubes defined within the waterwork which are not connected to some other slot. i.e. the 'open' tubes that need data in order to produce an output in the pump direction.
-  slots : dict({
+  slots : dict(
     keys - strs. Names of the slots.
     values - Slot objects.
-  })
+  )
     All of the slots defined within the waterwork.
-  tubes : dict({
+  tubes : dict(
     keys - strs. Names of the tubes.
     values - Tube objects.
-  })
+  )
     All of the tubes defined within the waterwork.
-  tanks : dict({
+  tanks : dict(
     keys - strs. Names of the tanks.
     values - Tube objects.
-  })
+  )
     All of the tanks (or operations) defined within the waterwork.
   """
 
@@ -224,10 +224,10 @@ class Waterwork(object):
     ----------
     other : waterwork
         The waterwork to merge with self to create a new waterwork object.
-    join_dict : dict({
+    join_dict : dict(
       keys - slots from other
       values - tubes from self
-    })
+    )
         The dictionary that describes the connections between self and other.
     name : str
         The name of the new waterwork to be created.
@@ -241,82 +241,152 @@ class Waterwork(object):
     if self.name == other.name:
       raise ValueError("Cannot merge two waterworks with the same name.")
 
-    with Waterwork() as ww:
+    with Waterwork(name=name) as ww:
+      for slot in join_dict:
+        tube = join_dict[slot]
+        slot.tube = tube
+        tube.slot = slot
+
+        del self.taps[tube.name]
+        del other.funnels[slot.name]
+
       # Go throuh each self's tanks and create a copy for the new waterwork
-      tank_order = self._pour_tank_order()
-      for tank in tank_order:
+      for w in [self, other]:
+        for d_name in ['funnels', 'taps', 'slots', 'tubes', 'tanks']:
+          d = getattr(w, d_name)
+          ww_d = getattr(ww, d_name)
 
-        # Create the input_dict to feed to the tank's constructor by taking
-        # each of self's tank's slots, finding the corresponding tube (if
-        # applicable) and creating a new tube with all the same parameters.
-        input_dict = {}
+          if d_name is 'tanks':
+            new_d = {os.path.join(ww.name, k): v for k, v in d.iteritems()}
+          else:
+            new_d = {}
+            for k, v in d.iteritems():
+              tank_name = os.path.join(ww.name, v.tank.name)
+              new_d[str((tank_name, v.key))] = v
+          ww_d.update(new_d)
+
+      all_tanks = self._pour_tank_order() + other._pour_tank_order()
+      for tank in all_tanks:
+        tank_name = os.path.join(ww.name, tank.name)
         for slot_key in tank.slots:
           slot = tank.slots[slot_key]
-          if slot.tube is None:
-            input_dict[slot_key] = None
-          else:
-            parent_tank_name = os.path.join(name, slot.tube.tank.name)
-            new_tube_name = str((parent_tank_name, slot.tube.key))
-            input_dict[slot_key] = ww.tubes[new_tube_name]
+          slot.waterwork = ww
+          slot.name = str((tank_name, slot.key))
 
-        # Create the tank using input_dict defined above and then set all the
-        # vals of the slots and tubes.
-        cls = tank.__class__
-        new_tank = cls(name=os.path.join(name, tank.name), **input_dict)
-        for slot_key in tank.slots:
-          new_tank.slots[slot_key].set_val(tank.slots[slot_key].val)
         for tube_key in tank.tubes:
-          new_tank.tubes[tube_key].set_val(tank.tubes[tube_key].val)
+          tube = tank.tubes[tube_key]
+          tube.waterwork = ww
+          tube.name = str((tank_name, tube.key))
 
-      # Go throuh each other's tanks and create a copy for the new waterwork
-      tank_order = other._pour_tank_order()
-      for tank in tank_order:
-
-        # Create the input_dict to feed to the tank's constructor by taking
-        # each of other's tank's slots, finding the corresponding tube, whether it
-        # be from within other or from self, as defined by join_dict (if
-        # applicable) and creating a new tube with all the same parameters.
-        input_dict = {}
-        for slot_key in tank.slots:
-          slot = tank.slots[slot_key]
-          if slot in join_dict:
-            parent_tank_name = os.path.join(name, join_dict[slot].tank.name)
-            new_tube_name = str((parent_tank_name, join_dict[slot].key))
-            input_dict[slot_key] = ww.tubes[new_tube_name]
-          elif slot.tube is None:
-            input_dict[slot_key] = None
-          else:
-            parent_tank_name = os.path.join(name, slot.tube.tank.name)
-            new_tube_name = str((parent_tank_name, slot.tube.key))
-            input_dict[slot_key] = ww.tubes[new_tube_name]
-
-        # Create the tank using input_dict defined above and then set all the
-        # vals of the slots and tubes.
-        cls = tank.__class__
-        new_tank = cls(name=os.path.join(name, tank.name), **input_dict)
-        for slot_key in tank.slots:
-          new_tank.slots[slot_key].set_val(tank.slots[slot_key].val)
-        for tube_key in tank.tubes:
-          new_tank.tubes[tube_key].set_val(tank.tubes[tube_key].val)
+      for w in [self, other]:
+        w.funnels = {}
+        w.tubes = {}
+        w.slots = {}
+        w.tanks = {}
+        w.taps = {}
 
     return ww
+
+  # def merge(self, other, join_dict, name='merged'):
+  #   """Create a new waterwork by combining first self and then other (in the pour direction).
+  #
+  #   Parameters
+  #   ----------
+  #   other : waterwork
+  #       The waterwork to merge with self to create a new waterwork object.
+  #   join_dict : dict(
+  #     keys - slots from other
+  #     values - tubes from self
+  #   })
+  #       The dictionary that describes the connections between self and other.
+  #   name : str
+  #       The name of the new waterwork to be created.
+  #
+  #   Returns
+  #   -------
+  #   waterwork
+  #       The waterwork formed by merging self and other together.
+  #
+  #   """
+  #   if self.name == other.name:
+  #     raise ValueError("Cannot merge two waterworks with the same name.")
+  #
+  #   with Waterwork() as ww:
+  #     # Go throuh each self's tanks and create a copy for the new waterwork
+  #     tank_order = self._pour_tank_order()
+  #     for tank in tank_order:
+  #
+  #       # Create the input_dict to feed to the tank's constructor by taking
+  #       # each of self's tank's slots, finding the corresponding tube (if
+  #       # applicable) and creating a new tube with all the same parameters.
+  #       input_dict = {}
+  #       for slot_key in tank.slots:
+  #         slot = tank.slots[slot_key]
+  #         if slot.tube is None:
+  #           input_dict[slot_key] = None
+  #         else:
+  #           parent_tank_name = os.path.join(name, slot.tube.tank.name)
+  #           new_tube_name = str((parent_tank_name, slot.tube.key))
+  #           input_dict[slot_key] = ww.tubes[new_tube_name]
+  #
+  #       # Create the tank using input_dict defined above and then set all the
+  #       # vals of the slots and tubes.
+  #       cls = tank.__class__
+  #       new_tank = cls(name=os.path.join(name, tank.name), **input_dict)
+  #       for slot_key in tank.slots:
+  #         new_tank.slots[slot_key].set_val(tank.slots[slot_key].val)
+  #       for tube_key in tank.tubes:
+  #         new_tank.tubes[tube_key].set_val(tank.tubes[tube_key].val)
+  #
+  #     # Go throuh each other's tanks and create a copy for the new waterwork
+  #     tank_order = other._pour_tank_order()
+  #     for tank in tank_order:
+  #
+  #       # Create the input_dict to feed to the tank's constructor by taking
+  #       # each of other's tank's slots, finding the corresponding tube, whether it
+  #       # be from within other or from self, as defined by join_dict (if
+  #       # applicable) and creating a new tube with all the same parameters.
+  #       input_dict = {}
+  #       for slot_key in tank.slots:
+  #         slot = tank.slots[slot_key]
+  #         if slot in join_dict:
+  #           parent_tank_name = os.path.join(name, join_dict[slot].tank.name)
+  #           new_tube_name = str((parent_tank_name, join_dict[slot].key))
+  #           input_dict[slot_key] = ww.tubes[new_tube_name]
+  #         elif slot.tube is None:
+  #           input_dict[slot_key] = None
+  #         else:
+  #           parent_tank_name = os.path.join(name, slot.tube.tank.name)
+  #           new_tube_name = str((parent_tank_name, slot.tube.key))
+  #           input_dict[slot_key] = ww.tubes[new_tube_name]
+  #
+  #       # Create the tank using input_dict defined above and then set all the
+  #       # vals of the slots and tubes.
+  #       cls = tank.__class__
+  #       new_tank = cls(name=os.path.join(name, tank.name), **input_dict)
+  #       for slot_key in tank.slots:
+  #         new_tank.slots[slot_key].set_val(tank.slots[slot_key].val)
+  #       for tube_key in tank.tubes:
+  #         new_tank.tubes[tube_key].set_val(tank.tubes[tube_key].val)
+  #
+  #   return ww
 
   def pour(self, funnel_dict):
     """Run all the operations of the waterwork in the pour(or forward) direction.
 
     Parameters
     ----------
-    funnel_dict : dict({
+    funnel_dict : dict(
       keys - Slot objects. The 'funnels' (i.e. unconnected slots) of the waterwork.
       values - valid input data types
-    })
+    )
         The inputs to the waterwork's full pour function.
 
     Returns
     -------
-    dict({
+    dict(
       keys - Tube objects. The 'taps' (i.e. unconnected tubes) of the waterwork.
-    })
+    )
         The outputs of the waterwork's full pour function
 
     """
@@ -358,17 +428,17 @@ class Waterwork(object):
 
     Parameters
     ----------
-    funnel_dict : ict({
+    funnel_dict : dict(
       keys - Tube objects. The 'taps' (i.e. unconnected tubes) of the waterwork.
-    })
+    )
         The inputs of the waterwork's full pump function
 
     Returns
     -------
-    dict({
+    dict(
       keys - Slot objects. The 'funnels' (i.e. unconnected slots) of the waterwork.
       values - valid input data types
-    })
+    )
         The outputs to the waterwork's full pump function.
 
     """
