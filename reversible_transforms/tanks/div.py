@@ -52,5 +52,5 @@ class DivBasic(ta.Tank):
   def _pour(self, a, b):
     return {'target': a / b, 'a': ut.maybe_copy(a), 'b': ut.maybe_copy(b)}
 
-  def _pump(self, a, b, target):
+  def _pump(self, target, a, b):
     return {'a': ut.maybe_copy(a), 'b': ut.maybe_copy(b)}

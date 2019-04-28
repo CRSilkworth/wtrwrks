@@ -1,9 +1,10 @@
 import reversible_transforms.waterworks.waterwork_part as wp
 import reversible_transforms.waterworks.tank as ta
 import reversible_transforms.tanks.utils as ut
+import numpy as np
 
 
-def mul(a, b, type_dict=None, waterwork=None, name=None):
+def mean(a, axis=(), type_dict=None, waterwork=None, name=None):
   """Multiply two objects together in a reversible manner. This function selects out the proper Mul subclass depending on the types of 'a' and 'b'.
 
   Parameters
@@ -29,28 +30,22 @@ def mul(a, b, type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, a=a, b=b)
+  type_dict = ut.infer_types(type_dict, a=a, axis=axis)
 
-  class MulTyped(Mul):
-    tube_dict = {
-      'target': ut.decide_type(type_dict['a'], type_dict['b']),
-      'a': type_dict['a'],
-      'b': type_dict['b']
-    }
-
-  return MulTyped(a=a, b=b, waterwork=waterwork, name=name)
+  return Mean(a=a, axis=axis, waterwork=waterwork, name=name)
 
 
-class Mul(ta.Tank):
-  slot_keys = ['a', 'b']
+class Mean(ta.Tank):
+  slot_keys = ['a', 'axis']
   tube_dict = {
-    'target': None,
-    'a': None,
-    'b': None
+    'target': np.ndarray,
+    'a': np.ndarray
   }
 
-  def _pour(self, a, b):
-    return {'target': a * b, 'a': ut.maybe_copy(a), 'b': ut.maybe_copy(b)}
+  def _pour(self, a, axis):
+    if axis == ():
+      axis = None
+    return {'target': np.mean(a, axis=axis), 'a': ut.maybe_copy(a)}
 
-  def _pump(self, target, a, b):
-    return {'a': ut.maybe_copy(a), 'b': ut.maybe_copy(b)}
+  def _pump(self, target, a):
+    return {'a': ut.maybe_copy(a)}
