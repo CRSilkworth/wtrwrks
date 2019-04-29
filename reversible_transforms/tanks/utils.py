@@ -38,6 +38,6 @@ def maybe_copy(a):
   if type(a) is np.ndarray:
     return np.array(a, copy=True)
   if type(a) in (list, dict):
-    return a.copy()
+    return copy.copy(a)
 
   return copy.copy(a)

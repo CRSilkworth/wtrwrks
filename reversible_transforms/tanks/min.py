@@ -4,15 +4,15 @@ import reversible_transforms.tanks.utils as ut
 import numpy as np
 
 
-def mean(a, axis=(), type_dict=None, waterwork=None, name=None):
-  """Find the mean of a np.array along one or more axes in a reversible manner.
+def min(a, axis=(), type_dict=None, waterwork=None, name=None):
+  """Find the min of a np.array along one or more axes in a reversible manner.
 
   Parameters
   ----------
   a : Tube, np.ndarray or None
-      The array to get the mean of.
+      The array to get the min of.
   axis : Tube, int, tuple or None
-      The axis (axes) along which to take the mean.
+      The axis (axes) along which to take the min.
   type_dict : dict({
     keys - ['a', 'b']
     values - type of argument 'a' type of argument 'b'.
@@ -36,7 +36,7 @@ def mean(a, axis=(), type_dict=None, waterwork=None, name=None):
 
 
 class Mean(ta.Tank):
-  """The mean class. Handles 'a's of np.ndarray type.
+  """The min class. Handles 'a's of np.ndarray type.
 
   Attributes
   ----------
@@ -63,30 +63,30 @@ class Mean(ta.Tank):
     Parameters
     ----------
     a : np.ndarray
-      The array to take the mean over.
+      The array to take the min over.
     axis : int, tuple
-      The axis (axes) to take the mean over.
+      The axis (axes) to take the min over.
 
     Returns
     -------
     dict(
       'target': np.ndarray
-        The result of the mean operation.
+        The result of the min operation.
       'a': np.ndarray
         The original a
       'axis': in, tuple
-        The axis (axes) to take the mean over.
+        The axis (axes) to take the min over.
     )
 
     """
     # Because 'None' is used to signify a funnel in this system, the empty
-    # tuple is used to denote a mean along all axes.
+    # tuple is used to denote a min along all axes.
     if axis == ():
       axis = None
 
     # Must just return 'a' as well since so much information is lost in a
-    # mean
-    return {'target': np.mean(a, axis=axis), 'a': ut.maybe_copy(a), 'axis': axis}
+    # min
+    return {'target': np.min(a, axis=axis), 'a': ut.maybe_copy(a), 'axis': axis}
 
   def _pump(self, target, a, axis):
     """Execute the add in the pump (backward) direction .
@@ -94,11 +94,11 @@ class Mean(ta.Tank):
     Parameters
     ----------
     target: np.ndarray
-      The result of the mean operation.
+      The result of the min operation.
     a : np.ndarray
-      The array to take the mean over.
+      The array to take the min over.
     axis : int, tuple
-      The axis (axes) to take the mean over.
+      The axis (axes) to take the min over.
 
     Returns
     -------
@@ -106,7 +106,7 @@ class Mean(ta.Tank):
       'a': np.ndarray
         The original a
       'axis': in, tuple
-        The axis (axes) to take the mean over.
+        The axis (axes) to take the min over.
     )
 
     """

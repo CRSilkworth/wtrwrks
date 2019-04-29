@@ -109,7 +109,7 @@ def arrays_equal(first, second, threshold=0.001):
   except ValueError:
     pass
 
-  if threshold is None:
+  if threshold is None or not np.issubdtype(first.dtype, np.number):
     return (first == second).all()
   else:
     return (np.abs(first - second) < threshold).all()
