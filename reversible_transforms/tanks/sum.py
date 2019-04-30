@@ -32,10 +32,10 @@ def sum(a, axis=(), type_dict=None, waterwork=None, name=None):
   """
   type_dict = ut.infer_types(type_dict, a=a, axis=axis)
 
-  return Mean(a=a, axis=axis, waterwork=waterwork, name=name)
+  return Sum(a=a, axis=axis, waterwork=waterwork, name=name)
 
 
-class Mean(ta.Tank):
+class Sum(ta.Tank):
   """The sum class. Handles 'a's of np.ndarray type.
 
   Attributes

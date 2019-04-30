@@ -32,10 +32,10 @@ def min(a, axis=(), type_dict=None, waterwork=None, name=None):
   """
   type_dict = ut.infer_types(type_dict, a=a, axis=axis)
 
-  return Mean(a=a, axis=axis, waterwork=waterwork, name=name)
+  return Min(a=a, axis=axis, waterwork=waterwork, name=name)
 
 
-class Mean(ta.Tank):
+class Min(ta.Tank):
   """The min class. Handles 'a's of np.ndarray type.
 
   Attributes

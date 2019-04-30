@@ -53,12 +53,15 @@ class TestTank (unittest.TestCase):
         raise e
 
   def equals(self, first, second):
-    if type(first) is not np.ndarray:
+    if type(first) in (np.dtype, type(int)):
+      pass
+    elif type(first) is not np.ndarray:
       try:
         self.assertEqual(first, second)
+        self.assertTrue(type(first) is type(second))
       except AssertionError as e:
-        print "FIRST", first
-        print "SECOND", second
+        print "FIRST", first, type(first)
+        print "SECOND", second, type(second)
         raise e
     else:
       try:
@@ -66,8 +69,8 @@ class TestTank (unittest.TestCase):
       except AssertionError as e:
         error_str = "Arrays not equal"
         print 'SHAPES', first.shape, np.array(second).shape
-        print "FIRST", first
-        print "SECOND", second
+        print "FIRST", first, first.dtype
+        print "SECOND", second, second.dtype
         raise e
 
 
@@ -77,6 +80,8 @@ def arrays_equal(first, second, threshold=0.001):
 
   # Check that the arrays are the same shape.
   if first.shape != second.shape:
+    return False
+  if first.dtype is not second.dtype:
     return False
 
   if np.issubdtype(first.dtype, np.datetime64) or np.issubdtype(first.dtype, np.timedelta64):

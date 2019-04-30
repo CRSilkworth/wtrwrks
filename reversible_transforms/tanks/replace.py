@@ -4,15 +4,15 @@ import reversible_transforms.tanks.utils as ut
 import numpy as np
 
 
-def max(a, axis=(), type_dict=None, waterwork=None, name=None):
-  """Find the max of a np.array along one or more axes in a reversible manner.
+def replace(a, mask, replace_with, type_dict=None, waterwork=None, name=None):
+  """Find the min of a np.array along one or more axes in a reversible manner.
 
   Parameters
   ----------
   a : Tube, np.ndarray or None
-      The array to get the max of.
+      The array to get the min of.
   axis : Tube, int, tuple or None
-      The axis (axes) along which to take the max.
+      The axis (axes) along which to take the min.
   type_dict : dict({
     keys - ['a', 'b']
     values - type of argument 'a' type of argument 'b'.
@@ -30,13 +30,13 @@ def max(a, axis=(), type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, a=a, axis=axis)
+  type_dict = ut.infer_types(type_dict, a=a, mask=mask, replace_with=replace_with)
 
-  return Max(a=a, axis=axis, waterwork=waterwork, name=name)
+  return Replace(a=a, mask=mask, replace_with=replace_with, waterwork=waterwork, name=name)
 
 
-class Max(ta.Tank):
-  """The max class. Handles 'a's of np.ndarray type.
+class Replace(ta.Tank):
+  """The min class. Handles 'a's of np.ndarray type.
 
   Attributes
   ----------
@@ -50,55 +50,54 @@ class Max(ta.Tank):
 
   """
 
-  slot_keys = ['a', 'axis']
+  slot_keys = ['a', 'mask', 'replace_with']
   tube_dict = {
     'target': np.ndarray,
-    'a': np.ndarray,
-    'axis': int
+    'replaced_vals': np.ndarray,
+    'mask': int,
+    'replace_with_shape': tuple
   }
 
-  def _pour(self, a, axis):
+  def _pour(self, a, mask, replace_with):
     """Execute the add in the pour (forward) direction .
 
     Parameters
     ----------
     a : np.ndarray
-      The array to take the max over.
+      The array to take the min over.
     axis : int, tuple
-      The axis (axes) to take the max over.
+      The axis (axes) to take the min over.
 
     Returns
     -------
     dict(
       'target': np.ndarray
-        The result of the max operation.
+        The result of the min operation.
       'a': np.ndarray
         The original a
       'axis': in, tuple
-        The axis (axes) to take the max over.
+        The axis (axes) to take the min over.
     )
 
     """
-    # Because 'None' is used to signify a funnel in this system, the empty
-    # tuple is used to denote a max along all axes.
-    if axis == ():
-      axis = None
-
+    target = ut.maybe_copy(a)
+    replaced_vals = target[mask]
+    target[mask] = replace_with
     # Must just return 'a' as well since so much information is lost in a
-    # max
-    return {'target': np.max(a, axis=axis), 'a': ut.maybe_copy(a), 'axis': axis}
+    # min
+    return {'target': target, 'mask': mask, 'replaced_vals': replaced_vals.flatten(), 'replace_with_shape': replace_with.shape}
 
-  def _pump(self, target, a, axis):
+  def _pump(self, target, mask, replaced_vals, replace_with_shape):
     """Execute the add in the pump (backward) direction .
 
     Parameters
     ----------
     target: np.ndarray
-      The result of the max operation.
+      The result of the min operation.
     a : np.ndarray
-      The array to take the max over.
+      The array to take the min over.
     axis : int, tuple
-      The axis (axes) to take the max over.
+      The axis (axes) to take the min over.
 
     Returns
     -------
@@ -106,10 +105,22 @@ class Max(ta.Tank):
       'a': np.ndarray
         The original a
       'axis': in, tuple
-        The axis (axes) to take the max over.
+        The axis (axes) to take the min over.
     )
 
     """
-    if axis is None:
-      axis = ()
-    return {'a': ut.maybe_copy(a), 'axis': axis}
+    a = ut.maybe_copy(target)
+    replace_with = a[mask]
+
+    masked_shape = a[mask].shape
+    a[mask] = replaced_vals.reshape(masked_shape)
+
+    if replace_with_shape:
+      num_elements = np.prod(replace_with_shape)
+    else:
+      num_elements = 1
+
+    if num_elements == 1:
+      replace_with = replace_with.flatten()[0].reshape(replace_with_shape)
+
+    return {'a': a, 'mask': mask, 'replace_with': replace_with}
