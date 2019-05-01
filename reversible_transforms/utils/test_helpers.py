@@ -26,7 +26,7 @@ class TestTank (unittest.TestCase):
       for key in out_dict:
         try:
           self.equals(out_dict[key], output_dict[key])
-        except AssertionError as e:
+        except (ValueError, AssertionError) as e:
           print 'Pour direction, key:', key
           raise e
 
@@ -38,7 +38,7 @@ class TestTank (unittest.TestCase):
     for key in out_dict:
       try:
         self.equals(out_dict[key], output_dict[key])
-      except AssertionError as e:
+      except (ValueError, AssertionError) as e:
         print 'Pour direction, key:', key
         raise e
 
@@ -48,30 +48,45 @@ class TestTank (unittest.TestCase):
     for key in in_dict:
       try:
         self.equals(in_dict[key], input_dict[key])
-      except AssertionError as e:
+      except (ValueError, AssertionError) as e:
         print 'Pump direction, key:', key
         raise e
 
   def equals(self, first, second):
     if type(first) in (np.dtype, type(int)):
       pass
+    elif type(first) is list:
+        self.assertEqual(len(first), len(second))
+        for f, s in zip(first, second):
+          try:
+            if type(f) is np.ndarray:
+              self._arrays_equal(f, s)
+            else:
+              self.assertEqual(f, s)
+          except(ValueError, AttributeError, AssertionError) as e:
+            print "FIRST", f, type(f)
+            print "SECOND", s, type(s)
+            raise e
     elif type(first) is not np.ndarray:
       try:
         self.assertEqual(first, second)
         self.assertTrue(type(first) is type(second))
-      except AssertionError as e:
+      except (ValueError, AssertionError) as e:
         print "FIRST", first, type(first)
         print "SECOND", second, type(second)
         raise e
     else:
-      try:
-        self.assertTrue(arrays_equal(first, second))
-      except AssertionError as e:
-        error_str = "Arrays not equal"
-        print 'SHAPES', first.shape, np.array(second).shape
-        print "FIRST", first, first.dtype
-        print "SECOND", second, second.dtype
-        raise e
+      self._arrays_equal(first, second)
+
+  def _arrays_equal(self, first, second):
+    try:
+      self.assertTrue(arrays_equal(first, second))
+    except AssertionError as e:
+      error_str = "Arrays not equal"
+      print 'SHAPES', first.shape, np.array(second).shape
+      print "FIRST", first, first.dtype
+      print "SECOND", second, second.dtype
+      raise e
 
 
 def arrays_equal(first, second, threshold=0.001):
@@ -83,6 +98,8 @@ def arrays_equal(first, second, threshold=0.001):
     return False
   if first.dtype is not second.dtype:
     return False
+  if first.size == 0 and second.size == 0:
+    return True
 
   if np.issubdtype(first.dtype, np.datetime64) or np.issubdtype(first.dtype, np.timedelta64):
 
