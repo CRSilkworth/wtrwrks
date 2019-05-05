@@ -4,39 +4,8 @@ import reversible_transforms.tanks.utils as ut
 import numpy as np
 
 
-def replace(a, mask, replace_with, type_dict=None, waterwork=None, name=None):
-  """Find the min of a np.array along one or more axes in a reversible manner.
-
-  Parameters
-  ----------
-  a : Tube, np.ndarray or None
-      The array to get the min of.
-  axis : Tube, int, tuple or None
-      The axis (axes) along which to take the min.
-  type_dict : dict({
-    keys - ['a', 'b']
-    values - type of argument 'a' type of argument 'b'.
-  })
-    The types of data which will be passed to each argument. Needed when the types of the inputs cannot be infered from the arguments a and b (e.g. when they are None).
-
-  waterwork : Waterwork or None
-    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
-  name : str or None
-      The name of the tank (operation) within the waterwork
-
-  Returns
-  -------
-  Tank
-      The created add tank (operation) object.
-
-  """
-  type_dict = ut.infer_types(type_dict, a=a, mask=mask, replace_with=replace_with)
-
-  return Replace(a=a, mask=mask, replace_with=replace_with, waterwork=waterwork, name=name)
-
-
 class Replace(ta.Tank):
-  """The min class. Handles 'a's of np.ndarray type.
+  """The Replace class. Handles 'a's of np.ndarray type.
 
   Attributes
   ----------
@@ -64,19 +33,23 @@ class Replace(ta.Tank):
     Parameters
     ----------
     a : np.ndarray
-      The array to take the min over.
-    axis : int, tuple
-      The axis (axes) to take the min over.
+      The array to replace the values of.
+    mask : np.ndarray
+      An array of booleans which define which values of a are to be replaced.
+    replace_with : np.ndarray
+      The values to replace those values of 'a' which have a corresponding 'True' in the mask.
 
     Returns
     -------
     dict(
       'target': np.ndarray
-        The result of the min operation.
-      'a': np.ndarray
-        The original a
-      'axis': in, tuple
-        The axis (axes) to take the min over.
+        The inputted array 'a' with all the proper values replaced.
+      'mask' : np.ndarray
+        An array of booleans which define which values of a are to be replaced.
+      'replaced_vals' : np.ndarray
+        The values that were overwritten.
+      'replace_with_shape' : tuple
+        The shape of the inputted 'replaced_with' array.
     )
 
     """
@@ -93,19 +66,23 @@ class Replace(ta.Tank):
     Parameters
     ----------
     target: np.ndarray
-      The result of the min operation.
-    a : np.ndarray
-      The array to take the min over.
-    axis : int, tuple
-      The axis (axes) to take the min over.
+      The inputted array a with all the proper values replaced.
+    mask : np.ndarray
+      An array of booleans which define which values of a are to be replaced.
+    replaced_vals : np.ndarray
+      The values that were overwritten.
+    replace_with_shape : tuple
+      The shape of the inputted replaced_with array.
 
     Returns
     -------
     dict(
-      'a': np.ndarray
-        The original a
-      'axis': in, tuple
-        The axis (axes) to take the min over.
+      'a' : np.ndarray
+        The array to replace the values of.
+      'mask' : np.ndarray
+        An array of booleans which define which values of a are to be replaced.
+      'replace_with' : np.ndarray
+        The values to replace those values of 'a' which have a corresponding 'True' in the mask.
     )
 
     """
@@ -123,4 +100,5 @@ class Replace(ta.Tank):
     if num_elements == 1:
       replace_with = replace_with.flatten()[0].reshape(replace_with_shape)
 
+    a = a.astype(replaced_vals.dtype)
     return {'a': a, 'mask': mask, 'replace_with': replace_with}

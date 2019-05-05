@@ -1,6 +1,6 @@
 import unittest
 import reversible_transforms.utils.test_helpers as th
-import reversible_transforms.tanks.bool as bo
+import reversible_transforms.tanks.tank_defs as td
 import numpy as np
 
 
@@ -9,7 +9,7 @@ class TestBools(th.TestTank):
   def test_isnan(self):
     a = np.array([[0, np.nan], [2, 3], [4, np.nan], [1, 0]])
     self.pour_pump(
-      bo.isnan,
+      td.isnan,
       {
         'a': a,
       },
@@ -28,7 +28,7 @@ class TestBools(th.TestTank):
     a[1, 1, 1] = np.nan
 
     self.pour_pump(
-      bo.isnan,
+      td.isnan,
       {
         'a': a,
       },
@@ -44,7 +44,7 @@ class TestBools(th.TestTank):
     b = np.array([[0, 1], [2, 3], [4, 5], [1, 0]])
     target = np.ones(a.shape).astype(bool)
     self.pour_pump(
-      bo.equal,
+      td.equal,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -54,7 +54,7 @@ class TestBools(th.TestTank):
     b = np.arange(24).reshape((4, 3, 2)).astype(np.float64)
     target = np.ones(a.shape).astype(bool)
     self.pour_pump(
-      bo.equal,
+      td.equal,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -63,7 +63,7 @@ class TestBools(th.TestTank):
     b[0, 0, 1] = b[0, 0, 1] + 1
     target[0, 0, 1] = False
     self.pour_pump(
-      bo.equal,
+      td.equal,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -74,7 +74,7 @@ class TestBools(th.TestTank):
     b = np.array([[0, 1], [2, 3], [4, 5], [1, 0]]) - 1
     target = np.ones(a.shape).astype(bool)
     self.pour_pump(
-      bo.greater,
+      td.greater,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -84,7 +84,7 @@ class TestBools(th.TestTank):
     b = np.arange(24).reshape((4, 3, 2)).astype(np.float64) - 1
     target = np.ones(a.shape).astype(bool)
     self.pour_pump(
-      bo.greater,
+      td.greater,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -93,7 +93,7 @@ class TestBools(th.TestTank):
     b[0, 0, 1] = b[0, 0, 1] + 1
     target[0, 0, 1] = False
     self.pour_pump(
-      bo.greater,
+      td.greater,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -104,7 +104,7 @@ class TestBools(th.TestTank):
     b = np.array([[0, 1], [2, 3], [4, 5], [1, 0]])
     target = np.ones(a.shape).astype(bool)
     self.pour_pump(
-      bo.greater_equal,
+      td.greater_equal,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -113,7 +113,7 @@ class TestBools(th.TestTank):
     b = np.array([[0, 1], [2, 3], [4, 5], [1, 0]])
     target = np.ones(a.shape).astype(bool)
     self.pour_pump(
-      bo.greater_equal,
+      td.greater_equal,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -123,7 +123,7 @@ class TestBools(th.TestTank):
     b = np.arange(24).reshape((4, 3, 2)).astype(np.float64)
     target = np.ones(a.shape).astype(bool)
     self.pour_pump(
-      bo.greater_equal,
+      td.greater_equal,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -132,7 +132,7 @@ class TestBools(th.TestTank):
     b[0, 0, 1] = b[0, 0, 1] + 1
     target[0, 0, 1] = False
     self.pour_pump(
-      bo.greater_equal,
+      td.greater_equal,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -143,7 +143,7 @@ class TestBools(th.TestTank):
     b = np.array([[0, 1], [2, 3], [4, 5], [1, 0]]) + 1
     target = np.ones(a.shape).astype(bool)
     self.pour_pump(
-      bo.less,
+      td.less,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -153,7 +153,7 @@ class TestBools(th.TestTank):
     b = np.arange(24).reshape((4, 3, 2)).astype(np.float64) + 1
     target = np.ones(a.shape).astype(bool)
     self.pour_pump(
-      bo.less,
+      td.less,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -162,7 +162,7 @@ class TestBools(th.TestTank):
     b[0, 0, 1] = b[0, 0, 1] - 1
     target[0, 0, 1] = False
     self.pour_pump(
-      bo.less,
+      td.less,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -173,7 +173,7 @@ class TestBools(th.TestTank):
     b = np.array([[0, 1], [2, 3], [4, 5], [1, 0]])
     target = np.ones(a.shape).astype(bool)
     self.pour_pump(
-      bo.less_equal,
+      td.less_equal,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -182,7 +182,7 @@ class TestBools(th.TestTank):
     b = np.array([[0, 1], [2, 3], [4, 5], [1, 0]])
     target = np.ones(a.shape).astype(bool)
     self.pour_pump(
-      bo.less_equal,
+      td.less_equal,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -192,7 +192,7 @@ class TestBools(th.TestTank):
     b = np.arange(24).reshape((4, 3, 2)).astype(np.float64)
     target = np.ones(a.shape).astype(bool)
     self.pour_pump(
-      bo.less_equal,
+      td.less_equal,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}
@@ -201,7 +201,7 @@ class TestBools(th.TestTank):
     b[0, 0, 1] = b[0, 0, 1] - 1
     target[0, 0, 1] = False
     self.pour_pump(
-      bo.less_equal,
+      td.less_equal,
       {'a': a, 'b': b},
       {'a': a, 'b': b, 'target': target},
       type_dict={'a': np.ndarray, 'b': np.ndarray}

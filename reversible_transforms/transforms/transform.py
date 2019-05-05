@@ -1,6 +1,7 @@
 import pandas as pd
 import reversible_transforms.utils.dir_functions as d
 
+
 class Transform(object):
   """Abstract class used to create mappings from raw to vectorized, normalized data and vice versa.
 
@@ -44,9 +45,6 @@ class Transform(object):
         setattr(self, key, kwargs[key])
       else:
         setattr(self, key, attribute_dict[key])
-
-    if self.col_index is None:
-      raise ValueError("Must specify a column index.")
 
   def row_to_vector(self, row):
     """Abstract method to be defined by the subclasses."""

@@ -10,22 +10,63 @@ import shutil
 import tempfile
 import reversible_transforms.waterworks.waterwork as wa
 
-class TestTank (unittest.TestCase):
+
+class WWTest(unittest.TestCase):
   def setUp(self):
       self.temp_dir = tempfile.mkdtemp()
 
   def tearDown(self):
       shutil.rmtree(self.temp_dir)
 
-  def pour_pump(self, tank_func, input_dict, output_dict, type_dict=None):
+  def equals(self, first, second, test_type=True):
+    if type(first) in (np.dtype, type(int)):
+      pass
+    elif type(first) is list:
+      self.assertEqual(len(first), len(second))
+      for f, s in zip(first, second):
+        try:
+          if type(f) is np.ndarray:
+            self._arrays_equal(f, s)
+          elif type(f) is float and np.isnan(f):
+            self.assertTrue(np.isnan(s))
+          else:
+            self.assertEqual(f, s)
+        except(ValueError, AttributeError, AssertionError) as e:
+          print "FIRST", f, type(f)
+          print "SECOND", s, type(s)
+          raise e
+    elif type(first) is not np.ndarray:
+      try:
+        self.assertEqual(first, second)
+        if test_type:
+          self.assertTrue(type(first) is type(second))
+      except (ValueError, AssertionError) as e:
+        print "FIRST", first, type(first)
+        print "SECOND", second, type(second)
+        raise e
+    else:
+      self._arrays_equal(first, second, test_type=test_type)
+
+  def _arrays_equal(self, first, second, test_type=True):
+    try:
+      self.assertTrue(arrays_equal(first, second, test_type=test_type))
+    except AssertionError as e:
+      print 'SHAPES', first.shape, np.array(second).shape
+      print "FIRST", first, first.dtype
+      print "SECOND", second, np.array(second).dtype
+      raise e
+
+
+class TestTank (WWTest):
+  def pour_pump(self, tank_func, input_dict, output_dict, type_dict=None, test_type=True):
     with wa.Waterwork() as ww:
       # test eager
       tank = tank_func(type_dict=None, **input_dict)
       out_dict = {t: v.val for t, v in tank.get_tubes().iteritems()}
-      self.assertEqual(out_dict.keys(), output_dict.keys())
+      self.assertEqual(sorted(out_dict.keys()), sorted(output_dict.keys()))
       for key in out_dict:
         try:
-          self.equals(out_dict[key], output_dict[key])
+          self.equals(out_dict[key], output_dict[key], test_type=test_type)
         except (ValueError, AssertionError) as e:
           print 'Pour direction, key:', key
           raise e
@@ -34,7 +75,32 @@ class TestTank (unittest.TestCase):
     out_dict = tank.pour(**input_dict)
     out_dict = {t: v for t, v in out_dict.iteritems()}
 
-    self.assertEqual(out_dict.keys(), output_dict.keys())
+    self.assertEqual(sorted(out_dict.keys()), sorted(output_dict.keys()))
+    for key in out_dict:
+      try:
+        self.equals(out_dict[key], output_dict[key], test_type=test_type)
+      except (ValueError, AssertionError) as e:
+        print 'Pour direction, key:', key
+        raise e
+
+    in_dict = tank.pump(**out_dict)
+
+    self.assertEqual(sorted(in_dict.keys()), sorted(input_dict.keys()))
+    for key in in_dict:
+      try:
+        self.equals(in_dict[key], input_dict[key], test_type=test_type)
+      except (ValueError, AssertionError) as e:
+        print 'Pump direction, key:', key
+        raise e
+
+
+class TestTransform(WWTest):
+  def pour_pump(self, trans, array, output_dict):
+    trans.calc_global_values(array)
+    tap_dict = trans.pour(array)
+    out_dict = {str(k): v for k, v in tap_dict.iteritems()}
+
+    self.assertEqual(sorted(out_dict.keys()), sorted(output_dict.keys()))
     for key in out_dict:
       try:
         self.equals(out_dict[key], output_dict[key])
@@ -42,61 +108,30 @@ class TestTank (unittest.TestCase):
         print 'Pour direction, key:', key
         raise e
 
-    in_dict = tank.pump(**out_dict)
+    original = trans.pump(**out_dict)
 
-    self.assertEqual(in_dict.keys(), input_dict.keys())
-    for key in in_dict:
-      try:
-        self.equals(in_dict[key], input_dict[key])
-      except (ValueError, AssertionError) as e:
-        print 'Pump direction, key:', key
-        raise e
-
-  def equals(self, first, second):
-    if type(first) in (np.dtype, type(int)):
-      pass
-    elif type(first) is list:
-        self.assertEqual(len(first), len(second))
-        for f, s in zip(first, second):
-          try:
-            if type(f) is np.ndarray:
-              self._arrays_equal(f, s)
-            else:
-              self.assertEqual(f, s)
-          except(ValueError, AttributeError, AssertionError) as e:
-            print "FIRST", f, type(f)
-            print "SECOND", s, type(s)
-            raise e
-    elif type(first) is not np.ndarray:
-      try:
-        self.assertEqual(first, second)
-        self.assertTrue(type(first) is type(second))
-      except (ValueError, AssertionError) as e:
-        print "FIRST", first, type(first)
-        print "SECOND", second, type(second)
-        raise e
-    else:
-      self._arrays_equal(first, second)
-
-  def _arrays_equal(self, first, second):
     try:
-      self.assertTrue(arrays_equal(first, second))
-    except AssertionError as e:
-      error_str = "Arrays not equal"
-      print 'SHAPES', first.shape, np.array(second).shape
-      print "FIRST", first, first.dtype
-      print "SECOND", second, second.dtype
+      self.equals(original, array)
+    except (ValueError, AssertionError) as e:
       raise e
 
+  def write_read(self, trans, temp_dir):
+    temp_file_path = os.path.join(temp_dir, 'temp.pickle')
+    trans.save_to_file(temp_file_path)
+    cls = trans.__class__
+    trans = cls(from_file=temp_file_path)
 
-def arrays_equal(first, second, threshold=0.001):
+    return trans
+
+
+def arrays_equal(first, second, threshold=0.001, test_type=True):
   first = np.array(first, copy=True)
   second = np.array(second, copy=True)
 
   # Check that the arrays are the same shape.
   if first.shape != second.shape:
     return False
-  if first.dtype is not second.dtype:
+  if test_type and first.dtype != second.dtype:
     return False
   if first.size == 0 and second.size == 0:
     return True

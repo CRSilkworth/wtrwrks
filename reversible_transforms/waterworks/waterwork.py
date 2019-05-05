@@ -1,5 +1,5 @@
 import reversible_transforms.waterworks.globs as gl
-import reversible_transforms.waterworks.tank as ta
+import reversible_transforms.waterworks.waterwork_part as wp
 import os
 import pprint
 
@@ -43,6 +43,7 @@ class Waterwork(object):
     self.slots = {}
     self.tanks = {}
     self.taps = {}
+    self.placeholders = {}
     self.name = name
 
   def __enter__(self):
@@ -65,48 +66,8 @@ class Waterwork(object):
         The tanks ordered in such a way that they are guaranteed to have all the information to perform the operation.
 
     """
-    # tank_order is the variable to be returned, tanks is the list of tanks to
-    # be consumed in the while look and visited is a set of tanks to ensure no
-    # double including of tanks occurs.
-    tank_order = []
-    tanks = []
-    visited = set()
-
-    # Starting from the taps (i.e. unconnected tubes) add them to the variables
-    # defined above, skipping over already visited ones.
-    for tube_name in self._sorted_tap_names():
-      tank = self.taps[tube_name].tank
-      if tank in visited:
-        continue
-      visited.add(tank)
-      tank_order.insert(0, tank)
-      tanks.append(tank)
-
-    # While there are still tanks to be consumed.
-    while tanks:
-      tank = tanks.pop()
-
-      # Go through each of the slots of the current tank, to get to the
-      # 'parent_tank', i.e. the tank that has outputs which are needed for the
-      # current tanks inputs. Put the parent tank before the current one.
-      for slot_name in tank.slots:
-        slot = tank.slots[slot_name]
-
-        # If the slot is not connected to any tube (i.e. is a funnel) continue.
-        if slot.tube is None:
-          continue
-
-        parent_tank = slot.tube.tank
-
-        # Skip if already visited.
-        if parent_tank in visited:
-          continue
-
-        tanks.append(parent_tank)
-        tank_order.insert(0, parent_tank)
-        visited.add(parent_tank)
-
-    return tank_order
+    tanks = sorted([self.tanks[t] for t in self.tanks])
+    return sorted(tanks, cmp=lambda a, b: 1 if b in a.get_pour_dependencies() else -1)
 
   def _pump_tank_order(self):
     """Get the order to calculate the tanks in the pump direction.
@@ -117,47 +78,8 @@ class Waterwork(object):
         The tanks ordered in such a way that they are guaranteed to have all the information to perform the operation.
 
     """
-    # tank_order is the variable to be returned, tanks is the list of tanks to
-    # be consumed in the while look and visited is a set of tanks to ensure no
-    # double including of tanks occurs.
-    tank_order = []
-    tanks = []
-    visited = set()
-
-    # Starting from the funnels (i.e. unconnected slots) add them to the variables
-    # defined above, skipping over already visited ones.
-    for slot_name in self._sorted_funnel_names():
-      tank = self.funnels[slot_name].tank
-      if tank in visited:
-        continue
-      visited.add(tank)
-      tank_order.insert(0, tank)
-      tanks.append(tank)
-
-    while tanks:
-      tank = tanks.pop()
-
-      # Go through each of the tubes of the current tank, to get to the
-      # 'parent_tank', i.e. the tank that has outputs which are needed for the
-      # current tanks inputs. Put the parent tank before the current one.
-      for tube_name in tank.tubes:
-        tube = tank.tubes[tube_name]
-
-        # If the tube is not connected to any slot (i.e. is a tap) continue.
-        if tube.slot is None:
-          continue
-
-        parent_tank = tube.slot.tank
-
-        # Skip if already visited.
-        if parent_tank in visited:
-          continue
-
-        tanks.append(parent_tank)
-        tank_order.insert(0, parent_tank)
-        visited.add(parent_tank)
-
-    return tank_order
+    tanks = sorted([self.tanks[t] for t in self.tanks])
+    return sorted(tanks, cmp=lambda a, b: 0 if b in a.get_pump_dependencies() else -1)
 
   def _sorted_tap_names(self):
     """Sort all the taps in such a way that the taps corresponding to tanks that have none of their tubes being consumed by another tank appear first."""
@@ -187,9 +109,7 @@ class Waterwork(object):
         The slot object
 
     """
-    if issubclass(type(tank), ta.Tank):
-      pass
-    elif type(tank) in (str, unicode):
+    if type(tank) in (str, unicode):
       tank = self.tanks[tank]
 
     return self.slots[str((tank.name, key))]
@@ -210,15 +130,13 @@ class Waterwork(object):
         The slot object.
 
     """
-    if issubclass(type(tank), ta.Tank):
-      pass
-    elif type(tank) in (str, unicode):
+    if type(tank) in (str, unicode):
       tank = self.tanks[tank]
 
     return self.tubes[str((tank.name, key))]
 
   def merge(self, other, join_dict, name='merged'):
-    """Create a new waterwork by combining first self and then other (in the pour direction).
+    """Create a new waterwork by merging other into self(in the pour direction).
 
     Parameters
     ----------
@@ -238,6 +156,8 @@ class Waterwork(object):
         The waterwork formed by merging self and other together.
 
     """
+    import reversible_transforms.waterworks.placeholder as pl
+
     if self.name == other.name:
       raise ValueError("Cannot merge two waterworks with the same name.")
 
@@ -248,7 +168,9 @@ class Waterwork(object):
         tube.slot = slot
 
         del self.taps[tube.name]
-        del other.funnels[slot.name]
+
+        if type(tube) is not pl.Placeholder:
+          del other.funnels[slot.name]
 
       # Go throuh each self's tanks and create a copy for the new waterwork
       for w in [self, other]:
@@ -287,115 +209,137 @@ class Waterwork(object):
 
     return ww
 
-  # def merge(self, other, join_dict, name='merged'):
-  #   """Create a new waterwork by combining first self and then other (in the pour direction).
-  #
-  #   Parameters
-  #   ----------
-  #   other : waterwork
-  #       The waterwork to merge with self to create a new waterwork object.
-  #   join_dict : dict(
-  #     keys - slots from other
-  #     values - tubes from self
-  #   })
-  #       The dictionary that describes the connections between self and other.
-  #   name : str
-  #       The name of the new waterwork to be created.
-  #
-  #   Returns
-  #   -------
-  #   waterwork
-  #       The waterwork formed by merging self and other together.
-  #
-  #   """
-  #   if self.name == other.name:
-  #     raise ValueError("Cannot merge two waterworks with the same name.")
-  #
-  #   with Waterwork() as ww:
-  #     # Go throuh each self's tanks and create a copy for the new waterwork
-  #     tank_order = self._pour_tank_order()
-  #     for tank in tank_order:
-  #
-  #       # Create the input_dict to feed to the tank's constructor by taking
-  #       # each of self's tank's slots, finding the corresponding tube (if
-  #       # applicable) and creating a new tube with all the same parameters.
-  #       input_dict = {}
-  #       for slot_key in tank.slots:
-  #         slot = tank.slots[slot_key]
-  #         if slot.tube is None:
-  #           input_dict[slot_key] = None
-  #         else:
-  #           parent_tank_name = os.path.join(name, slot.tube.tank.name)
-  #           new_tube_name = str((parent_tank_name, slot.tube.key))
-  #           input_dict[slot_key] = ww.tubes[new_tube_name]
-  #
-  #       # Create the tank using input_dict defined above and then set all the
-  #       # vals of the slots and tubes.
-  #       cls = tank.__class__
-  #       new_tank = cls(name=os.path.join(name, tank.name), **input_dict)
-  #       for slot_key in tank.slots:
-  #         new_tank.slots[slot_key].set_val(tank.slots[slot_key].val)
-  #       for tube_key in tank.tubes:
-  #         new_tank.tubes[tube_key].set_val(tank.tubes[tube_key].val)
-  #
-  #     # Go throuh each other's tanks and create a copy for the new waterwork
-  #     tank_order = other._pour_tank_order()
-  #     for tank in tank_order:
-  #
-  #       # Create the input_dict to feed to the tank's constructor by taking
-  #       # each of other's tank's slots, finding the corresponding tube, whether it
-  #       # be from within other or from self, as defined by join_dict (if
-  #       # applicable) and creating a new tube with all the same parameters.
-  #       input_dict = {}
-  #       for slot_key in tank.slots:
-  #         slot = tank.slots[slot_key]
-  #         if slot in join_dict:
-  #           parent_tank_name = os.path.join(name, join_dict[slot].tank.name)
-  #           new_tube_name = str((parent_tank_name, join_dict[slot].key))
-  #           input_dict[slot_key] = ww.tubes[new_tube_name]
-  #         elif slot.tube is None:
-  #           input_dict[slot_key] = None
-  #         else:
-  #           parent_tank_name = os.path.join(name, slot.tube.tank.name)
-  #           new_tube_name = str((parent_tank_name, slot.tube.key))
-  #           input_dict[slot_key] = ww.tubes[new_tube_name]
-  #
-  #       # Create the tank using input_dict defined above and then set all the
-  #       # vals of the slots and tubes.
-  #       cls = tank.__class__
-  #       new_tank = cls(name=os.path.join(name, tank.name), **input_dict)
-  #       for slot_key in tank.slots:
-  #         new_tank.slots[slot_key].set_val(tank.slots[slot_key].val)
-  #       for tube_key in tank.tubes:
-  #         new_tank.tubes[tube_key].set_val(tank.tubes[tube_key].val)
-  #
-  #   return ww
+  def combine(self, other, join_dict, name='merged'):
+    """Create a new waterwork by combining first self and then other (in the pour direction).
 
-  def pour(self, funnel_dict):
+    Parameters
+    ----------
+    other : waterwork
+        The waterwork to merge with self to create a new waterwork object.
+    join_dict : dict(
+      keys - slots from other
+      values - tubes from self
+    })
+        The dictionary that describes the connections between self and other.
+    name : str
+        The name of the new waterwork to be created.
+
+    Returns
+    -------
+    waterwork
+        The waterwork formed by merging self and other together.
+
+    """
+    import reversible_transforms.waterworks.placeholder as pl
+
+    if self.name == other.name:
+      raise ValueError("Cannot merge two waterworks with the same name.")
+
+    with Waterwork() as ww:
+      # Go throuh each self's tanks and create a copy for the new waterwork
+      tank_order = self._pour_tank_order()
+      for tank in tank_order:
+
+        # Create the input_dict to feed to the tank's constructor by taking
+        # each of self's tank's slots, finding the corresponding tube (if
+        # applicable) and creating a new tube with all the same parameters.
+        input_dict = {}
+        for slot_key in tank.slots:
+          slot = tank.slots[slot_key]
+          if type(slot.tube) is pl.Placeholder:
+            input_dict[slot_key] = pl.Placeholder(
+              val_type=slot.tube.val_type,
+              val_dtype=slot.tube.val_dtype,
+              val=slot.tube.val
+            )
+          else:
+            parent_tank_name = os.path.join(name, slot.tube.tank.name)
+            new_tube_name = str((parent_tank_name, slot.tube.key))
+            input_dict[slot_key] = ww.tubes[new_tube_name]
+
+        # Create the tank using input_dict defined above and then set all the
+        # vals of the slots and tubes.
+        cls = tank.__class__
+        new_tank = cls(name=os.path.join(name, tank.name), **input_dict)
+        for slot_key in tank.slots:
+          new_tank.slots[slot_key].set_val(tank.slots[slot_key].val)
+        for tube_key in tank.tubes:
+          new_tank.tubes[tube_key].set_val(tank.tubes[tube_key].val)
+
+      # Go throuh each other's tanks and create a copy for the new waterwork
+      tank_order = other._pour_tank_order()
+      for tank in tank_order:
+
+        # Create the input_dict to feed to the tank's constructor by taking
+        # each of other's tank's slots, finding the corresponding tube, whether it
+        # be from within other or from self, as defined by join_dict (if
+        # applicable) and creating a new tube with all the same parameters.
+        input_dict = {}
+        for slot_key in tank.slots:
+          slot = tank.slots[slot_key]
+          if slot in join_dict:
+            parent_tank_name = os.path.join(name, join_dict[slot].tank.name)
+            new_tube_name = str((parent_tank_name, join_dict[slot].key))
+            input_dict[slot_key] = ww.tubes[new_tube_name]
+          elif type(slot.tube) is pl.Placeholder:
+            input_dict[slot_key] = pl.Placeholder(
+              val_type=slot.tube.val_type,
+              val_dtype=slot.tube.val_dtype,
+              val=slot.tube.val
+            )
+          else:
+            parent_tank_name = os.path.join(name, slot.tube.tank.name)
+            new_tube_name = str((parent_tank_name, slot.tube.key))
+            input_dict[slot_key] = ww.tubes[new_tube_name]
+
+        # Create the tank using input_dict defined above and then set all the
+        # vals of the slots and tubes.
+        cls = tank.__class__
+        new_tank = cls(name=os.path.join(name, tank.name), **input_dict)
+        for slot_key in tank.slots:
+          new_tank.slots[slot_key].set_val(tank.slots[slot_key].val)
+        for tube_key in tank.tubes:
+          new_tank.tubes[tube_key].set_val(tank.tubes[tube_key].val)
+
+    return ww
+
+  def pour(self, funnel_dict, tuple_keys=False):
     """Run all the operations of the waterwork in the pour(or forward) direction.
 
     Parameters
     ----------
     funnel_dict : dict(
-      keys - Slot objects. The 'funnels' (i.e. unconnected slots) of the waterwork.
+      keys - Slot objects or Placeholder objects. The 'funnels' (i.e. unconnected slots) of the waterwork.
       values - valid input data types
     )
         The inputs to the waterwork's full pour function.
-
+    tuple_keys : bool
+      Whether or not the return dictionary should have tuples as keys rather than tubes.
     Returns
     -------
     dict(
-      keys - Tube objects. The 'taps' (i.e. unconnected tubes) of the waterwork.
+      keys - Tube objects, (or tuples if tuple_keys set to True). The 'taps' (i.e. unconnected tubes) of the waterwork.
     )
         The outputs of the waterwork's full pour function
 
     """
+    import reversible_transforms.waterworks.placeholder as pl
+
     # Set all the values of the funnels from the inputted arguments.
-    for funnel in funnel_dict:
-      funnel_obj = funnel
-      if type(funnel) in (tuple, str, unicode):
-        funnel_obj = self.funnels[str(funnel)]
-      funnel_obj.set_val(funnel_dict[funnel])
+    for ph in funnel_dict:
+      ph_obj = ph
+      if type(ph) in (tuple, str, unicode) and str(ph) in self.placeholders:
+        ph_obj = self.placeholders[str(ph)]
+      elif type(ph) in (tuple, str, unicode) and str(ph) in self.funnels:
+        ph_obj = self.funnels[str(ph)]
+      elif isinstance(ph, wp.WaterworkPart):
+        pass
+      else:
+        raise ValueError(str(type(ph)) + ' is not a supported form of input into ')
+
+      ph_obj.set_val(funnel_dict[ph])
+      if type(ph_obj) is pl.Placeholder and ph_obj.slot is not None:
+        ph_obj.slot.set_val(funnel_dict[ph])
 
     # Check that all funnels have a value
     for funnel in self.funnels:
@@ -405,6 +349,7 @@ class Waterwork(object):
     # Run all the tanks (operations) in the pour direction, filling all slots'
     # and tubes' val attributes as you go.
     tanks = self._pour_tank_order()
+    # print [str(t) for t in tanks]
     for tank in tanks:
       kwargs = {k: tank.slots[k].get_val() for k in tank.slots}
       tube_dict = tank.pour(**kwargs)
@@ -419,11 +364,14 @@ class Waterwork(object):
     r_dict = {}
     for tap_name in self.taps:
       tap = self.taps[tap_name]
-      r_dict[tap] = tap.get_val()
+      if not tuple_keys:
+        r_dict[tap] = tap.get_val()
+      else:
+        r_dict[tap.get_tuple()] = tap.get_val()
 
     return r_dict
 
-  def pump(self, tap_dict):
+  def pump(self, tap_dict, tuple_keys=False):
     """Run all the operations of the waterwork in the pump (or backward) direction.
 
     Parameters
@@ -432,7 +380,8 @@ class Waterwork(object):
       keys - Tube objects. The 'taps' (i.e. unconnected tubes) of the waterwork.
     )
         The inputs of the waterwork's full pump function
-
+    tuple_keys : bool
+      Whether or not the return dictionary should have tuples as keys rather than tubes.
     Returns
     -------
     dict(
@@ -456,21 +405,30 @@ class Waterwork(object):
 
     # Run all the tanks (operations) in the pump direction, filling all slots'
     # and tubes' val attributes as you go.
-    tanks = self._pour_tank_order()
+    tanks = self._pump_tank_order()
     for tank in tanks:
-      kwargs = {k: tank.slots[k].get_val() for k in tank.slots}
-      tube_dict = tank.pour(**kwargs)
+      kwargs = {k: tank.tubes[k].get_val() for k in tank.tubes}
+      slot_dict = tank.pump(**kwargs)
 
-      for key in tube_dict:
-        slot = tank.tubes[key].slot
+      for key in slot_dict:
+        tube = tank.slots[key].tube
 
-        if slot is not None:
-          slot.set_val(tube_dict[key])
+        if tube is not None:
+          tube.set_val(slot_dict[key])
 
     # Create the dictionary to return
     r_dict = {}
     for funnel_name in self.funnels:
       funnel = self.funnels[funnel_name]
-      r_dict[funnel] = funnel.get_val()
+      if not tuple_keys:
+        r_dict[funnel] = funnel.get_val()
+      else:
+        r_dict[funnel.get_tuple()] = funnel.get_val()
 
     return r_dict
+
+  def clear_vals(self):
+    """Set all the slots, tubes and placeholder values back to None """
+    for d in [self.slots, self.tubes, self.placeholders]:
+      for key in d:
+        d[key].set_val(None)

@@ -54,9 +54,9 @@ class Split(ta.Tank):
 
   slot_keys = ['a', 'indices', 'axis']
   tube_dict = {
-    'target': list,
-    'indices': np.ndarray,
-    'axis': int
+    'target': (list, None),
+    'indices': (np.ndarray, np.int64),
+    'axis': (int, None)
   }
 
   def _pour(self, a, indices, axis):

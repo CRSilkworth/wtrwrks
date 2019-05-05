@@ -16,7 +16,7 @@ class Slot(wp.WaterworkPart):
   name : str
     The string used to identify the slot within the entire waterwork. Must be unique among all other slots of this waterwork.
   """
-  def __init__(self, tank, key, val_type=None, val=None, tube=None):
+  def __init__(self, tank, key, val_type=None, val_dtype=None, val=None, tube=None):
     """Initialize the slot.
     Attributes
     ----------
@@ -35,6 +35,7 @@ class Slot(wp.WaterworkPart):
     self.name = str((tank.name, key))
     self.val = val
     self.val_type = val_type
+    self.val_dtype = val_dtype
 
     super(Slot, self).__init__(tank.waterwork, self.name)
     if self.name in self.waterwork.slots:
@@ -52,6 +53,10 @@ class Slot(wp.WaterworkPart):
     """Get a string of the name of the slot."""
     return str((str(self.tank), str(self.key)))
 
+  def get_tuple(self):
+    """Get a tuple that describes the slot."""
+    return (self.tank.name, self.key)
+
   def get_val(self):
     """Get the value stored in the slot."""
     return self.val
@@ -59,3 +64,19 @@ class Slot(wp.WaterworkPart):
   def set_val(self, val):
     """Set the value stored in the slot."""
     self.val = val
+
+  def set_name(self, name):
+    """Set the name of the slot within the waterwork."""
+    old_name = self.name
+    self.name = name
+    if type(name) not in (str, unicode):
+      raise TypeError("'name' must be of type str or unicode. Got " + str(type(name)))
+    if self.name in self.waterwork.slots:
+      raise ValueError(self.name + " already defined as slot. Choose a different name.")
+
+    del self.waterwork.slots[old_name]
+    self.waterwork.slots[self.name] = self
+
+    if old_name in self.waterwork.funnels:
+      del self.waterwork.funnels[old_name]
+      self.waterwork.funnels[self.name] = self

@@ -1,6 +1,6 @@
 import unittest
 import reversible_transforms.utils.test_helpers as th
-import reversible_transforms.tanks.transpose as tr
+import reversible_transforms.tanks.tank_defs as td
 import numpy as np
 
 
@@ -9,7 +9,7 @@ class TestTranspose(th.TestTank):
   def test_two_d(self):
     a = np.array([[0, 1], [2, 3], [4, 5]])
     self.pour_pump(
-      tr.transpose,
+      td.transpose,
       {
         'a': a,
         'axes': [1, 0]
@@ -24,7 +24,7 @@ class TestTranspose(th.TestTank):
   def test_three_d(self):
     a = np.arange(24).reshape((4, 3, 2, 1))
     self.pour_pump(
-      tr.transpose,
+      td.transpose,
       {
         'a': a,
         'axes': (0, 1, 3, 2)
@@ -37,7 +37,7 @@ class TestTranspose(th.TestTank):
     )
     a = np.arange(24).reshape((4, 3, 2, 1))
     self.pour_pump(
-      tr.transpose,
+      td.transpose,
       {
         'a': a,
         'axes': (3, 0, 1, 2)
@@ -50,7 +50,7 @@ class TestTranspose(th.TestTank):
     )
 
     self.pour_pump(
-      tr.transpose,
+      td.transpose,
       {
         'a': a,
         'axes': (0, 3, 1, 2)

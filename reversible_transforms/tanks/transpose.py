@@ -1,42 +1,10 @@
 import reversible_transforms.waterworks.waterwork_part as wp
 import reversible_transforms.waterworks.tank as ta
-import reversible_transforms.tanks.utils as ut
 import numpy as np
 
 
-def transpose(a, axes, type_dict=None, waterwork=None, name=None):
-  """Find the min of a np.array along one or more axes in a reversible manner.
-
-  Parameters
-  ----------
-  a : Tube, np.ndarray or None
-      The array to get the min of.
-  axes : Tube, int, tuple or None
-      The axes (axes) along which to take the min.
-  type_dict : dict({
-    keys - ['a', 'b']
-    values - type of argument 'a' type of argument 'b'.
-  })
-    The types of data which will be passed to each argument. Needed when the types of the inputs cannot be infered from the arguments a and b (e.g. when they are None).
-
-  waterwork : Waterwork or None
-    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
-  name : str or None
-      The name of the tank (operation) within the waterwork
-
-  Returns
-  -------
-  Tank
-      The created add tank (operation) object.
-
-  """
-  type_dict = ut.infer_types(type_dict, a=a, axes=axes)
-
-  return Transpose(a=a, axes=axes, waterwork=waterwork, name=name)
-
-
 class Transpose(ta.Tank):
-  """The min class. Handles 'a's of np.ndarray type.
+  """The transpose class. Handles 'a's of np.ndarray type.
 
   Attributes
   ----------
@@ -57,14 +25,14 @@ class Transpose(ta.Tank):
   }
 
   def _pour(self, a, axes):
-    """Execute the add in the pour (forward) direction .
+    """Transpose the array.
 
     Parameters
     ----------
     a : np.ndarray
       The array to take the min over.
     axes : int, tuple
-      The axes (axes) to take the min over.
+      The axes to switch.
 
     Returns
     -------
@@ -74,7 +42,7 @@ class Transpose(ta.Tank):
       'a': np.ndarray
         The original a
       'axes': in, tuple
-        The axes (axes) to take the min over.
+        The axes to switch.
     )
 
     """
@@ -83,7 +51,7 @@ class Transpose(ta.Tank):
     return {'target': np.transpose(a, axes=axes), 'axes': axes}
 
   def _pump(self, target, axes):
-    """Execute the add in the pump (backward) direction .
+    """transpose the array back to it's original shape.
 
     Parameters
     ----------
@@ -92,7 +60,7 @@ class Transpose(ta.Tank):
     a : np.ndarray
       The array to take the min over.
     axes : int, tuple
-      The axes (axes) to take the min over.
+      The axes to switch.
 
     Returns
     -------
@@ -100,7 +68,7 @@ class Transpose(ta.Tank):
       'a': np.ndarray
         The original a
       'axes': in, tuple
-        The axes (axes) to take the min over.
+        The axes to switch.
     )
 
     """

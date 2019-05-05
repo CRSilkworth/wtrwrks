@@ -1,9 +1,10 @@
 import reversible_transforms.waterworks.globs as gl
 import reversible_transforms.waterworks.waterwork_part as wp
+import reversible_transforms.waterworks.placeholder as pl
 import reversible_transforms.waterworks.slot as sl
 import reversible_transforms.waterworks.tube as tu
-import reversible_transforms.tanks.utils as ut
 import os
+import numpy as np
 
 
 class Tank(wp.WaterworkPart):
@@ -83,12 +84,28 @@ class Tank(wp.WaterworkPart):
     # tube with a non None val or are given a valid datum as input, then
     # eagerly run the tank's pour function and output the results to the tank's
     # tubes' vals.
+
     all_slots_filled = self._check_slots_filled(input_dict)
+
+    for key in input_dict:
+      # If data is directly inputted into the slot, then
+      # create a placeholder with it's value set to the data.
+      if type(input_dict[key]) is not pl.Placeholder and type(input_dict[key]) is not tu.Tube:
+        val_dtype = None if type(input_dict[key]) is not np.ndarray else input_dict[key].dtype
+
+        new_ph = pl.Placeholder(
+          val_type=type(input_dict[key]),
+          val_dtype=val_dtype,
+          val=input_dict[key],
+          waterwork=self.waterwork,
+          slot=self.slots[key]
+        )
+        self.slots[key].set_val(input_dict[key])
+        self.slots[key].tube = new_ph
+
     if all_slots_filled:
       input_dict = self._convert_tubes_to_vals(input_dict)
       self.pour(**input_dict)
-      for key in input_dict:
-        self.slots[key].set_val(input_dict[key])
 
   def __hash__(self):
     """Uniquely identify the tank among other tanks in the waterwork."""
@@ -130,7 +147,7 @@ class Tank(wp.WaterworkPart):
     # Otherwise return True.
     all_slots_filled = True
     for key in input_dict:
-      if input_dict[key] is None:
+      if type(input_dict[key]) is pl.Placeholder and input_dict[key].get_val() is None:
         all_slots_filled = False
         break
       if (
@@ -200,7 +217,7 @@ class Tank(wp.WaterworkPart):
 
     """
     for key in tube_dict:
-      tube = tu.Tube(self, key, tube_dict[key])
+      tube = tu.Tube(self, key, val_type=tube_dict[key][0], val_dtype=tube_dict[key][1])
       self.tubes[key] = tube
 
       waterwork.tubes[tube.name] = tube
@@ -251,22 +268,50 @@ class Tank(wp.WaterworkPart):
       slot = self.slots[key]
       tube = input_dict[key]
 
-      if type(tube) is not tu.Tube:
+      if type(tube) is not tu.Tube and type(tube) is not pl.Placeholder:
         continue
 
+      # If the tube was already used for another tank, then it'll have to be
+      # cloned.
       if tube.slot is not None:
+
+        # Save the slot in order to connect it to the clone tube later.
         other_slot = tube.slot
-        cl = clone(a=tube)
+        tube.slot = None
 
-        other_slot.tube = cl['b']
-        slot.tube = cl['a']
+        import reversible_transforms.tanks.tank_defs as td
+        c = td.clone(a=tube)
 
-      tube.slot = slot
-      slot.tube = tube
-      slot.val_type = tube.val_type
+        # Join the other slot to the 'b' tube of the clone tank
+        other_slot.tube = c['b']
+        c['b'].slot = other_slot
 
-      del waterwork.funnels[slot.name]
-      del waterwork.taps[tube.name]
+        # Join this slot to the 'a' tube of the clone tank
+        slot.tube = c['a']
+        c['a'].slot = slot
+        slot.val_type = c['a'].val_type
+        slot.val_dtype = c['a'].val_dtype
+
+        # Remove the newly created clone tupes from the taps, since they are
+        # immediately connected to slots.
+        del waterwork.taps[c['a'].name]
+        del waterwork.taps[c['b'].name]
+
+        # Remove the slots from the funnels, since the clone slot is now the
+        # funnel.
+        if slot.name in waterwork.funnels:
+          del waterwork.funnels[slot.name]
+        if other_slot.name in waterwork.funnels:
+          del waterwork.funnels[other_slot.name]
+      else:
+        tube.slot = slot
+        slot.tube = tube
+        slot.val_type = tube.val_type
+        slot.val_dtype = tube.val_dtype
+
+      if type(tube) is tu.Tube:
+        del waterwork.taps[tube.name]
+        del waterwork.funnels[slot.name]
 
   def _pour(self, *args, **kwargs):
     """Make sure pour function is set by subclass. The forward transformation of inputs."""
@@ -299,7 +344,7 @@ class Tank(wp.WaterworkPart):
   def paired_slots(self):
     """Retrieve the dictionary of slot objects from the tank which have been paired to a tube from another tank."""
     slots = {}
-    slots.update({k: s for k, s in self.slots.iteritems() if s.tube is not None})
+    slots.update({k: s for k, s in self.slots.iteritems() if type(s.tube) is not pl.Placeholder})
     return slots
 
   def paired_tubes(self):
@@ -311,7 +356,7 @@ class Tank(wp.WaterworkPart):
   def unpaired_slots(self):
     """Retrieve the dictionary of slot objects from the tank which have not been paired to a tube from another tank."""
     slots = {}
-    slots.update({k: s for k, s in self.slots.iteritems() if s.tube is None})
+    slots.update({k: s for k, s in self.slots.iteritems() if type(s.tube) is pl.Placeholder})
     return slots
 
   def unpaired_tubes(self):
@@ -386,28 +431,48 @@ class Tank(wp.WaterworkPart):
 
     return slot_dict
 
+  def get_pour_dependencies(self):
+    tanks = [self]
+    dependencies = []
 
-def clone(a, type_dict=None, waterwork=None, name=None):
-  type_dict = ut.infer_types(type_dict, a=a)
+    while tanks:
+      tank = tanks.pop()
 
-  class CloneTyped(Clone):
-    tube_dict = {
-      'a': type_dict['a'],
-      'b': type_dict['a']
-    }
+      # Go through each of the slots of the current tank, to get to the
+      # 'parent_tank', i.e. the tank that has outputs which are needed for the
+      # current tanks inputs. Put the parent tank before the current one.
+      for slot_name in tank.slots:
 
-  return CloneTyped(a=a, waterwork=waterwork, name=name)
+        slot = tank.slots[slot_name]
 
+        # If the slot is not connected to any tube (i.e. is a funnel) continue.
+        if type(slot.tube) is pl.Placeholder:
+          continue
 
-class Clone(Tank):
-  slot_keys = ['a']
-  tube_dict = {
-    'a': None,
-    'b': None
-  }
+        parent_tank = slot.tube.tank
 
-  def _pour(self, a):
-    return {'a': ut.maybe_copy(a), 'b': ut.maybe_copy(a)}
+        tanks.append(parent_tank)
+        dependencies.append(parent_tank)
+    return dependencies
 
-  def _pump(self, a, b):
-    return {'a': ut.maybe_copy(a)}
+  def get_pump_dependencies(self):
+    tanks = [self]
+    dependencies = []
+    while tanks:
+      tank = tanks.pop()
+
+      # Go through each of the slots of the current tank, to get to the
+      # 'parent_tank', i.e. the tank that has outputs which are needed for the
+      # current tanks inputs. Put the parent tank before the current one.
+      for tube_name in tank.tubes:
+        tube = tank.tubes[tube_name]
+
+        # If the tube is not connected to any tube (i.e. is a funnel) continue.
+        if tube.slot is None:
+          continue
+
+        parent_tank = tube.slot.tank
+
+        tanks.append(parent_tank)
+        dependencies.append(parent_tank)
+    return dependencies
