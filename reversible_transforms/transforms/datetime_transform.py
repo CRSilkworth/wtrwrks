@@ -72,10 +72,10 @@ class DateTimeTransform(n.Transform):
 
       # If any of the standard deviations are 0, replace them with 1's and
       # print out a warning
-      if self.std == 0:
+      if (self.std == 0).any():
         if verbose:
           warnings.warn("DatetimeTransform " + self.name + " has a zero-valued std, replacing with 1.")
-        self.std += 1.0
+        self.std[self.std == 0] = 1.0
 
     elif self.norm_mode == 'min_max':
       # Find the means and standard deviations of each column

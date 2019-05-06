@@ -93,6 +93,33 @@ class TestDateTimeTransform(th.TestTransform):
         )
         trans = self.write_read(trans, self.temp_dir)
 
+    def test_mean_std_norm_axis(self):
+
+      def fill(array):
+        unique = np.unique(array[~np.isnat(array)])
+        replace_with = np.full(array[np.isnat(array)].shape, unique[0])
+        return replace_with
+
+      trans = n.DateTimeTransform(
+        norm_mode='mean_std',
+        norm_axis=None,
+        fill_nat_func=fill
+      )
+      trans.calc_global_values(self.array[:, 1: 2])
+      target = np.array((self.array[:, 1: 2] - trans.zero_datetime) / np.timedelta64(1, 'D'), copy=True)
+      target = (target - trans.mean)/trans.std
+      target[1, 0] = -1.24496691
+      for i in xrange(2):
+        self.pour_pump(
+          trans,
+          self.array[:, 1: 2],
+          {
+            'nums': target,
+            'nats': [[False], [True], [False], [False]],
+            'diff': np.array([], dtype='timedelta64[us]')
+          }
+        )
+        trans = self.write_read(trans, self.temp_dir)
     def test_min_max(self):
       def fill(array):
         mins = np.expand_dims(np.min(array, axis=0), axis=0)
