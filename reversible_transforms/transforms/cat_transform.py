@@ -1,15 +1,11 @@
 import transform as n
-import reversible_transforms.utils.dir_functions as d
 import reversible_transforms.waterworks.waterwork as wa
-import reversible_transforms.tanks.cat_to_index as ci
-import reversible_transforms.tanks.one_hot as oh
-import reversible_transforms.tanks.sub as su
-import reversible_transforms.tanks.div as dv
-import pandas as pd
+import reversible_transforms.waterworks.placeholder as pl
+import reversible_transforms.tanks.tank_defs as td
 import numpy as np
-import pprint
 import warnings
 import os
+
 
 class CatTransform(n.Transform):
   """Class used to create mappings from raw categorical to vectorized, normalized data and vice versa.
@@ -111,41 +107,33 @@ class CatTransform(n.Transform):
     assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
 
     with wa.Waterwork(name=self.name) as ww:
-      cti = ci.cat_to_index(
-        None,
+      input = pl.Placeholder(np.ndarray, self.input_dtype)
+
+      cti = td.cat_to_index(
+        input,
         self.cat_val_to_index,
         type_dict={'cats': np.ndarray}
       )
+      cti['missing_vals'].set_name('missing_vals')
 
-      one_hots = oh.one_hot(cti['target'], len(self.cat_val_to_index))
+      one_hots = td.one_hot(cti['target'], len(self.cat_val_to_index))
 
       if self.norm_mode == 'mean_std':
-        sub = su.sub(one_hots['target'], self.mean)
-        one_hots = dv.div(
-          sub['target'], self.std
-        )
+        one_hots = one_hots['target'] - self.mean
+        one_hots = one_hots['target'] / self.std
+
+      one_hots['target'].set_name('one_hots')
+
     return ww
 
   def pour(self, array):
     ww = self.get_waterwork()
 
-    tank_name = os.path.join(self.name, 'CatToIndexNP_0')
+    tank_name = os.path.join(self.name, 'CatToIndex_0')
     funnel_dict = {(tank_name, 'cats'): array[:, 0]}
-    tap_dict = ww.pour(funnel_dict, tuple_keys=True)
+    tap_dict = ww.pour(funnel_dict, key_type='str')
 
-    print "HERE"
-    if self.norm_mode == 'mean_std':
-      output_dict = {
-        'one_hots': tap_dict[('cat/DivBasicTyped_0', 'target')],
-        'missing_vals': tap_dict[('cat/CatToIndexNP_0', 'missing_vals')]
-      }
-    else:
-      output_dict = {
-        'one_hots': tap_dict[('cat/OneHotNP_0', 'target')],
-        'missing_vals': tap_dict[('cat/CatToIndexNP_0', 'missing_vals')]
-      }
-
-    return output_dict
+    return {k: tap_dict[k] for k in ['one_hots', 'missing_vals']}
 
   def pump(self, one_hots, missing_vals):
     ww = self.get_waterwork()
@@ -154,144 +142,32 @@ class CatTransform(n.Transform):
 
     if self.norm_mode == 'mean_std':
       tap_dict = {
-        ('cat/OneHotNP_0', 'missing_vals'): mvs,
-        ('cat/DivBasicTyped_0', 'target'): one_hots,
-        ('cat/DivBasicTyped_0', 'b'): self.std,
-        ('cat/DivBasicTyped_0', 'b'): self.std,
-        ('cat/SubNP_0', 'smaller_size_array'): self.mean,
-        ('cat/SubNP_0', 'a_is_smaller'): False,
-        ('cat/CatToIndexNP_0', 'missing_vals'): missing_vals,
-        ('cat/CatToIndexNP_0', 'cat_to_index_map'): self.cat_val_to_index,
-        ('cat/CatToIndexNP_0', 'input_dtype'): self.input_dtype
+        ('OneHotTyped_0', 'missing_vals'): mvs,
+        ('DivTyped_0', 'target'): one_hots,
+        ('DivTyped_0', 'smaller_size_array'): self.std,
+        ('DivTyped_0', 'a_is_smaller'): False,
+        ('DivTyped_0', 'missing_vals'): np.array([], dtype=float),
+        ('DivTyped_0', 'remainder'): np.array([], dtype=one_hots.dtype),
+        ('SubTyped_0', 'smaller_size_array'): self.mean,
+        ('SubTyped_0', 'a_is_smaller'): False,
+        ('CatToIndex_0', 'missing_vals'): missing_vals,
+        ('CatToIndex_0', 'cat_to_index_map'): self.cat_val_to_index,
+        ('CatToIndex_0', 'input_dtype'): self.input_dtype
       }
     else:
       tap_dict = {
-        ('cat/OneHotNP_0', 'missing_vals'): mvs,
-        ('cat/OneHotNP_0', 'target'): one_hots,
-        ('cat/CatToIndexNP_0', 'missing_vals'): missing_vals,
-        ('cat/CatToIndexNP_0', 'cat_to_index_map'): self.cat_val_to_index,
-        ('cat/CatToIndexNP_0', 'input_dtype'): self.input_dtype
+        ('OneHotTyped_0', 'missing_vals'): mvs,
+        ('OneHotTyped_0', 'target'): one_hots,
+        ('CatToIndex_0', 'missing_vals'): missing_vals,
+        ('CatToIndex_0', 'cat_to_index_map'): self.cat_val_to_index,
+        ('CatToIndex_0', 'input_dtype'): self.input_dtype
       }
-
+    tap_dict = {(os.path.join(self.name, k[0]), k[1]): v for k, v in tap_dict.iteritems()}
     funnel_dict = ww.pump(tap_dict)
 
-    array_key = ww.get_slot('cat/CatToIndexNP_0', 'cats')
+    array_key = ww.get_slot(os.path.join(self.name, 'CatToIndex_0'), 'cats')
     return np.expand_dims(funnel_dict[array_key], axis=1)
 
-  # def pour(self, array, verbose=True):
-  #   """Convert a row in a dataframe to a vector.
-  #
-  #   Parameters
-  #   ----------
-  #   row : pd.Series
-  #     A row in a dataframe where the index is the column name and the value is the column value.
-  #   verbose : bool
-  #     Whether or not to print out warnings.
-  #
-  #   Returns
-  #   -------
-  #   np.array(
-  #     shape=[len(self)],
-  #     dtype=np.float64
-  #   )
-  #     The vectorized and normalized data.
-  #
-  #   """
-  #   assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
-  #   self.temp_verbose = verbose
-  #   # Find the indices for each category, filling with -1 if the category
-  #   # value is not found in the mapping.
-  #   map_to_indices = np.vectorize(self.nan_safe_cat_val_to_index)
-  #   indices = map_to_indices(array[:, self.col_range[0]])
-  #
-  #   row_num = np.arange(array.shape[0])
-  #   two_indices = np.stack([np.arange(array.shape[0]), indices], axis=1)
-  #   two_indices = two_indices[two_indices[:, 1] != -1]
-  #
-  #   data = np.zeros(
-  #     shape=[array.shape[0], len(self.cat_val_to_index)],
-  #     dtype=self.dtype
-  #   )
-  #   data[row_num, indices] = 1
-  #   data[indices == -1] = 0
-  #
-  #   if self.norm_mode == 'mean_std':
-  #     data = (data - self.mean)/self.std
-  #
-  #   return {'data': data, 'cat_val': array[:, self.col_range[0]: self.col_range[1]], 'index': np.expand_dims(indices, axis=1)}
-  #
-  # def pump(self, arrays_dict, verbose=True):
-  #   """Convert the vectorized and normalized data back into it's raw dataframe row.
-  #
-  #   Parameters
-  #   ----------
-  #   vector : np.array(
-  #     shape=[len(self)],
-  #     dtype=np.float64
-  #   )
-  #     The vectorized and normalized data.
-  #   verbose : bool
-  #     Whether or not to print out warnings.
-  #
-  #   Returns
-  #   -------
-  #   row : pd.Series
-  #     A row in a dataframe where the index is the column name and the value is the column value.
-  #
-  #   """
-  #   assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
-  #
-  #   one_hot = arrays_dict['data']
-  #
-  #   # Get the indices of the category values from the vector
-  #   if self.norm_mode == 'mean_std':
-  #     one_hot = one_hot * self.std + self.mean
-  #   # elif self.norm_mode == 'min_max':
-  #   #   one_hot = one_hot * (self.max - self.min) + self.min
-  #
-  #   # Find all the locations where it's greater than zero.
-  #   indices = np.argmax(one_hot, axis=1)
-  #   get_cat_val = np.vectorize(lambda i: self.index_to_cat_val[i])
-  #
-  #   array = get_cat_val(indices)
-  #   array = np.expand_dims(array, axis=1)
-  #   not_found_indices = arrays_dict['index'] == -1
-  #   array[not_found_indices] = arrays_dict['cat_val'][not_found_indices]
-  #
-  #   # Convert the dict into numpy array
-  #   return array.astype(self.input_dtype)
-  #
-  # def nan_safe_cat_val_to_index(self, cat_val, verbose=True):
-  #   """Convert a category value to it's corresponding index while mapping nans to None.
-  #
-  #   Parameters
-  #   ----------
-  #   cat_val : hashable
-  #     The category value to map to index
-  #   verbose : bool
-  #     Whether or not to print out booleans
-  #
-  #   Returns
-  #   -------
-  #   int
-  #     The corresponding index of the category value
-  #
-  #   """
-  #   # If the category value is in the dictionary, use it to map to index
-  #   if cat_val in self.cat_val_to_index:
-  #     index = self.cat_val_to_index[cat_val]
-  #
-  #   # If the category value is s a nan, use the None mapping.
-  #   elif isinstance(cat_val, float) and np.isnan(cat_val) and None in self.cat_val_to_index:
-  #     index = self.cat_val_to_index[None]
-  #
-  #   # Otherwise return -1
-  #   else:
-  #     if hasattr(self, 'temp_verbose') and self.temp_verbose:
-  #       warnings.warn("CatTransform " + self.name + "'s " + str(cat_val) + " not in list of values." + str(sorted(self.cat_val_to_index.keys())))
-  #     index = -1
-  #   return index
-  #
-  # def __len__(self):
-  #   assert self.input_dtype is not None, ("Run calc_global_values before attempting to get the length.")
-  #   return len(self.index_to_cat_val)
+  def __len__(self):
+    assert self.input_dtype is not None, ("Run calc_global_values before attempting to get the length.")
+    return len(self.index_to_cat_val)

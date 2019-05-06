@@ -67,7 +67,8 @@ class TestTank (WWTest):
       for key in out_dict:
         try:
           self.equals(out_dict[key], output_dict[key], test_type=test_type)
-        except (ValueError, AssertionError) as e:
+        # except (ValueError, AssertionError) as e:
+        except (AssertionError) as e:
           print 'Pour direction, key:', key
           raise e
 
@@ -137,12 +138,17 @@ def arrays_equal(first, second, threshold=0.001, test_type=True):
     return True
 
   if np.issubdtype(first.dtype, np.datetime64) or np.issubdtype(first.dtype, np.timedelta64):
-
     if not (np.isnat(first) == np.isnat(second)).all():
       return False
+    if np.issubdtype(first.dtype, np.datetime64):
+      default = datetime.datetime(1970, 1, 1)
+    else:
+      default = datetime.timedelta(0)
 
-    first[np.isnat(first)] = datetime.datetime(1970, 1, 1)
-    second[np.isnat(second)] = datetime.datetime(1970, 1, 1)
+    first[np.isnat(first)] = default
+    second[np.isnat(second)] = default
+
+    return (first == second).all()
 
   try:
     if not (np.isnan(first.astype(np.float64)) == np.isnan(second.astype(np.float64))).all():

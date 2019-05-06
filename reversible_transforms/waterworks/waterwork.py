@@ -93,6 +93,142 @@ class Waterwork(object):
       return len(self.funnels[k].tank.paired_slots())
     return sorted(self.funnels, key=sort_key)
 
+  def maybe_get_placeholder(self, arg):
+    """Get a particular tank's slot.
+
+    Parameters
+    ----------
+    tank : Tank or str
+        Either the tank object or the name of the tank.
+    key : str
+        The slot key of the slot for that tank.
+
+    Returns
+    -------
+    Slot
+        The slot object
+
+    """
+    import reversible_transforms.waterworks.placeholder as pl
+    # Pull out the tank and key depending on the type and number of inputs.
+    if type(arg) in (str, unicode) and arg in self.placeholders:
+      return self.placeholders[arg]
+    elif isinstance(arg, pl.Placeholder):
+      return arg
+
+    return None
+
+  def maybe_get_slot(self, *args):
+    """Get a particular tank's slot.
+
+    Parameters
+    ----------
+    tank : Tank or str
+        Either the tank object or the name of the tank.
+    key : str
+        The slot key of the slot for that tank.
+
+    Returns
+    -------
+    Slot
+        The slot object
+
+    """
+    import reversible_transforms.waterworks.slot as sl
+    # Pull out the tank and key depending on the type and number of inputs.
+    if len(args) == 2:
+      tank = args[0]
+      key = args[1]
+    elif len(args) == 1 and type(args[0]) is tuple:
+      tank = args[0][0]
+      key = args[0][1]
+    elif len(args) == 1 and type(args[0]) in (str, unicode) and args[0] in self.slots:
+      return self.slots[args[0]]
+    else:
+      return None
+
+    # Pull out the relevant tank object.
+    if type(tank) in (str, unicode) and tank in self.tanks:
+      tank = self.tanks[tank]
+    elif isinstance(tank, sl.slot):
+      pass
+    else:
+      return None
+
+    # Get the slot
+    if key in tank.slots:
+      return tank.slots[key]
+
+    return None
+
+  def maybe_get_tube(self, *args):
+    """Get a particular tank's slot.
+
+    Parameters
+    ----------
+    tank : Tank or str
+        Either the tank object or the name of the tank.
+    key : str
+        The slot key of the slot for that tank.
+
+    Returns
+    -------
+    Slot
+        The slot object.
+
+    """
+    import reversible_transforms.waterworks.tube as tu
+    # Pull out the tank and key depending on the type and number of inputs.
+    if len(args) == 2:
+      tank = args[0]
+      key = args[1]
+    elif len(args) == 1 and type(args[0]) is tuple:
+      tank = args[0][0]
+      key = args[0][1]
+    elif len(args) == 1 and type(args[0]) in (str, unicode) and args[0] in self.tubes:
+      return self.tubes[args[0]]
+    else:
+      return None
+
+    # Pull out the relevant tank object.
+    if type(tank) in (str, unicode) and tank in self.tanks:
+      tank = self.tanks[tank]
+    elif isinstance(tank, tu.Tube):
+      pass
+    else:
+      return None
+
+    # Get the tube
+    if key in tank.tubes:
+      return tank.tubes[key]
+
+    return None
+
+  def get_placeholder(self, arg):
+    """Get a particular tank's slot.
+
+    Parameters
+    ----------
+    tank : Tank or str
+        Either the tank object or the name of the tank.
+    key : str
+        The slot key of the slot for that tank.
+
+    Returns
+    -------
+    Slot
+        The slot object
+
+    """
+    import reversible_transforms.waterworks.placeholder as pl
+    # Pull out the tank and key depending on the type and number of inputs.
+    if type(arg) in (str, unicode) and arg in self.placeholders:
+      return self.placeholders[arg]
+    elif isinstance(arg, pl.Placeholder):
+      return arg
+    else:
+      raise TypeError(str(type(arg)) + " not a valid type for looking up placeholder.")
+
   def get_slot(self, tank, key):
     """Get a particular tank's slot.
 
@@ -112,7 +248,7 @@ class Waterwork(object):
     if type(tank) in (str, unicode):
       tank = self.tanks[tank]
 
-    return self.slots[str((tank.name, key))]
+    return self.tanks[tank.name].slots[key]
 
   def get_tube(self, tank, key):
     """Get a particular tank's slot.
@@ -133,7 +269,7 @@ class Waterwork(object):
     if type(tank) in (str, unicode):
       tank = self.tanks[tank]
 
-    return self.tubes[str((tank.name, key))]
+    return self.tanks[tank.name].tubes[key]
 
   def merge(self, other, join_dict, name='merged'):
     """Create a new waterwork by merging other into self(in the pour direction).
@@ -303,7 +439,7 @@ class Waterwork(object):
 
     return ww
 
-  def pour(self, funnel_dict, tuple_keys=False):
+  def pour(self, funnel_dict, key_type='tube'):
     """Run all the operations of the waterwork in the pour(or forward) direction.
 
     Parameters
@@ -313,8 +449,8 @@ class Waterwork(object):
       values - valid input data types
     )
         The inputs to the waterwork's full pour function.
-    tuple_keys : bool
-      Whether or not the return dictionary should have tuples as keys rather than tubes.
+    tuple_keys : str ('tube', 'tuple', 'name')
+      The type of keys to return in the return dictionary. Can either be the tube objects themselves (tube), the tank, output key pair (tuple) or the name (str) of the tube.
     Returns
     -------
     dict(
@@ -323,23 +459,20 @@ class Waterwork(object):
         The outputs of the waterwork's full pour function
 
     """
-    import reversible_transforms.waterworks.placeholder as pl
-
     # Set all the values of the funnels from the inputted arguments.
-    for ph in funnel_dict:
-      ph_obj = ph
-      if type(ph) in (tuple, str, unicode) and str(ph) in self.placeholders:
-        ph_obj = self.placeholders[str(ph)]
-      elif type(ph) in (tuple, str, unicode) and str(ph) in self.funnels:
-        ph_obj = self.funnels[str(ph)]
-      elif isinstance(ph, wp.WaterworkPart):
-        pass
+    for ph, val in funnel_dict.iteritems():
+      ph_obj = self.maybe_get_placeholder(ph)
+      sl_obj = self.maybe_get_slot(ph)
+      if ph_obj is not None:
+        ph_obj.set_val(val)
+        if ph_obj.slot is not None:
+          ph_obj.slot.set_val(val)
+      elif sl_obj is not None:
+        sl_obj.set_val(val)
+        if sl_obj.tube is not None:
+          sl_obj.tube.set_val(val)
       else:
-        raise ValueError(str(type(ph)) + ' is not a supported form of input into ')
-
-      ph_obj.set_val(funnel_dict[ph])
-      if type(ph_obj) is pl.Placeholder and ph_obj.slot is not None:
-        ph_obj.slot.set_val(funnel_dict[ph])
+        raise ValueError(str(ph) + ' is not a supported form of input into pour function')
 
     # Check that all funnels have a value
     for funnel in self.funnels:
@@ -364,14 +497,18 @@ class Waterwork(object):
     r_dict = {}
     for tap_name in self.taps:
       tap = self.taps[tap_name]
-      if not tuple_keys:
+      if key_type == 'obj':
         r_dict[tap] = tap.get_val()
-      else:
+      elif key_type == 'tuple':
         r_dict[tap.get_tuple()] = tap.get_val()
+      elif key_type == 'str':
+        r_dict[tap.name] = tap.get_val()
+      else:
+        raise ValueError(str(key_type) + " is an invalid key_type.")
 
     return r_dict
 
-  def pump(self, tap_dict, tuple_keys=False):
+  def pump(self, tap_dict, key_type='slot'):
     """Run all the operations of the waterwork in the pump (or backward) direction.
 
     Parameters
@@ -392,11 +529,12 @@ class Waterwork(object):
 
     """
     # Set all the values of the taps from the inputted arguments.
-    for tap in tap_dict:
-      tap_obj = tap
-      if type(tap) in (tuple, str, unicode):
-        tap_obj = self.taps[str(tap)]
-      tap_obj.set_val(tap_dict[tap])
+    for tap, val in tap_dict.iteritems():
+      tu_obj = self.maybe_get_tube(tap)
+      if tu_obj is not None:
+        tu_obj.set_val(val)
+      else:
+        raise ValueError(str(tap) + ' is not a supported form of input into pour function')
 
     # Check that all funnels have a value
     for tap in self.taps:
@@ -420,10 +558,14 @@ class Waterwork(object):
     r_dict = {}
     for funnel_name in self.funnels:
       funnel = self.funnels[funnel_name]
-      if not tuple_keys:
+      if key_type == 'slot':
         r_dict[funnel] = funnel.get_val()
-      else:
+      elif key_type == 'tuple':
         r_dict[funnel.get_tuple()] = funnel.get_val()
+      elif key_type == 'str':
+        r_dict[funnel.name] = funnel.get_val()
+      else:
+        raise ValueError(str(key_type) + " is an invalid key_type.")
 
     return r_dict
 

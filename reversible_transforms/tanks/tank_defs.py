@@ -12,9 +12,10 @@ import reversible_transforms.tanks.reduce as rd
 import reversible_transforms.tanks.replace as rp
 import reversible_transforms.tanks.one_hot as oh
 import reversible_transforms.tanks.transpose as tr
+import reversible_transforms.tanks.datetime_to_num as dtn
 
 import numpy as np
-
+import datetime
 
 def clone(a, type_dict=None, waterwork=None, name=None):
   """Copy an object in order to send it to two different tanks. Usually not performed explicitly but rather when a tube is put as input into two different slots. A clone operation is automatically created.
@@ -41,7 +42,6 @@ def clone(a, type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-
   type_dict = ut.infer_types(type_dict, a=a)
 
   class CloneTyped(cl.Clone):
@@ -283,6 +283,7 @@ def cat_to_index(cats, cat_to_index_map, type_dict=None, waterwork=None, name=No
 
   return cti.CatToIndex(cats=cats, cat_to_index_map=cat_to_index_map, waterwork=waterwork, name=name)
 
+
 def concatenate(a_list, axis, type_dict=None, waterwork=None, name=None):
   """Concatenate a np.array from subarrays along one axis in a reversible manner.
 
@@ -359,7 +360,6 @@ def one_hot(indices, depth, type_dict=None, waterwork=None, name=None):
     }
 
   return OneHotTyped(indices=indices, depth=depth, waterwork=waterwork, name=name)
-
 
 
 def replace(a, mask, replace_with, type_dict=None, waterwork=None, name=None):
@@ -442,8 +442,39 @@ def transpose(a, axes, type_dict=None, waterwork=None, name=None):
   return TransposeTyped(a=a, axes=axes, waterwork=waterwork, name=name)
 
 
-isnan = bo.create_one_arg_bool_tank(np.isnan, class_name='IsNan')
+def datetime_to_num(a, zero_datetime=datetime.datetime(1970, 1, 1), num_units=1, time_unit='D', type_dict=None, waterwork=None, name=None):
+  """Add two objects together in a reversible manner. This function selects out the proper Add subclass depending on the types of 'a' and 'b'.
 
+  Parameters
+  ----------
+  a : Tube, type that can be summed or None
+      First object to be added, or if None, a 'funnel' to fill later with data.
+  b : Tube, type that can be summed or None
+      Second object to be added, or if None, a 'funnel' to fill later with data.
+  type_dict : dict({
+    keys - ['a', 'b']
+    values - type of argument 'a' type of argument 'b'.
+  })
+    The types of data which will be passed to each argument. Needed when the types of the inputs cannot be infered from the arguments a and b (e.g. when they are None).
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  Tank
+      The created add tank (operation) object.
+
+  """
+  type_dict = ut.infer_types(type_dict, a=a, zero_datetime=zero_datetime, num_units=num_units, time_unit=time_unit)
+
+  return dtn.DatetimeToNum(a=a, zero_datetime=zero_datetime, num_units=num_units, time_unit=time_unit, waterwork=waterwork, name=name)
+
+
+isnan = bo.create_one_arg_bool_tank(np.isnan, class_name='IsNan')
+isnat = bo.create_one_arg_bool_tank(np.isnat, class_name='IsNan')
 equal = bo.create_two_arg_bool_tank(np.equal, class_name='Equals')
 greater = bo.create_two_arg_bool_tank(np.greater, class_name='Greater')
 greater_equal = bo.create_two_arg_bool_tank(np.greater_equal, class_name='GreaterEqual')

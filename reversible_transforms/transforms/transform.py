@@ -1,6 +1,6 @@
 import pandas as pd
 import reversible_transforms.utils.dir_functions as d
-
+import os
 
 class Transform(object):
   """Abstract class used to create mappings from raw to vectorized, normalized data and vice versa.
@@ -76,6 +76,9 @@ class Transform(object):
       row = self.vector_to_row(vector)
       rows.append(row)
     return pd.DataFrame(rows)
+
+  def _name(self, tank_name):
+    return os.path.join(self.name, tank_name)
 
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""
