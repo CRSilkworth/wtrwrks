@@ -1,18 +1,8 @@
 import transform as n
-import pandas as pd
 import numpy as np
-import nltk
-from nltk.stem.wordnet import WordNetLemmatizer
-# import production.nlp.ja_stopwords as jas
-# import production.nlp.ko_stopwords as kos
-# import production.nlp.zh_hans_stopwords as zss
-import unicodedata
-import tinysegmenter
-from chop.hmm import Tokenizer as HMMTokenizer
-from chop.mmseg import Tokenizer as MMSEGTokenizer
-import operator
-import konlpy
-
+import reversible_transforms.waterworks.waterwork as wa
+import reversible_transforms.waterworks.placeholder as pl
+import reversible_transforms.tanks.tank_defs as td
 
 
 class StringTransform(n.Transform):
@@ -47,28 +37,16 @@ class StringTransform(n.Transform):
     The list of attributes that need to be saved in order to fully reconstruct the transform object.
 
   """
-  supported_languages = {'en': 'English', 'ja': 'Japanese', 'zh_hans': 'Simplified Chinese', 'zh_hant': 'Traditional Chinese', 'ko': 'Korean'}
-
-  attribute_dict = {'col_index': None, 'name': '', 'dtype': np.int64, 'input_dtype': None, 'language': None, 'normalizer': None, 'normalizer_kwargs': None, 'index_to_word': None, 'word_to_index': None, 'max_vocab_size': None, 'max_sent_len': 20, 'tokenizer': None}
+  attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'index_to_word': None, 'word_to_index': None, 'max_sent_len': 20, 'tokenizer': None, 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'unk_index': None, 'delimiter': ' '}
 
   def _setattributes(self, **kwargs):
     super(StringTransform, self)._setattributes(self.attribute_dict, **kwargs)
 
-    if self.index_to_word is None and self.max_vocab_size is None:
-      raise ValueError("Must supply a max_vocab_size when, no index_to_word is given.")
-    if self.index_to_word is not None and self.index_to_word[0] != '__UNK__':
-      raise ValueError("First element of the index_to_word map must be the default '__UNK__' token")
+    if self.index_to_word is None:
+      raise ValueError("Must supply index_to_word mapping.")
+    # if self.index_to_word is not None and self.index_to_word[0] != '__UNK__':
+    #   raise ValueError("First element of the index_to_word map must be the default '__UNK__' token")
 
-    if self.normalizer is None:
-      if self.language in self.supported_languages:
-        mod_name = 'reversible_transforms.string_manipulations.' + self.language + '_normalizers'
-        mod = __import__(mod_name, globals(), locals(), ['default_normalizer'])
-        self.normalizer = getattr(mod, 'default_normalizer')
-      else:
-        raise ValueError("Must supply a tokenizer when using a non supported language.")
-
-    if self.normalizer_kwargs is None:
-      self.normalizer_kwargs = {}
 
   def calc_global_values(self, array, verbose=True):
     """Set all the relevant attributes for this subclass. Called by the constructor for the Transform class.
@@ -94,127 +72,236 @@ class StringTransform(n.Transform):
     """
     self.input_dtype = array.dtype
 
-    if self.index_to_word is None:
-      # Get all the words and the number of times they appear
-      all_words = {}
-
-      # Define the key word arguments for the normalizer, ensuring that inverse
-      # is set to false.
-      kwargs = {}
-      kwargs.update(self.normalizer_kwargs)
-      kwargs['inverse'] = False
-
-      # Tokenize each request, add the tokens to the set of all words
-      for string in array[:, self.col_index]:
-        r_dict = self.normalizer(string, self.max_sent_len, **kwargs)
-        tokens = r_dict['tokens']
-        for token_num, token in enumerate(tokens):
-          all_words.setdefault(token, 0)
-          all_words[token] += 1
-
-      # Sort the dict by the number of times the words appear
-      sorted_words = sorted(all_words.items(), key=operator.itemgetter(1), reverse=True)
-
-      # Pull out the first 'max_vocab_size' words
-      sorted_words = [w for w, c in sorted_words[:self.max_vocab_size - 1]]
-
-      # Create the mapping from category values to index in the vector and
-      # vice versa
-      self.index_to_word = sorted(sorted_words)
-      self.index_to_word = ['__UNK__'] + self.index_to_word
-
-    # Ensure the max_vocab_size agrees with the index_to_word, and define the
-    # reverse mapping word_to_index.
-    self.max_vocab_size = len(self.index_to_word)
+    # if self.index_to_word is None:
+    #   # Get all the words and the number of times they appear
+    #   all_words = {}
+    #
+    #   # Define the key word arguments for the normalizer, ensuring that inverse
+    #   # is set to false.
+    #   kwargs = {}
+    #   kwargs.update(self.normalizer_kwargs)
+    #   kwargs['inverse'] = False
+    #
+    #   # Tokenize each request, add the tokens to the set of all words
+    #   for string in array[:, self.col_index]:
+    #     r_dict = self.normalizer(string, self.max_sent_len, **kwargs)
+    #     tokens = r_dict['tokens']
+    #     for token_num, token in enumerate(tokens):
+    #       all_words.setdefault(token, 0)
+    #       all_words[token] += 1
+    #
+    #   # Sort the dict by the number of times the words appear
+    #   sorted_words = sorted(all_words.items(), key=operator.itemgetter(1), reverse=True)
+    #
+    #   # Pull out the first 'max_vocab_size' words
+    #   sorted_words = [w for w, c in sorted_words[:self.max_vocab_size - 1]]
+    #
+    #   # Create the mapping from category values to index in the vector and
+    #   # vice versa
+    #   self.index_to_word = sorted(sorted_words)
+    #   self.index_to_word = ['__UNK__'] + self.index_to_word
+    #
+    # # Ensure the max_vocab_size agrees with the index_to_word, and define the
+    # # reverse mapping word_to_index.
+    # self.max_vocab_size = len(self.index_to_word)
     self.word_to_index = {
       word: num for num, word in enumerate(self.index_to_word)
     }
 
-  def forward_transform(self, array, verbose=True):
-    """Convert a row in a dataframe to a vector.
+  def get_waterwork(self):
+    assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
 
-    Parameters
-    ----------
-    row : pd.Series
-      A row in a dataframe where the index is the column name and the value is the column value.
-    verbose : bool
-      Whether or not to print out warnings.
+    with wa.Waterwork(name=self.name) as ww:
+      input = pl.Placeholder(np.ndarray, self.input_dtype, name='input')
+      tokenizer = pl.Placeholder(type(lambda a: a), None, name='tokenizer')
+      delimiter = pl.Placeholder(str, None, name='delimiter')
 
-    Returns
-    -------
-    np.array(
-      shape=[len(self)],
-      dtype=np.float64
-    )
-      The vectorized and normalized data.
+      tokens = td.tokenize(input, tokenizer, self.max_sent_len, delimiter)
+      tokens['diff'].set_name('tokenize_diff')
 
-    """
-    # Define the key word arguments for the normalizer, ensuring that inverse
-    # is set to false.
-    kwargs = {}
-    kwargs.update(self.normalizer_kwargs)
-    kwargs['inverse'] = False
+      if self.lower_case:
+        tokens = td.lower_case(tokens['target'])
+        tokens['diff'].set_name('lower_case_diff')
+      if self.half_width:
+        tokens = td.half_width(tokens['target'])
+        tokens['diff'].set_name('half_width_diff')
+      if self.lemmatize:
+        lemmatizer = pl.Placeholder(type(lambda a: a), None, name='lemmatizer')
+        tokens = td.lemmatize(tokens['target'], lemmatizer)
+        tokens['diff'].set_name('lemmatize_diff')
+      if self.unk_index is not None:
+        isin = td.isin(tokens['target'], self.index_to_word + [''])
+        mask = td.logical_not(isin['target'])
+        tokens = td.replace(isin['a'], mask['target'], self.index_to_word[self.unk_index])
+        tokens['replaced_vals'].set_name('missing_vals')
 
-    # Find the indices for each word, filling with -1 if the vector is
-    # longer than the number of tokens.
-    indices = -1 * np.ones([array.shape[0], self.max_sent_len], dtype=np.int64)
-    diff_string = np.empty([array.shape[0]], dtype=object)
-    unks = np.empty([array.shape[0], self.max_sent_len], dtype=object)
-    unks.fill('')
-    for row_num, string in enumerate(array[:, self.col_index]):
-      r_dict = self.normalizer(string, self.max_sent_len, **kwargs)
-      tokens = r_dict['tokens']
+      indices = td.cat_to_index(tokens['target'], self.word_to_index)
+      indices['target'].set_name('indices')
 
-      for token_num, token in enumerate(tokens):
-        # If the word isn't known, fill it with the 'UNK' index.
-        # Otherwise pull out the relevant index.
-        if token not in self.word_to_index:
-          index = self.word_to_index['__UNK__']
-          unks[row_num, token_num] = token
-        else:
-          index = self.word_to_index[token]
+      if self.unk_index is None:
+        indices['missing_vals'].set_name('missing_vals')
 
-        # Fill the array and increase the token number.
-        indices[row_num, token_num] = index
-      diff_string[row_num] = r_dict['diff_string']
-    return {'data': indices, 'diff_string': diff_string.astype(np.unicode), 'unknowns': unks}
+    return ww
 
-  def backward_transform(self, arrays_dict, verbose=True):
-    """Convert the vectorized and normalized data back into it's raw form. Although a lot of information is lost and so it's best to also keep some outside reference to the original row in the dataframe.
+  def pour(self, array, tokenizer=None, delimiter=None, lemmatizer=None):
+    funnel_dict = {'input': array}
 
-    Parameters
-    ----------
-    vector : np.array(
-      shape=[len(self)],
-      dtype=np.int64
-    )
-      The vectorized and normalized data.
-    verbose : bool
-      Whether or not to print out warnings.
+    if tokenizer is None and self.tokenizer is None:
+      raise ValueError("No tokenizer set for this Transform. Must supply one as input into pour.")
+    elif tokenizer is not None:
+      funnel_dict['tokenizer'] = tokenizer
+    else:
+      funnel_dict['tokenizer'] = self.tokenizer
 
-    Returns
-    -------
-    row : pd.Series
-      A row in a dataframe where the index is the column name and the value is the column value.
+    if delimiter is not None:
+      funnel_dict['delimiter'] = delimiter
+    else:
+      funnel_dict['delimiter'] = self.delimiter
 
-    """
-    # Fill a dictionary representing the original row. Convert the index to
-    # a category value
-    kwargs = {}
-    kwargs.update(self.normalizer_kwargs)
-    kwargs['inverse'] = True
+    if self.lemmatize and lemmatizer is None and self.lemmatizer is None:
+      raise ValueError("No lemmatizer set for this Transform. Must supply one as input into pour.")
+    elif self.lemmatize and lemmatizer is not None:
+      funnel_dict['lemmatizer'] = lemmatizer
+    elif self.lemmatize:
+      funnel_dict['lemmatizer'] = self.lemmatizer
 
-    array = np.empty([arrays_dict['data'].shape[0], 1], dtype=object)
-    for row_num, (indices, diff_string, unks) in enumerate(zip(arrays_dict['data'], arrays_dict['diff_string'], arrays_dict['unknowns'])):
+    ww = self.get_waterwork()
+    tap_dict = ww.pour(funnel_dict, key_type='str')
 
-      tokens = [self.index_to_word[i] if i != 0 else unks[num] for num, i in enumerate(indices) if i != -1]
+    r_dict = {k: tap_dict[k] for k in ['indices', 'missing_vals', 'tokenize_diff']}
+    if self.lower_case:
+      r_dict['lower_case_diff'] = tap_dict['lower_case_diff']
+    if self.half_width:
+      r_dict['half_width_diff'] = tap_dict['half_width_diff']
+    if self.lemmatize:
+      r_dict['lemmatize_diff'] = tap_dict['lemmatize_diff']
 
-      string = self.normalizer({'tokens': tokens, 'diff_string': diff_string}, self.max_sent_len, **kwargs)
+    return r_dict
 
-      array[row_num] = string
+  def pump(self, indices, missing_vals, tokenize_diff, lower_case_diff=None, half_width_diff=None, lemmatize_diff=None, delimiter=None):
+    ww = self.get_waterwork()
 
-    return array.astype(self.input_dtype)
+    if delimiter is None:
+      delimiter = self.delimiter
 
-  def __len__(self):
+    tap_dict = {
+      'indices': indices,
+      'missing_vals': missing_vals,
+      ('CatToIndex_0', 'cat_to_index_map'): self.word_to_index,
+      ('CatToIndex_0', 'input_dtype'): self.input_dtype,
+      ('TokenizeTyped_0', 'delimiter'): delimiter,
+      ('TokenizeTyped_0', 'tokenizer'): self.tokenizer,
+      ('TokenizeTyped_0', 'diff'): tokenize_diff
+    }
+    if self.lower_case:
+      u_dict = {('LowerCaseTyped_0', 'diff'): lower_case_diff}
+      tap_dict.update(u_dict)
+    if self.half_width:
+      u_dict = {('HalfWidthTyped_0', 'diff'): half_width_diff}
+      tap_dict.update(u_dict)
+    if self.lemmatize:
+      u_dict = {
+        ('LemmatizeTyped_0', 'diff'): lemmatize_diff,
+        ('LemmatizeTyped_0', 'lemmatizer'): self.lemmatizer
+      }
+      tap_dict.update(u_dict)
+    if self.unk_index is not None:
+      u_dict = {
+        ('CatToIndex_0', 'missing_vals'): [''] * indices[indices == -1].size,
+        ('ReplaceTyped_0', 'mask'): indices == self.unk_index,
+        ('ReplaceTyped_0', 'replace_with_shape'): (1,),
+        ('IsInTyped_0', 'b'): self.index_to_word[self.unk_index]
+      }
+      tap_dict.update(u_dict)
+
+    tap_dict = self._add_name_to_dict(tap_dict)
+    funnel_dict = ww.pump(tap_dict, key_type='tuple')
+    return funnel_dict[(self._name('TokenizeTyped_0'), 'strings')]
+  # def forward_transform(self, array, verbose=True):
+  #   """Convert a row in a dataframe to a vector.
+  #
+  #   Parameters
+  #   ----------
+  #   row : pd.Series
+  #     A row in a dataframe where the index is the column name and the value is the column value.
+  #   verbose : bool
+  #     Whether or not to print out warnings.
+  #
+  #   Returns
+  #   -------
+  #   np.array(
+  #     shape=[len(self)],
+  #     dtype=np.float64
+  #   )
+  #     The vectorized and normalized data.
+  #
+  #   """
+  #   # Define the key word arguments for the normalizer, ensuring that inverse
+  #   # is set to false.
+  #   kwargs = {}
+  #   kwargs.update(self.normalizer_kwargs)
+  #   kwargs['inverse'] = False
+  #
+  #   # Find the indices for each word, filling with -1 if the vector is
+  #   # longer than the number of tokens.
+  #   indices = -1 * np.ones([array.shape[0], self.max_sent_len], dtype=np.int64)
+  #   diff_string = np.empty([array.shape[0]], dtype=object)
+  #   unks = np.empty([array.shape[0], self.max_sent_len], dtype=object)
+  #   unks.fill('')
+  #   for row_num, string in enumerate(array[:, self.col_index]):
+  #     r_dict = self.normalizer(string, self.max_sent_len, **kwargs)
+  #     tokens = r_dict['tokens']
+  #
+  #     for token_num, token in enumerate(tokens):
+  #       # If the word isn't known, fill it with the 'UNK' index.
+  #       # Otherwise pull out the relevant index.
+  #       if token not in self.word_to_index:
+  #         index = self.word_to_index['__UNK__']
+  #         unks[row_num, token_num] = token
+  #       else:
+  #         index = self.word_to_index[token]
+  #
+  #       # Fill the array and increase the token number.
+  #       indices[row_num, token_num] = index
+  #     diff_string[row_num] = r_dict['diff_string']
+  #   return {'data': indices, 'diff_string': diff_string.astype(np.unicode), 'unknowns': unks}
+  #
+  # def backward_transform(self, arrays_dict, verbose=True):
+  #   """Convert the vectorized and normalized data back into it's raw form. Although a lot of information is lost and so it's best to also keep some outside reference to the original row in the dataframe.
+  #
+  #   Parameters
+  #   ----------
+  #   vector : np.array(
+  #     shape=[len(self)],
+  #     dtype=np.int64
+  #   )
+  #     The vectorized and normalized data.
+  #   verbose : bool
+  #     Whether or not to print out warnings.
+  #
+  #   Returns
+  #   -------
+  #   row : pd.Series
+  #     A row in a dataframe where the index is the column name and the value is the column value.
+  #
+  #   """
+  #   # Fill a dictionary representing the original row. Convert the index to
+  #   # a category value
+  #   kwargs = {}
+  #   kwargs.update(self.normalizer_kwargs)
+  #   kwargs['inverse'] = True
+  #
+  #   array = np.empty([arrays_dict['data'].shape[0], 1], dtype=object)
+  #   for row_num, (indices, diff_string, unks) in enumerate(zip(arrays_dict['data'], arrays_dict['diff_string'], arrays_dict['unknowns'])):
+  #
+  #     tokens = [self.index_to_word[i] if i != 0 else unks[num] for num, i in enumerate(indices) if i != -1]
+  #
+  #     string = self.normalizer({'tokens': tokens, 'diff_string': diff_string}, self.max_sent_len, **kwargs)
+  #
+  #     array[row_num] = string
+  #
+  #   return array.astype(self.input_dtype)
+  #
+  # def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""
     return self.max_sent_len

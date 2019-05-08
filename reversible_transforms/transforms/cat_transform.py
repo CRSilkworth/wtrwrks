@@ -142,27 +142,26 @@ class CatTransform(n.Transform):
 
     if self.norm_mode == 'mean_std':
       tap_dict = {
-        ('OneHotTyped_0', 'missing_vals'): mvs,
-        ('DivTyped_0', 'target'): one_hots,
-        ('DivTyped_0', 'smaller_size_array'): self.std,
-        ('DivTyped_0', 'a_is_smaller'): False,
-        ('DivTyped_0', 'missing_vals'): np.array([], dtype=float),
-        ('DivTyped_0', 'remainder'): np.array([], dtype=one_hots.dtype),
-        ('SubTyped_0', 'smaller_size_array'): self.mean,
-        ('SubTyped_0', 'a_is_smaller'): False,
-        ('CatToIndex_0', 'missing_vals'): missing_vals,
-        ('CatToIndex_0', 'cat_to_index_map'): self.cat_val_to_index,
-        ('CatToIndex_0', 'input_dtype'): self.input_dtype
+        (self._name('OneHotTyped_0'), 'missing_vals'): mvs,
+        (self._name('DivTyped_0'), 'target'): one_hots,
+        (self._name('DivTyped_0'), 'smaller_size_array'): self.std,
+        (self._name('DivTyped_0'), 'a_is_smaller'): False,
+        (self._name('DivTyped_0'), 'missing_vals'): np.array([], dtype=float),
+        (self._name('DivTyped_0'), 'remainder'): np.array([], dtype=one_hots.dtype),
+        (self._name('SubTyped_0'), 'smaller_size_array'): self.mean,
+        (self._name('SubTyped_0'), 'a_is_smaller'): False,
+        (self._name('CatToIndex_0'), 'missing_vals'): missing_vals,
+        (self._name('CatToIndex_0'), 'cat_to_index_map'): self.cat_val_to_index,
+        (self._name('CatToIndex_0'), 'input_dtype'): self.input_dtype
       }
     else:
       tap_dict = {
-        ('OneHotTyped_0', 'missing_vals'): mvs,
-        ('OneHotTyped_0', 'target'): one_hots,
-        ('CatToIndex_0', 'missing_vals'): missing_vals,
-        ('CatToIndex_0', 'cat_to_index_map'): self.cat_val_to_index,
-        ('CatToIndex_0', 'input_dtype'): self.input_dtype
+        (self._name('OneHotTyped_0'), 'missing_vals'): mvs,
+        (self._name('OneHotTyped_0'), 'target'): one_hots,
+        (self._name('CatToIndex_0'), 'missing_vals'): missing_vals,
+        (self._name('CatToIndex_0'), 'cat_to_index_map'): self.cat_val_to_index,
+        (self._name('CatToIndex_0'), 'input_dtype'): self.input_dtype
       }
-    tap_dict = {(os.path.join(self.name, k[0]), k[1]): v for k, v in tap_dict.iteritems()}
     funnel_dict = ww.pump(tap_dict)
 
     array_key = ww.get_slot(os.path.join(self.name, 'CatToIndex_0'), 'cats')

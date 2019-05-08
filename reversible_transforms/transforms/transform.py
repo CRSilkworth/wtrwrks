@@ -80,6 +80,15 @@ class Transform(object):
   def _name(self, tank_name):
     return os.path.join(self.name, tank_name)
 
+  def _add_name_to_dict(self, d):
+    r_d = {}
+    for key in d:
+      if type(key) is tuple:
+        r_d[(os.path.join(self.name, key[0]), key[1])] = d[key]
+      else:
+        r_d[key] = d[key]
+    return r_d
+
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""
     save_dict = {}

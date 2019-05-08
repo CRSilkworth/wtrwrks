@@ -53,12 +53,18 @@ class Replace(ta.Tank):
     )
 
     """
+    replace_with = np.array(replace_with)
     target = ut.maybe_copy(a)
     replaced_vals = target[mask]
     target[mask] = replace_with
+    if mask.any():
+      replace_with_shape = replace_with.shape
+    else:
+      replace_with_shape = (replace_with,)
+
     # Must just return 'a' as well since so much information is lost in a
     # min
-    return {'target': target, 'mask': mask, 'replaced_vals': replaced_vals.flatten(), 'replace_with_shape': replace_with.shape}
+    return {'target': target, 'mask': mask, 'replaced_vals': replaced_vals.flatten(), 'replace_with_shape': replace_with_shape}
 
   def _pump(self, target, mask, replaced_vals, replace_with_shape):
     """Execute the add in the pump (backward) direction .
@@ -91,14 +97,16 @@ class Replace(ta.Tank):
 
     masked_shape = a[mask].shape
     a[mask] = replaced_vals.reshape(masked_shape)
+    if mask.any():
+      if replace_with_shape:
+        num_elements = np.prod(replace_with_shape)
+      else:
+        num_elements = 1
 
-    if replace_with_shape:
-      num_elements = np.prod(replace_with_shape)
+      if num_elements == 1:
+        replace_with = replace_with.flatten()[0].reshape(replace_with_shape)
     else:
-      num_elements = 1
-
-    if num_elements == 1:
-      replace_with = replace_with.flatten()[0].reshape(replace_with_shape)
+      replace_with = replace_with_shape[0]
 
     a = a.astype(replaced_vals.dtype)
     return {'a': a, 'mask': mask, 'replace_with': replace_with}

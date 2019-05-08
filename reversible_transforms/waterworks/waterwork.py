@@ -534,7 +534,7 @@ class Waterwork(object):
       if tu_obj is not None:
         tu_obj.set_val(val)
       else:
-        raise ValueError(str(tap) + ' is not a supported form of input into pour function')
+        raise ValueError(str(tap) + ' is not a supported form of input into pump function')
 
     # Check that all funnels have a value
     for tap in self.taps:

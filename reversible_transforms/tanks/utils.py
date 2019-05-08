@@ -12,15 +12,15 @@ def infer_types(type_dict, **input_dict):
 
   for key in input_dict:
     if isinstance(input_dict[key], wp.WaterworkPart):
-      r_dict[key] = (input_dict[key].val_type, input_dict[key].val_type)
+      r_dict[key] = (input_dict[key].val_type, input_dict[key].val_dtype)
     elif input_dict[key] is None:
       continue
     else:
       dtype = None
       if type(input_dict[key]) is np.ndarray:
         dtype = input_dict[key].dtype
-      r_dict[key] = (type(input_dict[key]), dtype)
 
+      r_dict[key] = (type(input_dict[key]), dtype)
   return r_dict
 
 

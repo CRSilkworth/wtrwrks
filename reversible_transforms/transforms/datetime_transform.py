@@ -7,6 +7,7 @@ import reversible_transforms.waterworks.placeholder as pl
 import reversible_transforms.tanks.tank_defs as td
 import reversible_transforms.waterworks.waterwork as wa
 
+
 class DateTimeTransform(n.Transform):
   """Class used to create mappings from raw datetime data to vectorized, normalized data and vice versa.
 
@@ -91,8 +92,8 @@ class DateTimeTransform(n.Transform):
 
       # Test to make sure that min and max are not equal. If they are replace
       # with default values.
-      if self.min == self.max:
-        self.max = self.max + 1
+      if (self.min == self.max).any():
+        self.max[self.max == self.min] = self.max[self.max == self.min] + 1
 
         if verbose:
           warnings.warn("DatetimeTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")
@@ -133,7 +134,6 @@ class DateTimeTransform(n.Transform):
       {'input': array, 'replace_with': self.fill_nat_func(array)},
       key_type='str'
     )
-
     return {k: tap_dict[k] for k in ['nums', 'nats', 'diff']}
 
   def pump(self, nums, nats, diff):
@@ -158,14 +158,15 @@ class DateTimeTransform(n.Transform):
         sub_val = self.min
         div_val = self.max - self.min
       norm_mode_dict = {
-        ('SubTyped_0', 'smaller_size_array'): sub_val,
-        ('SubTyped_0', 'a_is_smaller'): False,
-        ('DivTyped_0', 'smaller_size_array'): div_val,
-        ('DivTyped_0', 'a_is_smaller'): False,
-        ('DivTyped_0', 'remainder'): np.array([], dtype=self.input_dtype),
-        ('DivTyped_0', 'missing_vals'): np.array([], dtype=float)
+        (self._name('SubTyped_0'), 'smaller_size_array'): sub_val,
+        (self._name('SubTyped_0'), 'a_is_smaller'): False,
+        (self._name('DivTyped_0'), 'smaller_size_array'): div_val,
+        (self._name('DivTyped_0'), 'a_is_smaller'): False,
+        (self._name('DivTyped_0'), 'remainder'): np.array([], dtype=self.input_dtype),
+        (self._name('DivTyped_0'), 'missing_vals'): np.array([], dtype=float)
       }
       tap_dict.update(norm_mode_dict)
+
     ww.pump(tap_dict, key_type='str')
     array = ww.get_placeholder('input').get_val()
 

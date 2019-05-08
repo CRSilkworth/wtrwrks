@@ -13,9 +13,15 @@ import reversible_transforms.tanks.replace as rp
 import reversible_transforms.tanks.one_hot as oh
 import reversible_transforms.tanks.transpose as tr
 import reversible_transforms.tanks.datetime_to_num as dtn
+import reversible_transforms.tanks.tokenize as to
+import reversible_transforms.tanks.lower_case as lc
+import reversible_transforms.tanks.half_width as hw
+import reversible_transforms.tanks.lemmatize as lm
+import reversible_transforms.tanks.replace_substring as rs
 
 import numpy as np
 import datetime
+
 
 def clone(a, type_dict=None, waterwork=None, name=None):
   """Copy an object in order to send it to two different tanks. Usually not performed explicitly but rather when a tube is put as input into two different slots. A clone operation is automatically created.
@@ -326,6 +332,193 @@ def concatenate(a_list, axis, type_dict=None, waterwork=None, name=None):
   return ConcatenateTyped(a_list=a_list, axis=axis, waterwork=waterwork, name=name)
 
 
+def tokenize(strings, tokenizer, max_len, delimiter, type_dict=None, waterwork=None, name=None):
+  """Adds another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
+
+  Parameters
+  ----------
+  strings : Tube, np.ndarray or None
+    The array of strings to tokenize
+  tokenizer : Tube, function or None
+    The function that converts a string into a list of tokens.
+  max_len : Tube, int or None
+    The max number of allowed tokens to be created from one string. I.e.  the size of the last dimension of the target array.
+  delimiter : Tube, str, unicode or None
+    The delimiter used to join string back together from tokens.
+  type_dict : dict({
+    keys - ['a', 'b']
+    values - type of argument 'a' type of argument 'b'.
+  })
+    The types of data which will be passed to each argument. Needed when the types of the inputs cannot be infered from the arguments a and b (e.g. when they are None).
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  Tank
+      The created add tank (operation) object.
+
+  """
+  type_dict = ut.infer_types(type_dict, strings=strings, delimiter=delimiter)
+
+  def f():
+    pass
+
+  class TokenizeTyped(to.Tokenize):
+    tube_dict = {
+      'target': type_dict['strings'],
+      'diff': type_dict['strings'],
+      'tokenizer': (type(f), None),
+      'delimiter': type_dict['delimiter']
+    }
+  return TokenizeTyped(strings=strings, tokenizer=tokenizer, max_len=max_len, delimiter=delimiter)
+
+
+def lower_case(strings, type_dict=None, waterwork=None, name=None):
+  """Adds another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
+
+  Parameters
+  ----------
+  strings : Tube, np.ndarray or None
+    The array of strings to lower_case
+  type_dict : dict({
+    keys - ['a', 'b']
+    values - type of argument 'a' type of argument 'b'.
+  })
+    The types of data which will be passed to each argument. Needed when the types of the inputs cannot be infered from the arguments a and b (e.g. when they are None).
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  Tank
+      The created add tank (operation) object.
+
+  """
+  type_dict = ut.infer_types(type_dict, strings=strings)
+
+  class LowerCaseTyped(lc.LowerCase):
+    tube_dict = {
+      'target': type_dict['strings'],
+      'diff': type_dict['strings']
+    }
+  return LowerCaseTyped(strings=strings)
+
+
+def half_width(strings, type_dict=None, waterwork=None, name=None):
+  """Adds another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
+
+  Parameters
+  ----------
+  strings : Tube, np.ndarray or None
+    The array of strings to half_width
+  type_dict : dict({
+    keys - ['a', 'b']
+    values - type of argument 'a' type of argument 'b'.
+  })
+    The types of data which will be passed to each argument. Needed when the types of the inputs cannot be infered from the arguments a and b (e.g. when they are None).
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  Tank
+      The created add tank (operation) object.
+
+  """
+  type_dict = ut.infer_types(type_dict, strings=strings)
+
+  class HalfWidthTyped(hw.HalfWidth):
+    tube_dict = {
+      'target': type_dict['strings'],
+      'diff': type_dict['strings']
+    }
+  return HalfWidthTyped(strings=strings)
+
+
+def lemmatize(strings, lemmatizer, type_dict=None, waterwork=None, name=None):
+  """Adds another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
+
+  Parameters
+  ----------
+  strings : Tube, np.ndarray or None
+    The array of strings to lemmatize
+  type_dict : dict({
+    keys - ['a', 'b']
+    values - type of argument 'a' type of argument 'b'.
+  })
+    The types of data which will be passed to each argument. Needed when the types of the inputs cannot be infered from the arguments a and b (e.g. when they are None).
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  Tank
+      The created add tank (operation) object.
+
+  """
+  type_dict = ut.infer_types(type_dict, strings=strings)
+
+  def f():
+    pass
+
+  class LemmatizeTyped(lm.Lemmatize):
+    tube_dict = {
+      'target': type_dict['strings'],
+      'diff': type_dict['strings'],
+      'lemmatizer': (type(f), None)
+    }
+  return LemmatizeTyped(strings=strings, lemmatizer=lemmatizer)
+
+
+def replace_substring(strings, old_substring, new_substring, type_dict=None, waterwork=None, name=None):
+  """Adds another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
+
+  Parameters
+  ----------
+  strings : Tube, np.ndarray or None
+    The array of strings to half_width
+  type_dict : dict({
+    keys - ['a', 'b']
+    values - type of argument 'a' type of argument 'b'.
+  })
+    The types of data which will be passed to each argument. Needed when the types of the inputs cannot be infered from the arguments a and b (e.g. when they are None).
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  Tank
+      The created add tank (operation) object.
+
+  """
+  type_dict = ut.infer_types(type_dict, strings=strings, old_substring=old_substring, new_substring=new_substring)
+
+  class ReplaceSubstringTyped(rs.ReplaceSubstring):
+    tube_dict = {
+      'target': type_dict['strings'],
+      'diff': type_dict['strings'],
+      'old_substring': type_dict['old_substring'],
+      'new_substring': type_dict['new_substring']
+    }
+  return ReplaceSubstringTyped(strings=strings, old_substring=old_substring, new_substring=new_substring)
+
+
 def one_hot(indices, depth, type_dict=None, waterwork=None, name=None):
   """One hotify an index or indices, keeping track of the missing values (i.e. indices outside of range 0 <= index < depth) so that it can be undone. A new dimension will be added to the indices dimension so that 'target' with have a rank one greater than 'indices'. The new dimension is always added to the end. So indices.shape == target.shape[:-1] and target.shape[-1] == depth.
 
@@ -473,6 +666,30 @@ def datetime_to_num(a, zero_datetime=datetime.datetime(1970, 1, 1), num_units=1,
   return dtn.DatetimeToNum(a=a, zero_datetime=zero_datetime, num_units=num_units, time_unit=time_unit, waterwork=waterwork, name=name)
 
 
+def logical_not(a, type_dict=None, waterwork=None, name=None):
+  """Create a function which generates the tank instance corresponding to some single argument, boolean valued numpy function. (e.g. np.isnan). The operation will be reversible but in the most trivial and wasteful manner possible. It will just copy over the original array.
+
+  Parameters
+  ----------
+  np_func : numpy function
+      A numpy function which operates on an array to give another array.
+  class_name : str
+      The name you'd like to have the Tank class called.
+
+  Returns
+  -------
+  func
+      A function which outputs a tank instance which behaves like the np_func but is also reversible
+
+  """
+  type_dict = ut.infer_types(type_dict, a=a)
+
+  if type_dict['a'] != (np.ndarray, np.bool) and type_dict['a'] != (bool, None):
+    raise TypeError("Input 'a' must be of boolean type.")
+
+  return bo.LogicalNot(a=a, waterwork=waterwork, name=name)
+
+
 isnan = bo.create_one_arg_bool_tank(np.isnan, class_name='IsNan')
 isnat = bo.create_one_arg_bool_tank(np.isnat, class_name='IsNan')
 equal = bo.create_two_arg_bool_tank(np.equal, class_name='Equals')
@@ -480,6 +697,7 @@ greater = bo.create_two_arg_bool_tank(np.greater, class_name='Greater')
 greater_equal = bo.create_two_arg_bool_tank(np.greater_equal, class_name='GreaterEqual')
 less = bo.create_two_arg_bool_tank(np.less, class_name='Less')
 less_equal = bo.create_two_arg_bool_tank(np.less_equal, class_name='LessEqual')
+isin = bo.create_two_arg_bool_tank(np.isin, class_name='IsIn', target_type=(np.ndarray, np.bool))
 
 max = rd.create_one_arg_reduce_tank(np.max, class_name='Max')
 min = rd.create_one_arg_reduce_tank(np.min, class_name='Min')

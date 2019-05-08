@@ -46,7 +46,7 @@ def create_one_arg_bool_tank(np_func, class_name):
   return func
 
 
-def create_two_arg_bool_tank(np_func, class_name):
+def create_two_arg_bool_tank(np_func, class_name, target_type=None):
   """Create a function which generates the tank instance corresponding to some two argument, boolean valued numpy function. (e.g. np.equals). The operation will be reversible but in the most trivial and wasteful manner possible. It will just copy over the original array.
 
   Parameters
@@ -66,7 +66,7 @@ def create_two_arg_bool_tank(np_func, class_name):
   # Define the tank subclass.
   class TankClass(ta.Tank):
     slot_keys = ['a', 'b']
-    tube_dict = {'target': None, 'a': None, 'b': None}
+    tube_dict = {'target': target_type, 'a': None, 'b': None}
 
     def _pour(self, a, b):
       return {'target': np_func(a, b), 'a': ut.maybe_copy(a), 'b': ut.maybe_copy(b)}
@@ -80,8 +80,13 @@ def create_two_arg_bool_tank(np_func, class_name):
     type_dict = ut.infer_types(type_dict, a=a, b=b)
     target_dtype = ut.decide_dtype(np.array(a).dtype, np.array(b).dtype)
 
+    if TankClass.tube_dict['target'] is None:
+      target_type = (np.ndarray, target_dtype)
+    else:
+      target_type = TankClass.tube_dict['target']
+
     class TankClassTyped(TankClass):
-      tube_dict = {'target': (np.ndarray, target_dtype), 'a': type_dict['a'], 'b': type_dict['b']}
+      tube_dict = {'target': target_type, 'a': type_dict['a'], 'b': type_dict['b']}
 
     TankClassTyped.__name__ = class_name + 'Typed'
 
@@ -90,6 +95,18 @@ def create_two_arg_bool_tank(np_func, class_name):
   return func
 
 
+class LogicalNot(ta.Tank):
+  slot_keys = ['a']
+  tube_dict = {
+    'target': (np.ndarray, np.bool)
+  }
+
+  def _pour(self, a):
+    a = np.array(a)
+    return {'target': np.logical_not(a)}
+
+  def _pump(self, target):
+    return {'a': np.logical_not(target)}
 # isnan = create_one_arg_bool_tank(np.isnan, class_name='IsNan')
 #
 # equal = create_two_arg_bool_tank(np.equal, class_name='Equals')

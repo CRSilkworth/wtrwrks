@@ -101,6 +101,7 @@ class TestDateTimeTransform(th.TestTransform):
         return replace_with
 
       trans = n.DateTimeTransform(
+        name='datetime',
         norm_mode='mean_std',
         norm_axis=None,
         fill_nat_func=fill
@@ -120,6 +121,7 @@ class TestDateTimeTransform(th.TestTransform):
           }
         )
         trans = self.write_read(trans, self.temp_dir)
+
     def test_min_max(self):
       def fill(array):
         mins = np.expand_dims(np.min(array, axis=0), axis=0)
@@ -127,6 +129,7 @@ class TestDateTimeTransform(th.TestTransform):
         replace_with = mins[np.isnat(array)]
         return replace_with
       trans = n.DateTimeTransform(
+        name='datetime',
         fill_nat_func=fill,
         norm_mode='min_max'
       )

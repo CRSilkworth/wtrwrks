@@ -59,6 +59,7 @@ class Tank(wp.WaterworkPart):
     """
     # Use the WaterworkPart constructor to assign the waterwork and the name.
     super(Tank, self).__init__(waterwork, name)
+
     if not self.name.startswith(self.waterwork.name):
       self.name = os.path.join(self.waterwork.name, self.name)
 
