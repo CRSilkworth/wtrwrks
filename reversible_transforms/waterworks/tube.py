@@ -1,4 +1,5 @@
 import reversible_transforms.waterworks.waterwork_part as wp
+from reversible_transforms.waterworks.empty import empty
 import os
 
 class Tube(wp.WaterworkPart):
@@ -19,7 +20,7 @@ class Tube(wp.WaterworkPart):
 
   """
 
-  def __init__(self, tank, key, val_type=None, val_dtype=None, val=None, slot=None):
+  def __init__(self, tank, key, val=None, slot=empty):
     """Initialize the tube.
 
     Parameters
@@ -38,8 +39,6 @@ class Tube(wp.WaterworkPart):
     self.slot = slot
     self.name = None
     self.val = val
-    self.val_type = val_type
-    self.val_dtype = val_dtype
 
     super(Tube, self).__init__(tank.waterwork, self.name)
     if self.name in self.waterwork.tubes:

@@ -22,7 +22,8 @@ class TestHalfWidth(th.TestTank):
       {
         'target': target,
         'diff': diff,
-      }
+      },
+      test_type=False
     )
 
   def test_two_d(self):
@@ -52,7 +53,8 @@ class TestHalfWidth(th.TestTank):
       {
         'target': target,
         'diff': diff,
-      }
+      },
+      test_type=False
     )
 
 if __name__ == "__main__":

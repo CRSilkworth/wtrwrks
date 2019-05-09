@@ -10,7 +10,7 @@ class Transpose(ta.Tank):
   ----------
   slot_keys : list of str
     The tank's (operation's) argument keys. They define the names of the inputs to the tank.
-  tube_dict : dict(
+  tube_keys : dict(
     keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
     values - types. The types of the arguments outputs.
   )
@@ -19,10 +19,7 @@ class Transpose(ta.Tank):
   """
 
   slot_keys = ['a', 'axes']
-  tube_dict = {
-    'target': np.ndarray,
-    'axes': tuple
-  }
+  tube_keys = ['target', 'axes']
 
   def _pour(self, a, axes):
     """Transpose the array.

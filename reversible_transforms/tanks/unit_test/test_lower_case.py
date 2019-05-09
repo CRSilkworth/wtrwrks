@@ -17,7 +17,8 @@ class TestLowerCase(th.TestTank):
       {
         'target': strings.lower(),
         'diff': diff,
-      }
+      },
+      test_type=False
     )
 
   def test_one_d(self):
@@ -34,7 +35,8 @@ class TestLowerCase(th.TestTank):
       {
         'target': strings,
         'diff': diff,
-      }
+      },
+      test_type=False
     )
 
   def test_two_d(self):
@@ -61,7 +63,8 @@ class TestLowerCase(th.TestTank):
       {
         'target': np.reshape([s.lower() for s in strings.flatten()], strings.shape),
         'diff': diff,
-      }
+      },
+      test_type=False
     )
 
 if __name__ == "__main__":

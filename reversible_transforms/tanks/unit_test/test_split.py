@@ -1,6 +1,6 @@
 import unittest
 import reversible_transforms.utils.test_helpers as th
-import reversible_transforms.tanks.split as sp
+import reversible_transforms.tanks.tank_defs as td
 import numpy as np
 
 
@@ -8,7 +8,7 @@ class TestSplit(th.TestTank):
 
   def test_one_d(self):
     self.pour_pump(
-      sp.split,
+      td.split,
       {
         'a': np.array([1, 2, 3]),
         'indices': np.array([1, 2]),
@@ -22,7 +22,7 @@ class TestSplit(th.TestTank):
       type_dict={'a': np.ndarray, 'indices': np.ndarray, 'axis': int}
     )
     self.pour_pump(
-      sp.split,
+      td.split,
       {
         'a': np.array([1, 2, 3]),
         'indices': np.array(3),
@@ -39,7 +39,7 @@ class TestSplit(th.TestTank):
   def test_two_d(self):
     a = np.array([[0, 1], [2, 3], [4, 5], [1, 0]])
     self.pour_pump(
-      sp.split,
+      td.split,
       {
         'a': a,
         'indices': np.array([2, 4]),
@@ -54,7 +54,7 @@ class TestSplit(th.TestTank):
     )
     a = np.array([[0, 1], [2, 3], [4, 5], [1, 0]])
     self.pour_pump(
-      sp.split,
+      td.split,
       {
         'a': a,
         'indices': [1, 2],

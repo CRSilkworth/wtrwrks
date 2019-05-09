@@ -27,14 +27,14 @@ class TestDatetimeToNum(th.TestTank):
 
   def test_one_d(self):
     a = np.array(['2019-01-01', '2019-02-01', '2019-03-01'], dtype=np.datetime64)
-    diff = np.array([-1546041600000000, -1548806400000000, -1551225600000000], dtype=np.timedelta64)
+    diff = np.array([timedelta(5), timedelta(1), timedelta(1)], dtype='timedelta64[us]')
     zero_datetime = np.array(datetime(1970, 1, 1), dtype=np.datetime64)
 
     self.pour_pump(
       td.datetime_to_num,
       {'a': a, 'num_units': 2, 'time_unit': 'W', 'zero_datetime': zero_datetime},
       {
-        'target': np.array([2556.71428571, 2561.14285714, 2565.14285714]),
+        'target': np.array([1278.357142857143, 1280.5714285714287, 1282.5714285714287]),
         'zero_datetime': np.array(datetime(1970, 1, 1), dtype=np.datetime64),
         'time_unit': 'W',
         'num_units': 2,
@@ -45,12 +45,12 @@ class TestDatetimeToNum(th.TestTank):
     )
 
     zero_datetime = np.array(datetime(2000, 1, 1), dtype=np.datetime64)
-    diff = np.array([-59361984000000000, -59627145600000000, -59866646400000000], dtype=np.timedelta64)
+    diff = np.array([], dtype=np.timedelta64)
     self.pour_pump(
       td.datetime_to_num,
       {'a': a, 'num_units': 100, 'time_unit': 's', 'zero_datetime': zero_datetime},
       {
-        'target': np.array([5.996160e+08, 6.022944e+08, 6.047136e+08]),
+        'target': np.array([5996160.0, 6022944.0, 6047136.0]),
         'zero_datetime': zero_datetime,
         'time_unit': 's',
         'num_units': 100,

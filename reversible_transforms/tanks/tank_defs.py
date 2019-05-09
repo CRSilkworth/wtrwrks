@@ -17,13 +17,13 @@ import reversible_transforms.tanks.tokenize as to
 import reversible_transforms.tanks.lower_case as lc
 import reversible_transforms.tanks.half_width as hw
 import reversible_transforms.tanks.lemmatize as lm
+import reversible_transforms.tanks.split as sp
 import reversible_transforms.tanks.replace_substring as rs
-
+from reversible_transforms.waterworks.empty import empty
 import numpy as np
-import datetime
 
 
-def clone(a, type_dict=None, waterwork=None, name=None):
+def clone(a=empty, waterwork=None, name=None, return_tank=False):
   """Copy an object in order to send it to two different tanks. Usually not performed explicitly but rather when a tube is put as input into two different slots. A clone operation is automatically created.
 
   Parameters
@@ -48,18 +48,15 @@ def clone(a, type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, a=a)
+  tank = cl.Clone(a=a, waterwork=waterwork, name=name)
 
-  class CloneTyped(cl.Clone):
-    tube_dict = {
-      'a': type_dict['a'],
-      'b': type_dict['a']
-    }
-
-  return CloneTyped(a=a, waterwork=waterwork, name=name)
+  # return tank['a'], tank['b'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def add(a, b, type_dict=None, waterwork=None, name=None):
+def add(a=empty, b=empty, waterwork=None, name=None, return_tank=False):
   """Add two objects together in a reversible manner. This function selects out the proper Add subclass depending on the types of 'a' and 'b'.
 
   Parameters
@@ -85,20 +82,14 @@ def add(a, b, type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, a=a, b=b)
-  target_dtype = ut.decide_dtype(np.array(a).dtype, np.array(b).dtype)
-
-  class AddTyped(ad.Add):
-    tube_dict = {
-      'target': (np.ndarray, target_dtype),
-      'smaller_size_array': (np.ndarray, target_dtype),
-      'a_is_smaller': (bool, None)
-    }
-
-  return AddTyped(a=a, b=b, waterwork=waterwork, name=name)
+  tank = ad.Add(a=a, b=b, waterwork=waterwork, name=name)
+  # return tank['target'], tank['smaller_size_array'], tank['a_is_smaller'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def sub(a, b, type_dict=None, waterwork=None, name=None):
+def sub(a=empty, b=empty, waterwork=None, name=None, return_tank=False):
   """Sub two objects together in a reversible manner. This function selects out the proper Sub subclass depending on the types of 'a' and 'b'.
 
   Parameters
@@ -124,20 +115,15 @@ def sub(a, b, type_dict=None, waterwork=None, name=None):
       The created sub tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, a=a, b=b)
-  target_dtype = ut.decide_dtype(np.array(a).dtype, np.array(b).dtype)
 
-  class SubTyped(su.Sub):
-    tube_dict = {
-      'target': (np.ndarray, target_dtype),
-      'smaller_size_array': (np.ndarray, target_dtype),
-      'a_is_smaller': (bool, None)
-    }
-
-  return SubTyped(a=a, b=b, waterwork=waterwork, name=name)
+  tank = su.Sub(a=a, b=b, waterwork=waterwork, name=name)
+  # return tank['target'], tank['smaller_size_array'], tank['a_is_smaller'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def mul(a, b, type_dict=None, waterwork=None, name=None):
+def mul(a=empty, b=empty, waterwork=None, name=None, return_tank=False):
   """Mul two objects together in a reversible manner. This function selects out the proper Mul subclass depending on the types of 'a' and 'b'.
 
   Parameters
@@ -163,21 +149,15 @@ def mul(a, b, type_dict=None, waterwork=None, name=None):
       The created mul tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, a=a, b=b)
-  target_dtype = ut.decide_dtype(np.array(a).dtype, np.array(b).dtype)
 
-  class MulTyped(mu.Mul):
-    tube_dict = {
-      'target': (np.ndarray, target_dtype),
-      'smaller_size_array': (np.ndarray, target_dtype),
-      'a_is_smaller': (bool, None),
-      'missing_vals': (np.ndarray, target_dtype),
-    }
-
-  return MulTyped(a=a, b=b, waterwork=waterwork, name=name)
+  tank = mu.Mul(a=a, b=b, waterwork=waterwork, name=name)
+  # return tank['target'], tank['smaller_size_array'], tank['a_is_smaller'], tank['missing_vals'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def div(a, b, type_dict=None, waterwork=None, name=None):
+def div(a=empty, b=empty, waterwork=None, name=None, return_tank=False):
   """Div two objects together in a reversible manner. This function selects out the proper Div subclass depending on the types of 'a' and 'b'.
 
   Parameters
@@ -203,22 +183,15 @@ def div(a, b, type_dict=None, waterwork=None, name=None):
       The created div tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, a=a, b=b)
-  target_dtype = ut.decide_dtype(np.array(a).dtype, np.array(b).dtype)
 
-  class DivTyped(dv.Div):
-    tube_dict = {
-      'target': (np.ndarray, target_dtype),
-      'smaller_size_array': (np.ndarray, target_dtype),
-      'a_is_smaller': (bool, None),
-      'missing_vals': (np.ndarray, target_dtype),
-      'remainder': (np.ndarray, target_dtype)
-    }
-
-  return DivTyped(a=a, b=b, waterwork=waterwork, name=name)
+  tank = dv.Div(a=a, b=b, waterwork=waterwork, name=name)
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
+  # return tank['target'], tank['smaller_size_array'], tank['a_is_smaller'], tank['missing_vals'], tank['remainder'], tank.get_slots()
 
 
-def cast(a, dtype, type_dict=None, waterwork=None, name=None):
+def cast(a=empty, dtype=empty, waterwork=None, name=None, return_tank=False):
   """Find the min of a np.array along one or more axes in a reversible manner.
 
   Parameters
@@ -244,20 +217,14 @@ def cast(a, dtype, type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, a=a, dtype=dtype)
-
-  class CastTyped(ct.Cast):
-    slot_keys = ['a', 'dtype']
-    tube_dict = {
-      'target': (np.ndarray, dtype),
-      'input_dtype': (type, None),
-      'diff': (np.ndarray, np.array(a).dtype)
-    }
-
-  return CastTyped(a=a, dtype=dtype, waterwork=waterwork, name=name)
+  tank = ct.Cast(a=a, dtype=dtype, waterwork=waterwork, name=name)
+  # return tank['target'], tank['input_dtype'], tank['diff'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def cat_to_index(cats, cat_to_index_map, type_dict=None, waterwork=None, name=None):
+def cat_to_index(cats=empty, cat_to_index_map=empty, waterwork=None, name=None, return_tank=False):
   """Convert categorical values to index values according to cat_to_index_map. Handles the case where the categorical value is not in cat_to_index by mapping to -1.
 
   Parameters
@@ -282,15 +249,14 @@ def cat_to_index(cats, cat_to_index_map, type_dict=None, waterwork=None, name=No
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, cats=cats, cat_to_index_map=cat_to_index_map)
+  tank = cti.CatToIndex(cats=cats, cat_to_index_map=cat_to_index_map, waterwork=waterwork, name=name)
+  # return tank['target'], tank['cat_to_index_map'], tank['missing_vals'], tank['input_dtype'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
-  if type_dict['cat_to_index_map'] != (dict, None):
-    raise TypeError("cat_to_index_map must be of type dict.")
 
-  return cti.CatToIndex(cats=cats, cat_to_index_map=cat_to_index_map, waterwork=waterwork, name=name)
-
-
-def concatenate(a_list, axis, type_dict=None, waterwork=None, name=None):
+def concatenate(a_list=empty, axis=empty, waterwork=None, name=None, return_tank=False):
   """Concatenate a np.array from subarrays along one axis in a reversible manner.
 
   Parameters
@@ -318,21 +284,14 @@ def concatenate(a_list, axis, type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, a_list=a_list, axis=axis)
-  dtypes = [np.array(a).dtype for a in a_list]
-  target_dtype = ut.decide_dtype(*dtypes)
-
-  class ConcatenateTyped(co.Concatenate):
-    tube_dict = {
-      'target': (np.ndarray, target_dtype),
-      'indices': (np.ndarray, np.int64),
-      'axis': (int, None),
-      'dtypes': (list, None)
-    }
-  return ConcatenateTyped(a_list=a_list, axis=axis, waterwork=waterwork, name=name)
+  tank = co.Concatenate(a_list=a_list, axis=axis, waterwork=waterwork, name=name)
+  # return tank['target'], tank['axis'], tank['indices'], tank['dtypes'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def tokenize(strings, tokenizer, max_len, delimiter, type_dict=None, waterwork=None, name=None):
+def tokenize(strings=empty, tokenizer=empty, max_len=empty, delimiter=empty, waterwork=None, name=None, return_tank=False):
   """Adds another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
 
   Parameters
@@ -362,22 +321,14 @@ def tokenize(strings, tokenizer, max_len, delimiter, type_dict=None, waterwork=N
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, strings=strings, delimiter=delimiter)
-
-  def f():
-    pass
-
-  class TokenizeTyped(to.Tokenize):
-    tube_dict = {
-      'target': type_dict['strings'],
-      'diff': type_dict['strings'],
-      'tokenizer': (type(f), None),
-      'delimiter': type_dict['delimiter']
-    }
-  return TokenizeTyped(strings=strings, tokenizer=tokenizer, max_len=max_len, delimiter=delimiter)
+  tank = to.Tokenize(strings=strings, tokenizer=tokenizer, max_len=max_len, delimiter=delimiter)
+  # return tank['target'], tank['tokenizer'], tank['delimiter'], tank['diff'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def lower_case(strings, type_dict=None, waterwork=None, name=None):
+def lower_case(strings=empty, waterwork=None, name=None, return_tank=False):
   """Adds another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
 
   Parameters
@@ -401,18 +352,15 @@ def lower_case(strings, type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, strings=strings)
-
-  class LowerCaseTyped(lc.LowerCase):
-    tube_dict = {
-      'target': type_dict['strings'],
-      'diff': type_dict['strings']
-    }
-  return LowerCaseTyped(strings=strings)
+  tank = lc.LowerCase(strings=strings)
+  # return tank['target'], tank['diff'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def half_width(strings, type_dict=None, waterwork=None, name=None):
-  """Adds another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
+def half_width(strings=empty, waterwork=None, name=None, return_tank=False):
+  """Add another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
 
   Parameters
   ----------
@@ -435,18 +383,15 @@ def half_width(strings, type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, strings=strings)
-
-  class HalfWidthTyped(hw.HalfWidth):
-    tube_dict = {
-      'target': type_dict['strings'],
-      'diff': type_dict['strings']
-    }
-  return HalfWidthTyped(strings=strings)
+  tank = hw.HalfWidth(strings=strings)
+  # return tank['target'], tank['diff'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def lemmatize(strings, lemmatizer, type_dict=None, waterwork=None, name=None):
-  """Adds another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
+def lemmatize(strings=empty, lemmatizer=empty, waterwork=None, name=None, return_tank=False):
+  """Add another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
 
   Parameters
   ----------
@@ -469,22 +414,15 @@ def lemmatize(strings, lemmatizer, type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, strings=strings)
-
-  def f():
-    pass
-
-  class LemmatizeTyped(lm.Lemmatize):
-    tube_dict = {
-      'target': type_dict['strings'],
-      'diff': type_dict['strings'],
-      'lemmatizer': (type(f), None)
-    }
-  return LemmatizeTyped(strings=strings, lemmatizer=lemmatizer)
+  tank = lm.Lemmatize(strings=strings, lemmatizer=lemmatizer)
+  # return tank['target'], tank['lemmatizer'], tank['diff'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def replace_substring(strings, old_substring, new_substring, type_dict=None, waterwork=None, name=None):
-  """Adds another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
+def replace_substring(strings=empty, old_substring=empty, new_substring=empty, waterwork=None, name=None, return_tank=False):
+  """Add another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
 
   Parameters
   ----------
@@ -507,19 +445,14 @@ def replace_substring(strings, old_substring, new_substring, type_dict=None, wat
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, strings=strings, old_substring=old_substring, new_substring=new_substring)
-
-  class ReplaceSubstringTyped(rs.ReplaceSubstring):
-    tube_dict = {
-      'target': type_dict['strings'],
-      'diff': type_dict['strings'],
-      'old_substring': type_dict['old_substring'],
-      'new_substring': type_dict['new_substring']
-    }
-  return ReplaceSubstringTyped(strings=strings, old_substring=old_substring, new_substring=new_substring)
+  tank = rs.ReplaceSubstring(strings=strings, old_substring=old_substring, new_substring=new_substring)
+  # return tank['target'], tank['old_substring'], tank['new_substring'], tank['diff'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def one_hot(indices, depth, type_dict=None, waterwork=None, name=None):
+def one_hot(indices=empty, depth=empty, waterwork=None, name=None, return_tank=False):
   """One hotify an index or indices, keeping track of the missing values (i.e. indices outside of range 0 <= index < depth) so that it can be undone. A new dimension will be added to the indices dimension so that 'target' with have a rank one greater than 'indices'. The new dimension is always added to the end. So indices.shape == target.shape[:-1] and target.shape[-1] == depth.
 
   Parameters
@@ -544,18 +477,14 @@ def one_hot(indices, depth, type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, indices=indices, depth=depth)
-
-  class OneHotTyped(oh.OneHot):
-    tube_dict = {
-      'target': (np.ndarray, np.float64),
-      'missing_vals': type_dict['indices']
-    }
-
-  return OneHotTyped(indices=indices, depth=depth, waterwork=waterwork, name=name)
+  tank = oh.OneHot(indices=indices, depth=depth, waterwork=waterwork, name=name)
+  # return tank['target'], tank['missing_vals'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def replace(a, mask, replace_with, type_dict=None, waterwork=None, name=None):
+def replace(a=empty, mask=empty, replace_with=empty, waterwork=None, name=None, return_tank=False):
   """Find the min of a np.array along one or more axes in a reversible manner.
 
   Parameters
@@ -585,20 +514,14 @@ def replace(a, mask, replace_with, type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, a=a, mask=mask, replace_with=replace_with)
-
-  class ReplaceTyped(rp.Replace):
-    tube_dict = {
-      'target': type_dict['a'],
-      'replaced_vals': type_dict['a'],
-      'mask': type_dict['mask'],
-      'replace_with_shape': (tuple, None)
-    }
-
-  return ReplaceTyped(a=a, mask=mask, replace_with=replace_with, waterwork=waterwork, name=name)
+  tank = rp.Replace(a=a, mask=mask, replace_with=replace_with, waterwork=waterwork, name=name)
+  # return tank['target'], tank['mask'], tank['replaced_vals'], tank['replace_with_shape'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def transpose(a, axes, type_dict=None, waterwork=None, name=None):
+def transpose(a=empty, axes=empty, waterwork=None, name=None, return_tank=False):
   """Find the min of a np.array along one or more axes in a reversible manner.
 
   Parameters
@@ -624,18 +547,14 @@ def transpose(a, axes, type_dict=None, waterwork=None, name=None):
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, a=a, axes=axes)
-
-  class TransposeTyped(tr.Transpose):
-    tube_dict = {
-      'target': type_dict['a'],
-      'axes': type_dict['axes']
-    }
-
-  return TransposeTyped(a=a, axes=axes, waterwork=waterwork, name=name)
+  tank = tr.Transpose(a=a, axes=axes, waterwork=waterwork, name=name)
+  # return tank['target'], tank['axes'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def datetime_to_num(a, zero_datetime=datetime.datetime(1970, 1, 1), num_units=1, time_unit='D', type_dict=None, waterwork=None, name=None):
+def datetime_to_num(a=empty, zero_datetime=empty, num_units=empty, time_unit=empty, waterwork=None, name=None, return_tank=False):
   """Add two objects together in a reversible manner. This function selects out the proper Add subclass depending on the types of 'a' and 'b'.
 
   Parameters
@@ -661,12 +580,15 @@ def datetime_to_num(a, zero_datetime=datetime.datetime(1970, 1, 1), num_units=1,
       The created add tank (operation) object.
 
   """
-  type_dict = ut.infer_types(type_dict, a=a, zero_datetime=zero_datetime, num_units=num_units, time_unit=time_unit)
+  tank = dtn.DatetimeToNum(a=a, zero_datetime=zero_datetime, num_units=num_units, time_unit=time_unit, waterwork=waterwork, name=name)
 
-  return dtn.DatetimeToNum(a=a, zero_datetime=zero_datetime, num_units=num_units, time_unit=time_unit, waterwork=waterwork, name=name)
+  # return tank['target'], tank['zero_datetime'], tank['num_units'], tank['time_unit'], tank['diff'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
-def logical_not(a, type_dict=None, waterwork=None, name=None):
+def logical_not(a=empty, waterwork=None, name=None, return_tank=False):
   """Create a function which generates the tank instance corresponding to some single argument, boolean valued numpy function. (e.g. np.isnan). The operation will be reversible but in the most trivial and wasteful manner possible. It will just copy over the original array.
 
   Parameters
@@ -682,12 +604,46 @@ def logical_not(a, type_dict=None, waterwork=None, name=None):
       A function which outputs a tank instance which behaves like the np_func but is also reversible
 
   """
-  type_dict = ut.infer_types(type_dict, a=a)
+  tank = bo.LogicalNot(a=a, waterwork=waterwork, name=name)
+  # return tank['target'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
-  if type_dict['a'] != (np.ndarray, np.bool) and type_dict['a'] != (bool, None):
-    raise TypeError("Input 'a' must be of boolean type.")
 
-  return bo.LogicalNot(a=a, waterwork=waterwork, name=name)
+def split(a=empty, indices=empty, axis=empty, type_dict=None, waterwork=None, name=None, return_tank=False):
+  """Split a np.array into subarrays along one axis in a reversible manner.
+
+  Parameters
+  ----------
+  a : Tube, np.ndarray or None
+      The array to get the min of.
+  indices : np.ndarray
+    The indices of the array to make the split at. e.g. For a = np.array([0, 1, 2, 3, 4]) and indices = np.array([2, 4]) you'd get target = [np.array([0, 1]), np.array([2, 3]), np.array([4])]
+  axis : Tube, int, tuple or None
+      The axis (axis) along which to split.
+  type_dict : dict({
+    keys - ['a', 'b']
+    values - type of argument 'a' type of argument 'b'.
+  })
+    The types of data which will be passed to each argument. Needed when the types of the inputs cannot be infered from the arguments a and b (e.g. when they are None).
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  Tank
+      The created add tank (operation) object.
+
+  """
+  tank = sp.Split(a=a, indices=indices, axis=axis, waterwork=waterwork, name=name)
+
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
 
 
 isnan = bo.create_one_arg_bool_tank(np.isnan, class_name='IsNan')

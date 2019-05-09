@@ -10,7 +10,7 @@ class Concatenate(ta.Tank):
   ----------
   slot_keys : list of str
     The tank's (operation's) argument keys. They define the names of the inputs to the tank.
-  tube_dict : dict(
+  tube_keys : dict(
     keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
     values - types. The types of the arguments outputs.
   )
@@ -19,12 +19,7 @@ class Concatenate(ta.Tank):
   """
 
   slot_keys = ['a_list', 'axis']
-  tube_dict = {
-    'target': None,
-    'indices': (np.ndarray, np.int64),
-    'axis': (int, None),
-    'dtypes': (list, None)
-  }
+  tube_keys = ['target', 'axis', 'indices', 'dtypes']
 
   def _pour(self, a_list, axis):
     """Execute the concatenate in the pour (forward) direction .

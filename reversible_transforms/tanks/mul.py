@@ -33,7 +33,7 @@ import numpy as np
 #   target_dtype = ut.decide_dtype(np.array(a).dtype, np.array(b).dtype)
 #
 #   class MulTyped(Mul):
-#     tube_dict = {
+#     tube_keys = {
 #       'target': (np.ndarray, target_dtype),
 #       'smaller_size_array': (np.ndarray, target_dtype),
 #       'a_is_smaller': (bool, None),
@@ -48,7 +48,7 @@ class Mul(ta.Tank):
 
   Attributes
   ----------
-  tube_dict : dict(
+  tube_keys : dict(
     keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
     values - types. The types of the arguments outputs.
   )
@@ -56,12 +56,7 @@ class Mul(ta.Tank):
 
   """
   slot_keys = ['a', 'b']
-  tube_dict = {
-    'target': None,
-    'smaller_size_array': None,
-    'a_is_smaller': (bool, None),
-    'missing_vals': None,
-  }
+  tube_keys = ['target', 'smaller_size_array', 'a_is_smaller', 'missing_vals']
 
   def _pour(self, a, b):
     """Execute the mul in the pour (forward) direction .

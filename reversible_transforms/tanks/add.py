@@ -8,7 +8,7 @@ class Add(ta.Tank):
 
   Attributes
   ----------
-  tube_dict : dict(
+  tube_keys : dict(
     keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
     values - types. The types of the arguments outputs.
   )
@@ -16,11 +16,7 @@ class Add(ta.Tank):
 
   """
   slot_keys = ['a', 'b']
-  tube_dict = {
-    'target': None,
-    'smaller_size_array': None,
-    'a_is_smaller': (bool, None),
-  }
+  tube_keys = ['target', 'smaller_size_array', 'a_is_smaller']
 
   def _pour(self, a, b):
     """Execute the add in the pour (forward) direction .

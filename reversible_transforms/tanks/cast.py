@@ -10,7 +10,7 @@ class Cast(ta.Tank):
   ----------
   slot_keys : list of str
     The tank's (operation's) argument keys. They define the names of the inputs to the tank.
-  tube_dict : dict(
+  tube_keys : dict(
     keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
     values - types. The types of the arguments outputs.
   )
@@ -19,11 +19,7 @@ class Cast(ta.Tank):
   """
 
   slot_keys = ['a', 'dtype']
-  tube_dict = {
-    'target': None,
-    'input_dtype': None,
-    'diff': None
-  }
+  tube_keys = ['target', 'input_dtype', 'diff']
 
   def _pour(self, a, dtype):
     """Execute the add in the pour (forward) direction .

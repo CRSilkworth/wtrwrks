@@ -61,8 +61,8 @@ class TestTank (WWTest):
   def pour_pump(self, tank_func, input_dict, output_dict, type_dict=None, test_type=True):
     with wa.Waterwork() as ww:
       # test eager
-      tank = tank_func(type_dict=None, **input_dict)
-      out_dict = {t: v.val for t, v in tank.get_tubes().iteritems()}
+      tank_tubes, tank_slots, tank = tank_func(return_tank=True, **input_dict)
+      out_dict = {t: v.val for t, v in tank_tubes.iteritems()}
       self.assertEqual(sorted(out_dict.keys()), sorted(output_dict.keys()))
       for key in out_dict:
         try:

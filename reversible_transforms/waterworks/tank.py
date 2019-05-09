@@ -1,6 +1,6 @@
 import reversible_transforms.waterworks.globs as gl
 import reversible_transforms.waterworks.waterwork_part as wp
-import reversible_transforms.waterworks.placeholder as pl
+from reversible_transforms.waterworks.empty import empty
 import reversible_transforms.waterworks.slot as sl
 import reversible_transforms.waterworks.tube as tu
 import os
@@ -37,7 +37,7 @@ class Tank(wp.WaterworkPart):
   """
 
   slot_keys = None
-  tube_dict = None
+  tube_keys = None
 
   def __init__(self, waterwork=None, name=None, **input_dict):
     """Create a Tank. Eagerly run the pour function if all the input values are known at creation.
@@ -75,7 +75,7 @@ class Tank(wp.WaterworkPart):
     self.slots = {}
     self.tubes = {}
     self._create_slots(self.slot_keys, self.waterwork)
-    self._create_tubes(self.tube_dict, self.waterwork)
+    self._create_tubes(self.tube_keys, self.waterwork)
 
     # Join the this tank's slots to the tubes of the other tanks which are
     # inputted in as an argument (input_dict).
@@ -89,20 +89,13 @@ class Tank(wp.WaterworkPart):
     all_slots_filled = self._check_slots_filled(input_dict)
 
     for key in input_dict:
+      if type(input_dict[key]) is sl.Slot:
+        raise ValueError("Cannot pass slot as argument to " + str(type(self)))
       # If data is directly inputted into the slot, then
       # create a placeholder with it's value set to the data.
-      if type(input_dict[key]) is not pl.Placeholder and type(input_dict[key]) is not tu.Tube:
-        val_dtype = None if type(input_dict[key]) is not np.ndarray else input_dict[key].dtype
-
-        new_ph = pl.Placeholder(
-          val_type=type(input_dict[key]),
-          val_dtype=val_dtype,
-          val=input_dict[key],
-          waterwork=self.waterwork,
-          slot=self.slots[key]
-        )
+      if type(input_dict[key]) is not tu.Tube and input_dict[key] is empty:
         self.slots[key].set_val(input_dict[key])
-        self.slots[key].tube = new_ph
+        self.slots[key].tube = empty
 
     if all_slots_filled:
       input_dict = self._convert_tubes_to_vals(input_dict)
@@ -148,7 +141,7 @@ class Tank(wp.WaterworkPart):
     # Otherwise return True.
     all_slots_filled = True
     for key in input_dict:
-      if type(input_dict[key]) is pl.Placeholder and input_dict[key].get_val() is None:
+      if input_dict[key] is empty:
         all_slots_filled = False
         break
       if (
@@ -205,7 +198,7 @@ class Tank(wp.WaterworkPart):
       waterwork.slots[slot.name] = slot
       waterwork.funnels[slot.name] = slot
 
-  def _create_tubes(self, tube_dict, waterwork):
+  def _create_tubes(self, tube_keys, waterwork):
     """Create all the tube objects for the tank and add to the waterwork directory.
 
     Parameters
@@ -217,8 +210,8 @@ class Tank(wp.WaterworkPart):
       The waterwork that the part will be added to.
 
     """
-    for key in tube_dict:
-      tube = tu.Tube(self, key, val_type=tube_dict[key][0], val_dtype=tube_dict[key][1])
+    for key in tube_keys:
+      tube = tu.Tube(self, key)
       self.tubes[key] = tube
 
       waterwork.tubes[tube.name] = tube
@@ -226,7 +219,6 @@ class Tank(wp.WaterworkPart):
 
   def _get_default_name(self, prefix=''):
     """Create the default name of the tank, of the form '<TankSubClass>_<num>'.
-
 
     Returns
     -------
@@ -269,16 +261,16 @@ class Tank(wp.WaterworkPart):
       slot = self.slots[key]
       tube = input_dict[key]
 
-      if type(tube) is not tu.Tube and type(tube) is not pl.Placeholder:
+      if type(tube) is not tu.Tube:
         continue
 
       # If the tube was already used for another tank, then it'll have to be
       # cloned.
-      if tube.slot is not None:
+      if tube.slot is not empty:
 
         # Save the slot in order to connect it to the clone tube later.
         other_slot = tube.slot
-        tube.slot = None
+        tube.slot = empty
 
         import reversible_transforms.tanks.tank_defs as td
         c = td.clone(a=tube)
@@ -290,8 +282,6 @@ class Tank(wp.WaterworkPart):
         # Join this slot to the 'a' tube of the clone tank
         slot.tube = c['a']
         c['a'].slot = slot
-        slot.val_type = c['a'].val_type
-        slot.val_dtype = c['a'].val_dtype
 
         # Remove the newly created clone tupes from the taps, since they are
         # immediately connected to slots.
@@ -307,8 +297,6 @@ class Tank(wp.WaterworkPart):
       else:
         tube.slot = slot
         slot.tube = tube
-        slot.val_type = tube.val_type
-        slot.val_dtype = tube.val_dtype
 
       if type(tube) is tu.Tube:
         del waterwork.taps[tube.name]
@@ -342,30 +330,6 @@ class Tank(wp.WaterworkPart):
     tubes.update(self.tubes)
     return tubes
 
-  def paired_slots(self):
-    """Retrieve the dictionary of slot objects from the tank which have been paired to a tube from another tank."""
-    slots = {}
-    slots.update({k: s for k, s in self.slots.iteritems() if type(s.tube) is not pl.Placeholder})
-    return slots
-
-  def paired_tubes(self):
-    """Retrieve the dictionary of tube objects from the tank which have been paired to a slot from another tank."""
-    tubes = {}
-    tubes.update({k: t for k, t in self.tubes.iteritems() if t.slot is not None})
-    return tubes
-
-  def unpaired_slots(self):
-    """Retrieve the dictionary of slot objects from the tank which have not been paired to a tube from another tank."""
-    slots = {}
-    slots.update({k: s for k, s in self.slots.iteritems() if type(s.tube) is pl.Placeholder})
-    return slots
-
-  def unpaired_tubes(self):
-    """Retrieve the dictionary of tube objects from the tank which have not been paired to a slot from another tank."""
-    tubes = {}
-    tubes.update({k: t for k, t in self.tubes.iteritems() if t.slot is None})
-    return tubes
-
   def pour(self, **input_dict):
     """Execute the forward transformation of the input_dict inputted to the tank to get the dictionary of tube objects who's val's have been filled.
 
@@ -380,7 +344,7 @@ class Tank(wp.WaterworkPart):
     Returns
     -------
     kwargs = {
-        keys - Tube keys. The same as the keys from attribute tube_dict.
+        keys - Tube keys. The same as the keys from attribute tube_keys.
         values - The data_types outputted by the tank.
       }
         All of the ouputs the tank gives in the 'pour' (i.e. forward) direction.
@@ -390,6 +354,9 @@ class Tank(wp.WaterworkPart):
     if set(input_dict.keys()) != set(self.slot_keys):
       raise ValueError("Must pass " + str(input_dict.keys()) + " as arguments, got " + str(self.slot_keys))
 
+    for key, val in input_dict.iteritems():
+      if not self._slot_is_valid_type(key, val):
+        raise TypeError("Got invalid type for (tank, slot): " + str((self.name, key)) + ". ")
     # Run the function defined by the subclass
     tube_dict = self._pour(**input_dict)
 
@@ -405,7 +372,7 @@ class Tank(wp.WaterworkPart):
     Parameters
     ----------
     **kwargs : kwargs = {
-        keys - Tube keys. Must be the same as the keys from attribute tube_dict.
+        keys - Tube keys. Must be the same as the keys from attribute tube_keys.
         values - valid data types
       }
       The inputs to the backward transformation of the tank.
@@ -420,9 +387,12 @@ class Tank(wp.WaterworkPart):
 
     """
     # Check that the inputs are valid
-    if set(kwargs.keys()) != set(self.tube_dict.keys()):
-      raise ValueError("Must pass " + str(kwargs.keys()) + " as arguments, got " + str(self.tube_dict.keys()))
+    if set(kwargs.keys()) != set(self.tube_keys):
+      raise ValueError("Must pass " + str(kwargs.keys()) + " as arguments, got " + str(self.tube_keys))
 
+    for key, val in kwargs.iteritems():
+      if not self._tube_is_valid_type(key, val):
+        raise TypeError("Got invalid type for (tank, tube): " + str((self.name, key)) + ". ")
     # Run the function defined by the subclass
     slot_dict = self._pump(**kwargs)
 
@@ -447,7 +417,8 @@ class Tank(wp.WaterworkPart):
         slot = tank.slots[slot_name]
 
         # If the slot is not connected to any tube (i.e. is a funnel) continue.
-        if type(slot.tube) is pl.Placeholder:
+        # print slot.name, slot.name in slot.waterwork.funnels
+        if slot.name in slot.waterwork.funnels:
           continue
 
         parent_tank = slot.tube.tank
@@ -468,8 +439,8 @@ class Tank(wp.WaterworkPart):
       for tube_name in tank.tubes:
         tube = tank.tubes[tube_name]
 
-        # If the tube is not connected to any tube (i.e. is a funnel) continue.
-        if tube.slot is None:
+        # If the tube is not connected to any slot (i.e. is a tap) continue.
+        if tube.name in tube.waterwork.taps:
           continue
 
         parent_tank = tube.slot.tank
@@ -477,3 +448,9 @@ class Tank(wp.WaterworkPart):
         tanks.append(parent_tank)
         dependencies.append(parent_tank)
     return dependencies
+
+  def _slot_is_valid_type(self, key, val):
+    return True
+
+  def _tube_is_valid_type(self, key, val):
+    return True

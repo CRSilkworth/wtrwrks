@@ -15,7 +15,7 @@ class Tokenize(ta.Tank):
   ----------
   slot_keys : list of str
     The tank's (operation's) argument keys. They define the names of the inputs to the tank.
-  tube_dict : dict(
+  tube_keys : dict(
     keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
     values - types. The types of the arguments outputs.
   )
@@ -23,30 +23,7 @@ class Tokenize(ta.Tank):
 
   """
   slot_keys = ['strings', 'tokenizer', 'max_len', 'delimiter']
-  tube_dict = {
-    'target': None,
-    'diff': (str, None),
-    'tokenizer': None,
-    'delimiter': (str, None)
-  }
-
-  # def __init__(self, *args, **kwargs):
-  #   super(Tokenize, self).__init__(*args, **kwargs)
-  #   if self.slots['language'] == 'en':
-  #     self.tokenizer = np.vectorize(nltk.word_tokenize)
-  #   elif self.slots['language'] == 'ja':
-  #     tokenizer = tinysegmenter.TinySegmenter()
-  #     self.tokenizer = np.vectorize(tokenizer.tokenize)
-  #   elif self.slots['language'] == 'ko':
-  #     self.tokenizer = np.vectorize(lambda s: s.split())
-  #   elif self.slots['language'] == 'zh_hans':
-  #     tokenizer = HMMTokenizer()
-  #     self.tokenizer = np.vectorize(tokenizer.cut)
-  #   elif self.slots['language'] == 'zh_hant':
-  #     tokenizer = MMSEGTokenizer()
-  #     self.tokenizer = np.vectorize(tokenizer.cut)
-  #   else:
-  #     self.tokenizer = np.vectorize(lambda s: s.split())
+  tube_keys = ['target', 'tokenizer', 'delimiter', 'diff']
 
   def _pour(self, strings, tokenizer, max_len, delimiter=' '):
     """Execute the mapping in the pour (forward) direction .
@@ -98,7 +75,7 @@ class Tokenize(ta.Tank):
     diff_array = np.stack(all_diffs)
     diff = np.reshape(diff_array, strings.shape)
 
-    return {'target': target, 'diff': diff, 'tokenizer': tokenizer, 'delimiter': delimiter}
+    return {'target': target.astype(strings.dtype), 'diff': diff, 'tokenizer': tokenizer, 'delimiter': delimiter}
 
   def _pump(self, target, diff, tokenizer, delimiter):
     """Execute the mapping in the pump (backward) direction .
@@ -123,10 +100,6 @@ class Tokenize(ta.Tank):
     )
 
     """
-    if self.tube_dict['target'][1] is not None:
-      dtype = self.tube_dict['target'][1]
-    else:
-      dtype = self.tube_dict['target'][0]
     max_len = target.shape[-1]
     all_strings = []
     for tokens, diff_string in zip(np.reshape(target, (-1, max_len)), diff.flatten()):
@@ -134,5 +107,5 @@ class Tokenize(ta.Tank):
       string = di.reconstruct(string, diff_string)
       all_strings.append(string)
 
-    strings = np.reshape(all_strings, target.shape[:-1]).astype(dtype)
+    strings = np.reshape(all_strings, target.shape[:-1]).astype(target.dtype)
     return {'strings': strings, 'tokenizer': tokenizer, 'max_len': max_len, 'delimiter': delimiter}

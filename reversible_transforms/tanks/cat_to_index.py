@@ -11,7 +11,7 @@ class CatToIndex(ta.Tank):
   ----------
   slot_keys : list of str
     The tank's (operation's) argument keys. They define the names of the inputs to the tank.
-  tube_dict : dict(
+  tube_keys : dict(
     keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
     values - types. The types of the arguments outputs.
   )
@@ -19,12 +19,7 @@ class CatToIndex(ta.Tank):
 
   """
   slot_keys = ['cats', 'cat_to_index_map']
-  tube_dict = {
-    'target': (np.ndarray, np.int64),
-    'missing_vals': (list, None),
-    'cat_to_index_map': (dict, None),
-    'input_dtype': (type, None)
-  }
+  tube_keys = ['target', 'cat_to_index_map', 'missing_vals', 'input_dtype']
 
   def _pour(self, cats, cat_to_index_map):
     """Execute the mapping in the pour (forward) direction .

@@ -13,7 +13,7 @@ class Lemmatize(ta.Tank):
   ----------
   slot_keys : list of str
     The tank's (operation's) argument keys. They define the names of the inputs to the tank.
-  tube_dict : dict(
+  tube_keys : dict(
     keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
     values - types. The types of the arguments outputs.
   )
@@ -21,11 +21,7 @@ class Lemmatize(ta.Tank):
 
   """
   slot_keys = ['strings', 'lemmatizer']
-  tube_dict = {
-    'target': None,
-    'diff': (str, None),
-    'lemmatizer': None
-  }
+  tube_keys = ['target', 'lemmatizer', 'diff']
 
   def _pour(self, strings, lemmatizer):
     """Execute the mapping in the pour (forward) direction .
@@ -83,11 +79,6 @@ class Lemmatize(ta.Tank):
     )
 
     """
-    if self.tube_dict['target'][1] is not None:
-      dtype = self.tube_dict['target'][1]
-    else:
-      dtype = self.tube_dict['target'][0]
-
     strings = np.vectorize(di.reconstruct)(target, diff)
 
-    return {'strings': strings.astype(dtype), 'lemmatizer': lemmatizer}
+    return {'strings': strings, 'lemmatizer': lemmatizer}

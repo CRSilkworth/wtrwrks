@@ -23,7 +23,8 @@ class TestReplaceSubstring(th.TestTank):
         'diff': diff,
         'old_substring': old_substring,
         'new_substring': new_substring
-      }
+      },
+      test_type=False
     )
 
   def test_one_d(self):
@@ -46,7 +47,8 @@ class TestReplaceSubstring(th.TestTank):
         'diff': diff,
         'old_substring': old_substring,
         'new_substring': new_substring
-      }
+      },
+      test_type=False
     )
 
   def test_two_d(self):
@@ -78,7 +80,8 @@ class TestReplaceSubstring(th.TestTank):
         'diff': diff,
         'old_substring': old_substring,
         'new_substring': new_substring
-      }
+      },
+      test_type=False
     )
 
 if __name__ == "__main__":

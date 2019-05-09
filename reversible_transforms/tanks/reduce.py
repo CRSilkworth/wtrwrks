@@ -24,7 +24,7 @@ def create_one_arg_reduce_tank(np_func, class_name):
   class TankClass(ta.Tank):
 
     slot_keys = ['a', 'axis']
-    tube_dict = {'target': None, 'axis': None, 'a': None}
+    tube_keys = ['target', 'axis', 'a']
 
     def _pour(self, a, axis):
       if not np.array(axis).size:
@@ -41,15 +41,10 @@ def create_one_arg_reduce_tank(np_func, class_name):
 
   TankClass.__name__ = class_name
 
-  def func(a, axis=(), type_dict=None, waterwork=None, name=None):
-    type_dict = ut.infer_types(type_dict, a=a)
-    # axis = np.array(axis)
-
-    class TankClassTyped(TankClass):
-      tube_dict = {'target': (np.ndarray, np.array(a).dtype), 'a': type_dict['a'], 'axis': (np.ndarray, np.int64)}
-
-    TankClassTyped.__name__ = class_name + 'Typed'
-
-    return TankClassTyped(a=a, axis=axis, waterwork=waterwork, name=name)
-
+  def func(a, axis=(), type_dict=None, waterwork=None, name=None, return_tank=False):
+    tank = TankClass(a=a, axis=axis, waterwork=waterwork, name=name)
+    # return tank['target'], tank['axis'], tank['a'], tank.get_slots()
+    if not return_tank:
+      return tank.get_tubes(), tank.get_slots()
+    return tank.get_tubes(), tank.get_slots(), tank
   return func

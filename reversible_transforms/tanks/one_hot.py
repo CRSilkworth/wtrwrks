@@ -3,6 +3,7 @@ import reversible_transforms.waterworks.tank as ta
 import reversible_transforms.tanks.utils as ut
 import numpy as np
 
+
 class OneHot(ta.Tank):
   """The base OneHot class. All subclasses must have the same outputs where they output a numpy arrays of 'target' and 'missing_vals'. The indices must be an integer type (or array of integers) and the depth must be an int.
 
@@ -10,7 +11,7 @@ class OneHot(ta.Tank):
   ----------
   slot_keys : list of str
     The tank's (operation's) argument keys. They define the names of the inputs to the tank.
-  tube_dict : dict(
+  tube_keys : dict(
     keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
     values - types. The types of the arguments outputs.
   )
@@ -19,10 +20,7 @@ class OneHot(ta.Tank):
   """
 
   slot_keys = ['indices', 'depth']
-  tube_dict = {
-    'target': (np.ndarray, np.float64),
-    'missing_vals': None
-  }
+  tube_keys = ['target', 'missing_vals']
 
   def _pour(self, indices, depth):
     indices = np.array(indices)

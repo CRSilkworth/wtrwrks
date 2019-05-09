@@ -10,7 +10,7 @@ class ReplaceSubstring(ta.Tank):
   ----------
   slot_keys : list of str
     The tank's (operation's) argument keys. They define the names of the inputs to the tank.
-  tube_dict : dict(
+  tube_keys : dict(
     keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
     values - types. The types of the arguments outputs.
   )
@@ -18,12 +18,7 @@ class ReplaceSubstring(ta.Tank):
 
   """
   slot_keys = ['strings', 'old_substring', 'new_substring']
-  tube_dict = {
-    'target': None,
-    'diff': (str, None),
-    'old_substring': None,
-    'new_substring': None,
-  }
+  tube_keys = ['target', 'old_substring', 'new_substring', 'diff']
 
   def _pour(self, strings, old_substring, new_substring):
     """Execute the mapping in the pour (forward) direction .
@@ -81,11 +76,6 @@ class ReplaceSubstring(ta.Tank):
     )
 
     """
-    if self.tube_dict['target'][1] is not None:
-      dtype = self.tube_dict['target'][1]
-    else:
-      dtype = self.tube_dict['target'][0]
-
     strings = np.vectorize(di.reconstruct)(target, diff)
 
-    return {'strings': strings.astype(dtype), 'old_substring': old_substring, 'new_substring': new_substring}
+    return {'strings': strings, 'old_substring': old_substring, 'new_substring': new_substring}

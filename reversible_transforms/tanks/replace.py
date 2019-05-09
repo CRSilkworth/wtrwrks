@@ -11,7 +11,7 @@ class Replace(ta.Tank):
   ----------
   slot_keys : list of str
     The tank's (operation's) argument keys. They define the names of the inputs to the tank.
-  tube_dict : dict(
+  tube_keys : dict(
     keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
     values - types. The types of the arguments outputs.
   )
@@ -20,12 +20,7 @@ class Replace(ta.Tank):
   """
 
   slot_keys = ['a', 'mask', 'replace_with']
-  tube_dict = {
-    'target': np.ndarray,
-    'replaced_vals': np.ndarray,
-    'mask': int,
-    'replace_with_shape': tuple
-  }
+  tube_keys = ['target', 'mask', 'replaced_vals', 'replace_with_shape']
 
   def _pour(self, a, mask, replace_with):
     """Execute the add in the pour (forward) direction .

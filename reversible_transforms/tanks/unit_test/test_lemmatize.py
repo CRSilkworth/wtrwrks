@@ -53,7 +53,8 @@ class TestLemmatize(th.TestTank):
         'target': np.array(u'run'),
         'diff': diff,
         'lemmatizer': basic_lemmatizer,
-      }
+      },
+      test_type=False
     )
 
   def test_one_d(self):
@@ -71,7 +72,8 @@ class TestLemmatize(th.TestTank):
         'target': target,
         'diff': diff,
         'lemmatizer': lemmatizer,
-      }
+      },
+      test_type=False
     )
 
   def test_two_d(self):
@@ -107,7 +109,8 @@ class TestLemmatize(th.TestTank):
         'target': target,
         'diff': diff,
         'lemmatizer': basic_lemmatizer,
-      }
+      },
+      test_type=False
     )
 
 if __name__ == "__main__":

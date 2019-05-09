@@ -11,7 +11,7 @@ class DatetimeToNum(ta.Tank):
   ----------
   slot_keys : list of str
     The tank's (operation's) argument keys. They define the names of the inputs to the tank.
-  tube_dict : dict(
+  tube_keys : dict(
     keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
     values - types. The types of the arguments outputs.
   )
@@ -20,13 +20,7 @@ class DatetimeToNum(ta.Tank):
   """
 
   slot_keys = ['a', 'zero_datetime', 'num_units', 'time_unit']
-  tube_dict = {
-    'target': (np.ndarray, np.int64),
-    'zero_datetime': (datetime.datetime, None),
-    'num_units': (int, None),
-    'time_unit': (str, None),
-    'diff': (np.ndarray, np.datetime64)
-  }
+  tube_keys = ['target', 'zero_datetime', 'num_units', 'time_unit', 'diff']
 
   def _pour(self, a, zero_datetime, num_units, time_unit):
     """Execute the add in the pour (forward) direction .
