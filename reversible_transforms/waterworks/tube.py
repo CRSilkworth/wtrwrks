@@ -1,5 +1,5 @@
 import reversible_transforms.waterworks.waterwork_part as wp
-
+import os
 
 class Tube(wp.WaterworkPart):
   """Object that is always part of some tank which stores the output (in the pour or forward direction) of the operation perfomed by the tank and connects to the slot of another tank.
@@ -36,7 +36,7 @@ class Tube(wp.WaterworkPart):
     self.key = key
     self.tank = tank
     self.slot = slot
-    self.name = str((tank.name, key))
+    self.name = None
     self.val = val
     self.val_type = val_type
     self.val_dtype = val_dtype
@@ -90,12 +90,17 @@ class Tube(wp.WaterworkPart):
 
   def __str__(self):
     """Get a string of the name of the tube."""
-    return str((str(self.tank), str(self.key)))
+    return self.name
+  #   return str((str(self.tank), str(self.key)))
 
   def __sub__(self, other):
     """Define an add tank (operation) between two tubes."""
     import reversible_transforms.tanks.tank_defs as td
     return td.sub(a=self, b=other, waterwork=self.waterwork)
+
+  def _get_default_name(self, prefix=''):
+    """Set a default name. Must be defined by subclass."""
+    return os.path.join(self.tank.name, 'tubes', self.key)
 
   def get_tuple(self):
     """Get a tuple that describes the tube."""
@@ -115,6 +120,8 @@ class Tube(wp.WaterworkPart):
     self.name = name
     if type(name) not in (str, unicode):
       raise TypeError("'name' must be of type str or unicode. Got " + str(type(name)))
+    elif not self.name.startswith(self.name_space._get_name_string()):
+      self.name = os.path.join(self.name_space._get_name_string(), self.name)
     if self.name in self.waterwork.tubes:
       raise ValueError(self.name + " already defined as tube. Choose a different name.")
 

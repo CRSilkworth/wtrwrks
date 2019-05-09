@@ -1,4 +1,6 @@
 import reversible_transforms.waterworks.waterwork_part as wp
+import reversible_transforms.waterworks.globs as gl
+import os
 
 class Slot(wp.WaterworkPart):
   """Object that is always part of some tank which stores the input (in the pour or forward direction) of the operation perfomed by the tank and connects to the tube of another tank.
@@ -32,7 +34,7 @@ class Slot(wp.WaterworkPart):
     self.key = key
     self.tank = tank
     self.tube = tube
-    self.name = str((tank.name, key))
+    self.name = None
     self.val = val
     self.val_type = val_type
     self.val_dtype = val_dtype
@@ -51,7 +53,12 @@ class Slot(wp.WaterworkPart):
 
   def __str__(self):
     """Get a string of the name of the slot."""
-    return str((str(self.tank), str(self.key)))
+    return self.name
+  #   return str((str(self.tank), str(self.key)))
+
+  def _get_default_name(self, prefix=''):
+    """Set a default name. Must be defined by subclass."""
+    return os.path.join(self.tank.name, 'slots', self.key)
 
   def get_tuple(self):
     """Get a tuple that describes the slot."""
@@ -71,6 +78,9 @@ class Slot(wp.WaterworkPart):
     self.name = name
     if type(name) not in (str, unicode):
       raise TypeError("'name' must be of type str or unicode. Got " + str(type(name)))
+    elif not self.name.startswith(self.name_space._get_name_string()):
+      self.name = os.path.join(self.name_space._get_name_string(), self.name)
+
     if self.name in self.waterwork.slots:
       raise ValueError(self.name + " already defined as slot. Choose a different name.")
 

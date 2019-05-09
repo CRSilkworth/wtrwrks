@@ -1,5 +1,6 @@
 import reversible_transforms.waterworks.globs as gl
 import reversible_transforms.waterworks.waterwork_part as wp
+import reversible_transforms.waterworks.name_space as ns
 import os
 import pprint
 
@@ -50,12 +51,18 @@ class Waterwork(object):
     """When entering, set the global _default_waterwork to this waterwork."""
     if gl._default_waterwork is not None:
       raise ValueError("_default_waterwork is already set. Cannot be reset until context is exitted. Are you within the with statement of another waterwork?")
+
+    # Create a new namespace for this waterwork
+    self.name_space = ns.NameSpace(self.name)
+    self.name_space.__enter__()
+
     gl._default_waterwork = self
     return self
 
   def __exit__(self, exc_type, exc_val, exc_tb):
     """When exiting, set the global _default_waterwork back to None."""
     gl._default_waterwork = None
+    self.name_space.__exit__(exc_type, exc_val, exc_tb)
 
   def _pour_tank_order(self):
     """Get the order to calculate the tanks in the pour direction.
@@ -472,7 +479,7 @@ class Waterwork(object):
         if sl_obj.tube is not None:
           sl_obj.tube.set_val(val)
       else:
-        raise ValueError(str(ph) + ' is not a supported form of input into pour function')
+        raise ValueError(str(ph) + ' is not a supported input into pour function')
 
     # Check that all funnels have a value
     for funnel in self.funnels:

@@ -5,6 +5,8 @@ import warnings
 import reversible_transforms.waterworks.placeholder as pl
 import reversible_transforms.tanks.tank_defs as td
 import reversible_transforms.waterworks.waterwork as wa
+import reversible_transforms.waterworks.globs as gl
+import reversible_transforms.waterworks.name_space as ns
 
 class NumTransform(n.Transform):
   """Class used to create mappings from raw numerical data to vectorized, normalized data and vice versa.
@@ -80,35 +82,29 @@ class NumTransform(n.Transform):
         if verbose:
           warnings.warn("NumTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")
 
-  def get_waterwork(self):
-    assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
+  def define_waterwork(self):
+    input = pl.Placeholder(np.ndarray, self.input_dtype, name='input')
 
-    with wa.Waterwork(name=self.name) as ww:
-      input = pl.Placeholder(np.ndarray, self.input_dtype, name='input')
+    # Replace all the NaT's with the inputted replace_with.
+    nans = td.isnan(input)
 
-      # Replace all the NaT's with the inputted replace_with.
-      nans = td.isnan(input)
+    replace_with = pl.Placeholder(np.ndarray, self.input_dtype, name='replace_with')
+    nums = td.replace(nans['a'], nans['target'], replace_with, name='rp')
 
-      replace_with = pl.Placeholder(np.ndarray, self.input_dtype, name='replace_with')
-      nums = td.replace(nans['a'], nans['target'], replace_with, name='rp')
+    nums['replaced_vals'].set_name('replaced_vals')
+    nums['mask'].set_name('nans')
 
-      nums['replaced_vals'].set_name('replaced_vals')
-      nums['mask'].set_name('nans')
+    if self.norm_mode == 'mean_std':
+      nums = nums['target'] - self.mean
+      nums = nums['target'] / self.std
+    elif self.norm_mode == 'min_max':
+      nums = nums['target'] - self.min
+      nums = nums['target'] / (self.max - self.min)
 
-      if self.norm_mode == 'mean_std':
-        nums = nums['target'] - self.mean
-        nums = nums['target'] / self.std
-      elif self.norm_mode == 'min_max':
-        nums = nums['target'] - self.min
-        nums = nums['target'] / (self.max - self.min)
-
-      nums['target'].set_name('nums')
-
-    return ww
+    nums['target'].set_name('nums')
 
   def pour(self, array):
     ww = self.get_waterwork()
-
     tap_dict = ww.pour(
       {'input': array, 'replace_with': self.fill_nan_func(array)},
       key_type='str'
@@ -133,12 +129,12 @@ class NumTransform(n.Transform):
         sub_val = self.min
         div_val = self.max - self.min
       norm_mode_dict = {
-        (self._name('SubTyped_0'), 'smaller_size_array'): sub_val,
-        (self._name('SubTyped_0'), 'a_is_smaller'): False,
-        (self._name('DivTyped_0'), 'smaller_size_array'): div_val,
-        (self._name('DivTyped_0'), 'a_is_smaller'): False,
-        (self._name('DivTyped_0'), 'remainder'): np.array([], dtype=self.input_dtype),
-        (self._name('DivTyped_0'), 'missing_vals'): np.array([], dtype=float)
+        ('SubTyped_0/tubes/smaller_size_array'): sub_val,
+        ('SubTyped_0/tubes/a_is_smaller'): False,
+        ('DivTyped_0/tubes/smaller_size_array'): div_val,
+        ('DivTyped_0/tubes/a_is_smaller'): False,
+        ('DivTyped_0/tubes/remainder'): np.array([], dtype=self.input_dtype),
+        ('DivTyped_0/tubes/missing_vals'): np.array([], dtype=float)
       }
       tap_dict.update(norm_mode_dict)
 
@@ -146,70 +142,3 @@ class NumTransform(n.Transform):
     array = ww.get_placeholder('input').get_val()
 
     return array
-
-  # def forward_transform(self, array, row_index=None, verbose=True):
-  #   """Convert a row in a dataframe to a vector.
-  #
-  #   Parameters
-  #   ----------
-  #   row_array : pd.Series
-  #     A row in a dataframe where the index is the column name and the value is the column value.
-  #   verbose : bool
-  #     Whether or not to print out warnings.
-  #
-  #   Returns
-  #   -------
-  #   np.array(
-  #     shape=[len(self)],
-  #     dtype=np.float64
-  #   )
-  #     Description of returned object.
-  #
-  #   """
-  #   assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
-  #   # Pull out each column value, put them in an array.
-  #   col = array[:, self.col_index: self.col_index + 1].astype(self.dtype)
-  #   isnan = np.isnan(col)
-  #
-  #   if self.fill_nan_func is not None:
-  #     col = self.fill_nan_func(array, self.col_index)
-  #
-  #   # Subtract out the mean and divide by the standard deviation to give a
-  #   # mean of zero and standard deviation of one.
-  #   if self.norm_mode == 'mean_std':
-  #     col = (col - self.mean) / self.std
-  #   elif self.norm_mode == 'min_max':
-  #     col = (col - self.min) / (self.max - self.min)
-  #
-  #   return {'isnan': isnan, 'data': col}
-  #
-  # def backward_transform(self, arrays_dict, verbose=True):
-  #   """Convert the vectorized and normalized data back into it's raw dataframe row.
-  #
-  #   Parameters
-  #   ----------
-  #   vector : np.array(
-  #     shape=[len(self)],
-  #     dtype=np.float64
-  #   )
-  #     The vectorized and normalized data.
-  #   verbose : bool
-  #     Whether or not to print out warnings.
-  #
-  #   Returns
-  #   -------
-  #   row : pd.Series
-  #     A row in a dataframe where the index is the column name and the value is the column value.
-  #
-  #   """
-  #   assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
-  #   col = np.array(arrays_dict['data'], copy=True)
-  #   col[arrays_dict['isnan']] = np.nan
-  #   # Undo the mean/std or min/max normalizations to give back the unscaled
-  #   # values.
-  #   if self.norm_mode == 'mean_std':
-  #     col = col * self.std + self.mean
-  #   elif self.norm_mode == 'min_max':
-  #     col = col * (self.max - self.min) + self.min
-  #
-  #   return col.astype(self.input_dtype)

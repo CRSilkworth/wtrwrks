@@ -1,5 +1,6 @@
 import pandas as pd
 import reversible_transforms.utils.dir_functions as d
+import reversible_transforms.waterworks.waterwork as wa
 import os
 
 class Transform(object):
@@ -77,17 +78,28 @@ class Transform(object):
       rows.append(row)
     return pd.DataFrame(rows)
 
-  def _name(self, tank_name):
-    return os.path.join(self.name, tank_name)
+  def define_waterwork(self):
+    pass
 
-  def _add_name_to_dict(self, d):
-    r_d = {}
-    for key in d:
-      if type(key) is tuple:
-        r_d[(os.path.join(self.name, key[0]), key[1])] = d[key]
-      else:
-        r_d[key] = d[key]
-    return r_d
+  def get_waterwork(self):
+    assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
+
+    with wa.Waterwork(name=self.name) as ww:
+      self.define_waterwork()
+
+    return ww
+
+  # def _name(self, tank_name):
+  #   return os.path.join(self.name, tank_name)
+  #
+  # def _add_name_to_dict(self, d):
+  #   r_d = {}
+  #   for key in d:
+  #     if type(key) is tuple:
+  #       r_d[(os.path.join(self.name, key[0]), key[1])] = d[key]
+  #     else:
+  #       r_d[os.path.join(self.name, key)] = d[key]
+  #   return r_d
 
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""

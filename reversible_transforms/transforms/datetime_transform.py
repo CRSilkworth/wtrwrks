@@ -98,34 +98,29 @@ class DateTimeTransform(n.Transform):
         if verbose:
           warnings.warn("DatetimeTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")
 
-  def get_waterwork(self):
-    assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
+  def define_waterwork(self):
+    input = pl.Placeholder(np.ndarray, self.input_dtype, name='input')
 
-    with wa.Waterwork(name=self.name) as ww:
-      input = pl.Placeholder(np.ndarray, self.input_dtype, name='input')
+    # Replace all the NaT's with the inputted replace_with.
+    nats = td.isnat(input)
 
-      # Replace all the NaT's with the inputted replace_with.
-      nats = td.isnat(input)
+    replace_with = pl.Placeholder(np.ndarray, self.input_dtype, name='replace_with')
+    replaced = td.replace(nats['a'], nats['target'], replace_with, name='rp')
 
-      replace_with = pl.Placeholder(np.ndarray, self.input_dtype, name='replace_with')
-      replaced = td.replace(nats['a'], nats['target'], replace_with, name='rp')
+    replaced['replaced_vals'].set_name('replaced_vals')
+    replaced['mask'].set_name('nats')
 
-      replaced['replaced_vals'].set_name('replaced_vals')
-      replaced['mask'].set_name('nats')
+    nums = td.datetime_to_num(replaced['target'], self.zero_datetime, self.num_units, self.time_unit, name='dtn')
+    nums['diff'].set_name('diff')
 
-      nums = td.datetime_to_num(replaced['target'], self.zero_datetime, self.num_units, self.time_unit, name='dtn')
-      nums['diff'].set_name('diff')
+    if self.norm_mode == 'mean_std':
+      nums = nums['target'] - self.mean
+      nums = nums['target'] / self.std
+    elif self.norm_mode == 'min_max':
+      nums = nums['target'] - self.min
+      nums = nums['target'] / (self.max - self.min)
 
-      if self.norm_mode == 'mean_std':
-        nums = nums['target'] - self.mean
-        nums = nums['target'] / self.std
-      elif self.norm_mode == 'min_max':
-        nums = nums['target'] - self.min
-        nums = nums['target'] / (self.max - self.min)
-
-      nums['target'].set_name('nums')
-
-    return ww
+    nums['target'].set_name('nums')
 
   def pour(self, array):
     ww = self.get_waterwork()

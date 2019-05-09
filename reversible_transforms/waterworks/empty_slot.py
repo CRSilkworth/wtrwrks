@@ -12,7 +12,7 @@ def placeholder(val_type, val_dtype=None, waterwork=None, name=None):
   return Placeholder(val_type=val_type, val_dtype=val_dtype, waterwork=waterwork, name=name)
 
 
-class Placeholder(wp.WaterworkPart):
+class EmptySlot(wp.WaterworkPart):
   """A special type of waterwork part, used to start waterworks without having the data at defition time.
 
   Attributes
@@ -98,9 +98,9 @@ class Placeholder(wp.WaterworkPart):
     import reversible_transforms.tanks.tank_defs as td
     return td.sub(a=other, b=self, waterwork=self.waterwork)
 
-  def __str__(self):
-    """Get a string of the name of the tube."""
-    return self.name
+  # def __str__(self):
+  #   """Get a string of the name of the tube."""
+  #   return self.name
 
   def __sub__(self, other):
     """Define an add tank (operation) between two tubes."""
@@ -145,6 +145,8 @@ class Placeholder(wp.WaterworkPart):
     self.name = name
     if type(name) not in (str, unicode):
       raise TypeError("'name' must be of type str or unicode. Got " + str(type(name)))
+    elif not self.name.startswith(self.name_space._get_name_string()):
+      self.name = os.path.join(self.name_space._get_name_string(), self.name)
     if self.name in self.waterwork.placeholders:
       raise ValueError(self.name + " already defined as placeholder. Choose a different name.")
 

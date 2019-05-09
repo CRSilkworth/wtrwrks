@@ -103,28 +103,23 @@ class CatTransform(n.Transform):
 
         self.std[self.std == 0] = 1.0
 
-  def get_waterwork(self):
-    assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
+  def define_waterwork(self):
+    input = pl.Placeholder(np.ndarray, self.input_dtype)
 
-    with wa.Waterwork(name=self.name) as ww:
-      input = pl.Placeholder(np.ndarray, self.input_dtype)
+    cti = td.cat_to_index(
+      input,
+      self.cat_val_to_index,
+      type_dict={'cats': np.ndarray}
+    )
+    cti['missing_vals'].set_name('missing_vals')
 
-      cti = td.cat_to_index(
-        input,
-        self.cat_val_to_index,
-        type_dict={'cats': np.ndarray}
-      )
-      cti['missing_vals'].set_name('missing_vals')
+    one_hots = td.one_hot(cti['target'], len(self.cat_val_to_index))
 
-      one_hots = td.one_hot(cti['target'], len(self.cat_val_to_index))
+    if self.norm_mode == 'mean_std':
+      one_hots = one_hots['target'] - self.mean
+      one_hots = one_hots['target'] / self.std
 
-      if self.norm_mode == 'mean_std':
-        one_hots = one_hots['target'] - self.mean
-        one_hots = one_hots['target'] / self.std
-
-      one_hots['target'].set_name('one_hots')
-
-    return ww
+    one_hots['target'].set_name('one_hots')
 
   def pour(self, array):
     ww = self.get_waterwork()

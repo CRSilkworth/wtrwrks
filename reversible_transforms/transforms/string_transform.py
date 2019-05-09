@@ -71,77 +71,39 @@ class StringTransform(n.Transform):
       The maximum number of words allowed to be a part of the known vocabulary.
     """
     self.input_dtype = array.dtype
-
-    # if self.index_to_word is None:
-    #   # Get all the words and the number of times they appear
-    #   all_words = {}
-    #
-    #   # Define the key word arguments for the normalizer, ensuring that inverse
-    #   # is set to false.
-    #   kwargs = {}
-    #   kwargs.update(self.normalizer_kwargs)
-    #   kwargs['inverse'] = False
-    #
-    #   # Tokenize each request, add the tokens to the set of all words
-    #   for string in array[:, self.col_index]:
-    #     r_dict = self.normalizer(string, self.max_sent_len, **kwargs)
-    #     tokens = r_dict['tokens']
-    #     for token_num, token in enumerate(tokens):
-    #       all_words.setdefault(token, 0)
-    #       all_words[token] += 1
-    #
-    #   # Sort the dict by the number of times the words appear
-    #   sorted_words = sorted(all_words.items(), key=operator.itemgetter(1), reverse=True)
-    #
-    #   # Pull out the first 'max_vocab_size' words
-    #   sorted_words = [w for w, c in sorted_words[:self.max_vocab_size - 1]]
-    #
-    #   # Create the mapping from category values to index in the vector and
-    #   # vice versa
-    #   self.index_to_word = sorted(sorted_words)
-    #   self.index_to_word = ['__UNK__'] + self.index_to_word
-    #
-    # # Ensure the max_vocab_size agrees with the index_to_word, and define the
-    # # reverse mapping word_to_index.
-    # self.max_vocab_size = len(self.index_to_word)
     self.word_to_index = {
       word: num for num, word in enumerate(self.index_to_word)
     }
 
-  def get_waterwork(self):
-    assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
+  def define_waterwork(self):
+    input = pl.Placeholder(np.ndarray, self.input_dtype, name='input')
+    tokenizer = pl.Placeholder(type(lambda a: a), None, name='tokenizer')
+    delimiter = pl.Placeholder(str, None, name='delimiter')
 
-    with wa.Waterwork(name=self.name) as ww:
-      input = pl.Placeholder(np.ndarray, self.input_dtype, name='input')
-      tokenizer = pl.Placeholder(type(lambda a: a), None, name='tokenizer')
-      delimiter = pl.Placeholder(str, None, name='delimiter')
+    tokens = td.tokenize(input, tokenizer, self.max_sent_len, delimiter)
+    tokens['diff'].set_name('tokenize_diff')
 
-      tokens = td.tokenize(input, tokenizer, self.max_sent_len, delimiter)
-      tokens['diff'].set_name('tokenize_diff')
+    if self.lower_case:
+      tokens = td.lower_case(tokens['target'])
+      tokens['diff'].set_name('lower_case_diff')
+    if self.half_width:
+      tokens = td.half_width(tokens['target'])
+      tokens['diff'].set_name('half_width_diff')
+    if self.lemmatize:
+      lemmatizer = pl.Placeholder(type(lambda a: a), None, name='lemmatizer')
+      tokens = td.lemmatize(tokens['target'], lemmatizer)
+      tokens['diff'].set_name('lemmatize_diff')
+    if self.unk_index is not None:
+      isin = td.isin(tokens['target'], self.index_to_word + [''])
+      mask = td.logical_not(isin['target'])
+      tokens = td.replace(isin['a'], mask['target'], self.index_to_word[self.unk_index])
+      tokens['replaced_vals'].set_name('missing_vals')
 
-      if self.lower_case:
-        tokens = td.lower_case(tokens['target'])
-        tokens['diff'].set_name('lower_case_diff')
-      if self.half_width:
-        tokens = td.half_width(tokens['target'])
-        tokens['diff'].set_name('half_width_diff')
-      if self.lemmatize:
-        lemmatizer = pl.Placeholder(type(lambda a: a), None, name='lemmatizer')
-        tokens = td.lemmatize(tokens['target'], lemmatizer)
-        tokens['diff'].set_name('lemmatize_diff')
-      if self.unk_index is not None:
-        isin = td.isin(tokens['target'], self.index_to_word + [''])
-        mask = td.logical_not(isin['target'])
-        tokens = td.replace(isin['a'], mask['target'], self.index_to_word[self.unk_index])
-        tokens['replaced_vals'].set_name('missing_vals')
+    indices = td.cat_to_index(tokens['target'], self.word_to_index)
+    indices['target'].set_name('indices')
 
-      indices = td.cat_to_index(tokens['target'], self.word_to_index)
-      indices['target'].set_name('indices')
-
-      if self.unk_index is None:
-        indices['missing_vals'].set_name('missing_vals')
-
-    return ww
+    if self.unk_index is None:
+      indices['missing_vals'].set_name('missing_vals')
 
   def pour(self, array, tokenizer=None, delimiter=None, lemmatizer=None):
     funnel_dict = {'input': array}
