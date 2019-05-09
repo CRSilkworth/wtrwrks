@@ -40,7 +40,6 @@ class TestDatetimeToNum(th.TestTank):
         'num_units': 2,
         'diff': diff,
       },
-      # type_dict={'a': np.ndarray, 'axis': int}
       test_type=False
     )
 
@@ -56,7 +55,6 @@ class TestDatetimeToNum(th.TestTank):
         'num_units': 100,
         'diff': diff,
       },
-      # type_dict={'a': np.ndarray, 'axis': int}
       test_type=False
     )
 

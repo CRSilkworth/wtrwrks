@@ -3,6 +3,7 @@ import reversible_transforms.utils.dir_functions as d
 import reversible_transforms.waterworks.waterwork as wa
 import os
 
+
 class Transform(object):
   """Abstract class used to create mappings from raw to vectorized, normalized data and vice versa.
 
@@ -92,14 +93,16 @@ class Transform(object):
   # def _name(self, tank_name):
   #   return os.path.join(self.name, tank_name)
   #
-  # def _add_name_to_dict(self, d):
-  #   r_d = {}
-  #   for key in d:
-  #     if type(key) is tuple:
-  #       r_d[(os.path.join(self.name, key[0]), key[1])] = d[key]
-  #     else:
-  #       r_d[os.path.join(self.name, key)] = d[key]
-  #   return r_d
+  def _add_name_to_dict(self, d):
+    r_d = {}
+    for key in d:
+      if type(key) is tuple and type(key[0]) in (str, unicode):
+        r_d[(os.path.join(self.name, key[0]), key[1])] = d[key]
+      elif type(key) in (str, unicode):
+        r_d[os.path.join(self.name, key)] = d[key]
+      else:
+        r_d[key] = d[key]
+    return r_d
 
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""

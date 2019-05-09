@@ -3,10 +3,8 @@ import pandas as pd
 import numpy as np
 import datetime
 import warnings
-import reversible_transforms.waterworks.placeholder as pl
 import reversible_transforms.tanks.tank_defs as td
-import reversible_transforms.waterworks.waterwork as wa
-
+import os
 
 class DateTimeTransform(n.Transform):
   """Class used to create mappings from raw datetime data to vectorized, normalized data and vice versa.
@@ -41,8 +39,8 @@ class DateTimeTransform(n.Transform):
     if type(self.zero_datetime) is datetime.datetime:
       self.zero_datetime = np.datetime64(self.zero_datetime)
 
-    if self.fill_nat_func is None:
-      self.fill_nat_func = lambda array: np.full(array[np.isnat(array)].shape, self.zero_datetime)
+    # if self.fill_nat_func is None:
+    #   self.fill_nat_func = lambda array: np.full(array[np.isnat(array)].shape, self.zero_datetime)
 
   def calc_global_values(self, array, verbose=True):
     """Set all the relevant attributes for this subclass. Called by the constructor for the Transform class.
@@ -99,37 +97,42 @@ class DateTimeTransform(n.Transform):
           warnings.warn("DatetimeTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")
 
   def define_waterwork(self):
-    input = pl.Placeholder(np.ndarray, self.input_dtype, name='input')
 
     # Replace all the NaT's with the inputted replace_with.
-    nats = td.isnat(input)
+    nats, _ = td.isnat()
 
-    replace_with = pl.Placeholder(np.ndarray, self.input_dtype, name='replace_with')
-    replaced = td.replace(nats['a'], nats['target'], replace_with, name='rp')
+    replaced, _ = td.replace(nats['a'], nats['target'])
 
     replaced['replaced_vals'].set_name('replaced_vals')
     replaced['mask'].set_name('nats')
 
-    nums = td.datetime_to_num(replaced['target'], self.zero_datetime, self.num_units, self.time_unit, name='dtn')
+    nums, _ = td.datetime_to_num(replaced['target'], self.zero_datetime, self.num_units, self.time_unit, name='dtn')
     nums['diff'].set_name('diff')
 
     if self.norm_mode == 'mean_std':
-      nums = nums['target'] - self.mean
-      nums = nums['target'] / self.std
+      nums, _ = nums['target'] - self.mean
+      nums, _ = nums['target'] / self.std
     elif self.norm_mode == 'min_max':
-      nums = nums['target'] - self.min
-      nums = nums['target'] / (self.max - self.min)
+      nums, _ = nums['target'] - self.min
+      nums, _ = nums['target'] / (self.max - self.min)
 
     nums['target'].set_name('nums')
 
   def pour(self, array):
     ww = self.get_waterwork()
 
-    tap_dict = ww.pour(
-      {'input': array, 'replace_with': self.fill_nat_func(array)},
-      key_type='str'
-    )
-    return {k: tap_dict[k] for k in ['nums', 'nats', 'diff']}
+    if self.fill_nat_func is None:
+      fill_nat_func = lambda a: np.full(a[np.isnat(a)].shape, self.zero_datetime)
+    else:
+      fill_nat_func = self.fill_nat_func
+
+    funnel_dict = {
+      'IsNan_0/slots/a': array,
+      'Replace_0/slots/replace_with': fill_nat_func(array)
+    }
+    tap_dict = ww.pour(self._add_name_to_dict(funnel_dict), key_type='str')
+
+    return {k: tap_dict[os.path.join(self.name, k)] for k in ['nums', 'nats', 'diff']}
 
   def pump(self, nums, nats, diff):
     ww = self.get_waterwork()
@@ -140,10 +143,10 @@ class DateTimeTransform(n.Transform):
       'nats': nats,
       'replaced_vals': np.full([num_nats], 'NaT', dtype=self.input_dtype),
       'diff': diff,
-      (self._name('dtn'), 'zero_datetime'): self.zero_datetime,
-      (self._name('dtn'), 'time_unit'): self.time_unit,
-      (self._name('dtn'), 'num_units'): self.num_units,
-      (self._name('rp'), 'replace_with_shape'): (num_nats,),
+      'dtn/tubes/zero_datetime': self.zero_datetime,
+      'dtn/tubes/time_unit': self.time_unit,
+      'dtn/tubes/num_units': self.num_units,
+      'Replace_0/tubes/replace_with_shape': (num_nats,),
     }
     if self.norm_mode == 'mean_std' or self.norm_mode == 'min_max':
       if self.norm_mode == 'mean_std':
@@ -153,19 +156,18 @@ class DateTimeTransform(n.Transform):
         sub_val = self.min
         div_val = self.max - self.min
       norm_mode_dict = {
-        (self._name('SubTyped_0'), 'smaller_size_array'): sub_val,
-        (self._name('SubTyped_0'), 'a_is_smaller'): False,
-        (self._name('DivTyped_0'), 'smaller_size_array'): div_val,
-        (self._name('DivTyped_0'), 'a_is_smaller'): False,
-        (self._name('DivTyped_0'), 'remainder'): np.array([], dtype=self.input_dtype),
-        (self._name('DivTyped_0'), 'missing_vals'): np.array([], dtype=float)
+        'Sub_0/tubes/smaller_size_array': sub_val,
+        'Sub_0/tubes/a_is_smaller': False,
+        'Div_0/tubes/smaller_size_array': div_val,
+        'Div_0/tubes/a_is_smaller': False,
+        'Div_0/tubes/remainder': np.array([], dtype=self.input_dtype),
+        'Div_0/tubes/missing_vals': np.array([], dtype=float)
       }
       tap_dict.update(norm_mode_dict)
+    tap_dict = self._add_name_to_dict(tap_dict)
+    funnel_dict = ww.pump(tap_dict, key_type='str')
 
-    ww.pump(tap_dict, key_type='str')
-    array = ww.get_placeholder('input').get_val()
-
-    return array
+    return funnel_dict[os.path.join(self.name, 'IsNan_0/slots/a')]
   # def forward_transform(self, array, verbose=True):
   #   """Convert a row in a dataframe to a vector.
   #
@@ -190,8 +192,8 @@ class DateTimeTransform(n.Transform):
   #   col = array[:, self.col_index: self.col_index + 1]
   #   isnan = np.isnat(col)
   #
-  #   if self.fill_nan_func is not None:
-  #     col = self.fill_nan_func(array, self.col_index)
+  #   if self.fill_nat_func is not None:
+  #     col = self.fill_nat_func(array, self.col_index)
   #
   #   # Find the total seconds since the start time
   #   secs = (col - self.zero_datetime)/np.timedelta64(1, 's')

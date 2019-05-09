@@ -23,8 +23,11 @@ class TestDateTimeTransform(th.TestTransform):
       shutil.rmtree(self.temp_dir)
 
     def test_no_norm(self):
+      def fill(array):
+        return np.array(datetime.datetime(1970, 1, 1))
       trans = n.DateTimeTransform(
-        name='datetime'
+        name='datetime',
+        # fill_nat_func=fill
       )
       trans.calc_global_values(self.array[:, 0: 1])
       target = np.array((self.array[:, 0: 1] - trans.zero_datetime) / np.timedelta64(1, 'D'), copy=True)
@@ -34,7 +37,6 @@ class TestDateTimeTransform(th.TestTransform):
           self.array[:, 0: 1],
           {
             'nums': target,
-            # 'replaced_vals': np.array([], dtype='datetime64[D]'),
             'nats': [[False], [False], [False], [False]],
             'diff': np.array([], dtype='timedelta64[us]')
           }

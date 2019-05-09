@@ -107,5 +107,5 @@ class Tokenize(ta.Tank):
       string = di.reconstruct(string, diff_string)
       all_strings.append(string)
 
-    strings = np.reshape(all_strings, target.shape[:-1]).astype(target.dtype)
+    strings = np.reshape(all_strings, target.shape[:-1])
     return {'strings': strings, 'tokenizer': tokenizer, 'max_len': max_len, 'delimiter': delimiter}

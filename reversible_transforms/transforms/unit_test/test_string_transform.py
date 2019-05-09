@@ -89,10 +89,11 @@ class TestStringTransform(th.TestTransform):
           'missing_vals': missing_vals,
           'tokenize_diff': tokenize_diff,
 
-        }
+        },
+        test_type=False
       )
       trans = self.write_read(trans, self.temp_dir)
-  #
+
   def test_en_normalize_2(self):
 
     indices = np.array([
@@ -132,7 +133,8 @@ class TestStringTransform(th.TestTransform):
           'missing_vals': missing_vals,
           'tokenize_diff': tokenize_diff,
 
-        }
+        },
+        test_type=False
       )
       trans = self.write_read(trans, self.temp_dir)
 
@@ -162,7 +164,8 @@ class TestStringTransform(th.TestTransform):
           'missing_vals': missing_vals,
           'tokenize_diff': tokenize_diff,
 
-        }
+        },
+        test_type=False
       )
       trans = self.write_read(trans, self.temp_dir)
 
@@ -195,204 +198,11 @@ class TestStringTransform(th.TestTransform):
           'tokenize_diff': tokenize_diff,
           'half_width_diff': half_width_diff
 
-        }
+        },
+        test_type=False
       )
       trans = self.write_read(trans, self.temp_dir)
 
-
-  # def test_ja_normalize_2(self):
-  #   indices = np.array([
-  #     [10, 11, 0, 14, 19, 6, 18, 16, 7, 12, 13, 1, 17, -1, -1],
-  #     [4, 9, 2, 0, 12, 15, 5, 3, 8, -1, -1, -1, -1, -1, -1]
-  #   ])
-  #
-  #   strings = np.array([
-  #     [u'２０チラシ・勧誘印刷物の無断投函は一切お断り'],
-  #     [u'すみませんが、もう一度どお願いします。']
-  #   ])
-  #   trans = n.StringTransform(
-  #     col_index=0,
-  #     language='ja',
-  #     max_vocab_size=20,
-  #     max_sent_len=15,
-  #     normalizer_kwargs={'half_width': True, 'remove_stopwords': True}
-  #   )
-  #   trans.calc_global_values(strings)
-  #   for i in xrange(2):
-  #     array_dict = trans.forward_transform(strings)
-  #     th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
-  #
-  #     out_array = trans.backward_transform(array_dict)
-  #     th.assert_arrays_equal(self, out_array, strings)
-  #
-  #     temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
-  #     trans.save_to_file(temp_file_path)
-  #     trans = n.StringTransform(from_file=temp_file_path)
-  #
-  # def test_zh_hans_normalize(self):
-  #   indices = np.array([
-  #     [11, 4, 1, 5, 8, 6, 3, -1, -1, -1, -1, -1, -1, -1, -1],
-  #     [10, 9, 1, 5, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1]
-  #   ])
-  #   strings = np.array([
-  #     [u'早上好,你好吗。'],
-  #     [u'我很好,你呢?']
-  #   ])
-  #   trans = n.StringTransform(
-  #     col_index=0,
-  #     language='zh_hans',
-  #     max_vocab_size=20,
-  #     max_sent_len=15,
-  #   )
-  #   trans.calc_global_values(strings)
-  #   for i in xrange(2):
-  #     array_dict = trans.forward_transform(strings)
-  #     th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
-  #
-  #     out_array = trans.backward_transform(array_dict)
-  #     th.assert_arrays_equal(self, out_array, strings)
-  #
-  #     temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
-  #     trans.save_to_file(temp_file_path)
-  #     trans = n.StringTransform(from_file=temp_file_path)
-  #
-  # def test_zh_hans_normalize_2(self):
-  #   indices = np.array([
-  #     [5, 3, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-  #     [4, 1, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
-  #   ])
-  #   strings = np.array([
-  #     [u'早上好,你好吗。'],
-  #     [u'我很好,你呢?']
-  #   ])
-  #   trans = n.StringTransform(
-  #     col_index=0,
-  #     language='zh_hans',
-  #     max_vocab_size=20,
-  #     max_sent_len=15,
-  #     normalizer_kwargs={'half_width': True, 'remove_stopwords': True}
-  #   )
-  #   trans.calc_global_values(strings)
-  #   for i in xrange(2):
-  #     array_dict = trans.forward_transform(strings)
-  #     th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
-  #
-  #     out_array = trans.backward_transform(array_dict)
-  #     th.assert_arrays_equal(self, out_array, strings)
-  #
-  #     temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
-  #     trans.save_to_file(temp_file_path)
-  #     trans = n.StringTransform(from_file=temp_file_path)
-  #
-  # def test_zh_hant_normalize(self):
-  #   indices = np.array([
-  #     [6, 5, 3, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-  #     [4, 8, 7, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
-  #   ])
-  #   strings = np.array([
-  #     [u'您好嗎?'],
-  #     [u'回頭見。']
-  #   ])
-  #   trans = n.StringTransform(
-  #     col_index=0,
-  #     language='zh_hant',
-  #     max_vocab_size=20,
-  #     max_sent_len=15,
-  #   )
-  #   trans.calc_global_values(strings)
-  #   for i in xrange(2):
-  #     array_dict = trans.forward_transform(strings)
-  #     th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
-  #
-  #     out_array = trans.backward_transform(array_dict)
-  #     th.assert_arrays_equal(self, out_array, strings)
-  #
-  #     temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
-  #     trans.save_to_file(temp_file_path)
-  #     trans = n.StringTransform(from_file=temp_file_path)
-  #
-  # def test_zh_hant_normalize_2(self):
-  #   indices = np.array([
-  #     [3, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-  #     [4, 6, 5, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
-  #   ])
-  #   strings = np.array([
-  #     [u'您好嗎?'],
-  #     [u'回頭見。']
-  #   ])
-  #   trans = n.StringTransform(
-  #     col_index=0,
-  #     language='zh_hant',
-  #     max_vocab_size=20,
-  #     max_sent_len=15,
-  #     normalizer_kwargs={'half_width': True, 'remove_stopwords': True}
-  #   )
-  #   trans.calc_global_values(strings)
-  #   for i in xrange(2):
-  #     array_dict = trans.forward_transform(strings)
-  #     th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
-  #
-  #     out_array = trans.backward_transform(array_dict)
-  #     th.assert_arrays_equal(self, out_array, strings)
-  #
-  #     temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
-  #     trans.save_to_file(temp_file_path)
-  #     trans = n.StringTransform(from_file=temp_file_path)
-  #
-  # def test_ko_normalize(self):
-  #   indices = np.array([
-  #     [7, 5, 6, 4, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-  #     [9, 1, 2, 8, 11, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1]
-  #   ])
-  #   strings = np.array([
-  #     [u'오류보고는 실행환경, 에러메세지와함께 설명을 최대한상세히!'],
-  #     [u'질문이나 건의사항은 깃헙 이슈 트래커에 남겨주세요.']
-  #   ])
-  #   trans = n.StringTransform(
-  #     col_index=0,
-  #     language='ko',
-  #     max_vocab_size=20,
-  #     max_sent_len=15,
-  #   )
-  #   trans.calc_global_values(strings)
-  #   for i in xrange(2):
-  #     array_dict = trans.forward_transform(strings)
-  #     th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
-  #
-  #     out_array = trans.backward_transform(array_dict)
-  #     th.assert_arrays_equal(self, out_array, strings)
-  #
-  #     temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
-  #     trans.save_to_file(temp_file_path)
-  #     trans = n.StringTransform(from_file=temp_file_path)
-  #
-  # def test_ko_normalize_2(self):
-  #   indices = np.array([
-  #     [7, 5, 6, 4, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-  #     [9, 1, 2, 8, 11, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1]
-  #   ])
-  #   strings = np.array([
-  #     [u'오류보고는 실행환경, 에러메세지와함께 설명을 최대한상세히!'],
-  #     [u'질문이나 건의사항은 깃헙 이슈 트래커에 남겨주세요.']
-  #   ])
-  #   trans = n.StringTransform(
-  #     col_index=0,
-  #     language='ko',
-  #     max_vocab_size=20,
-  #     max_sent_len=15,
-  #     normalizer_kwargs={'half_width': True, 'remove_stopwords': True}
-  #   )
-  #   trans.calc_global_values(strings)
-  #   for i in xrange(2):
-  #     array_dict = trans.forward_transform(strings)
-  #     th.assert_arrays_equal(self, array_dict['data'], indices, threshold=0.1)
-  #
-  #     out_array = trans.backward_transform(array_dict)
-  #     th.assert_arrays_equal(self, out_array, strings)
-  #
-  #     temp_file_path = os.path.join(self.temp_dir, 'temp.pickle')
-  #     trans.save_to_file(temp_file_path)
-  #     trans = n.StringTransform(from_file=temp_file_path)
   def _get_index_to_word(self, strings, tokenizer, lemmatizer=None, half_width=False):
     index_to_word = set()
     for string in strings.flatten():

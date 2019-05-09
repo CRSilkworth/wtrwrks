@@ -75,9 +75,14 @@ class Slot(wp.WaterworkPart):
     """Set the name of the slot within the waterwork."""
     old_name = self.name
     self.name = name
+
+    full_name_space = self.name_space._get_name_string()
+    if full_name_space:
+      full_name_space = full_name_space + '/'
+
     if type(name) not in (str, unicode):
       raise TypeError("'name' must be of type str or unicode. Got " + str(type(name)))
-    elif not self.name.startswith(self.name_space._get_name_string()):
+    elif not self.name.startswith(full_name_space):
       self.name = os.path.join(self.name_space._get_name_string(), self.name)
 
     if self.name in self.waterwork.slots:

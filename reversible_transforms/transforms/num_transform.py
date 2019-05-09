@@ -1,12 +1,8 @@
 import transform as n
-import pandas as pd
 import numpy as np
 import warnings
-import reversible_transforms.waterworks.placeholder as pl
 import reversible_transforms.tanks.tank_defs as td
-import reversible_transforms.waterworks.waterwork as wa
-import reversible_transforms.waterworks.globs as gl
-import reversible_transforms.waterworks.name_space as ns
+import os
 
 class NumTransform(n.Transform):
   """Class used to create mappings from raw numerical data to vectorized, normalized data and vice versa.
@@ -83,33 +79,31 @@ class NumTransform(n.Transform):
           warnings.warn("NumTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")
 
   def define_waterwork(self):
-    input = pl.Placeholder(np.ndarray, self.input_dtype, name='input')
-
     # Replace all the NaT's with the inputted replace_with.
-    nans = td.isnan(input)
-
-    replace_with = pl.Placeholder(np.ndarray, self.input_dtype, name='replace_with')
-    nums = td.replace(nans['a'], nans['target'], replace_with, name='rp')
+    nans, _ = td.isnan()
+    nums, _ = td.replace(nans['a'], nans['target'])
 
     nums['replaced_vals'].set_name('replaced_vals')
     nums['mask'].set_name('nans')
 
     if self.norm_mode == 'mean_std':
-      nums = nums['target'] - self.mean
-      nums = nums['target'] / self.std
+      nums, _ = nums['target'] - self.mean
+      nums, _ = nums['target'] / self.std
     elif self.norm_mode == 'min_max':
-      nums = nums['target'] - self.min
-      nums = nums['target'] / (self.max - self.min)
+      nums, _ = nums['target'] - self.min
+      nums, _ = nums['target'] / (self.max - self.min)
 
     nums['target'].set_name('nums')
 
   def pour(self, array):
     ww = self.get_waterwork()
-    tap_dict = ww.pour(
-      {'input': array, 'replace_with': self.fill_nan_func(array)},
-      key_type='str'
-    )
-    return {k: tap_dict[k] for k in ['nums', 'nans']}
+    funnel_dict = {
+      'IsNan_0/slots/a': array,
+      'Replace_0/slots/replace_with': self.fill_nan_func(array)
+    }
+    tap_dict = ww.pour(self._add_name_to_dict(funnel_dict), key_type='str')
+
+    return {k: tap_dict[os.path.join(self.name, k)] for k in ['nums', 'nans']}
 
   def pump(self, nums, nans):
     ww = self.get_waterwork()
@@ -119,7 +113,7 @@ class NumTransform(n.Transform):
       'nums': nums,
       'nans': nans,
       'replaced_vals': np.full([num_nans], np.nan, dtype=self.input_dtype),
-      (self._name('rp'), 'replace_with_shape'): (num_nans,),
+      'Replace_0/tubes/replace_with_shape': (num_nans,),
     }
     if self.norm_mode == 'mean_std' or self.norm_mode == 'min_max':
       if self.norm_mode == 'mean_std':
@@ -129,16 +123,15 @@ class NumTransform(n.Transform):
         sub_val = self.min
         div_val = self.max - self.min
       norm_mode_dict = {
-        ('SubTyped_0/tubes/smaller_size_array'): sub_val,
-        ('SubTyped_0/tubes/a_is_smaller'): False,
-        ('DivTyped_0/tubes/smaller_size_array'): div_val,
-        ('DivTyped_0/tubes/a_is_smaller'): False,
-        ('DivTyped_0/tubes/remainder'): np.array([], dtype=self.input_dtype),
-        ('DivTyped_0/tubes/missing_vals'): np.array([], dtype=float)
+        ('Sub_0/tubes/smaller_size_array'): sub_val,
+        ('Sub_0/tubes/a_is_smaller'): False,
+        ('Div_0/tubes/smaller_size_array'): div_val,
+        ('Div_0/tubes/a_is_smaller'): False,
+        ('Div_0/tubes/remainder'): np.array([], dtype=self.input_dtype),
+        ('Div_0/tubes/missing_vals'): np.array([], dtype=float)
       }
       tap_dict.update(norm_mode_dict)
+    tap_dict = self._add_name_to_dict(tap_dict)
+    funnel_dict = ww.pump(tap_dict, key_type='str')
 
-    ww.pump(tap_dict, key_type='str')
-    array = ww.get_placeholder('input').get_val()
-
-    return array
+    return funnel_dict[os.path.join(self.name, 'IsNan_0/slots/a')]

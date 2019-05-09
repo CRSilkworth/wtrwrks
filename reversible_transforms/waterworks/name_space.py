@@ -26,6 +26,8 @@ class NameSpace(object):
 
   def _get_name_string(self):
     name_strings = [ns.name for ns in self.all_name_spaces]
-    return os.path.join(*name_strings)
+    name_string = os.path.join(*name_strings)
+    return name_string
+
   def __str__(self):
     return self._get_name_string()

@@ -1,9 +1,7 @@
 import transform as n
 import numpy as np
-import reversible_transforms.waterworks.waterwork as wa
-import reversible_transforms.waterworks.placeholder as pl
 import reversible_transforms.tanks.tank_defs as td
-
+import os
 
 class StringTransform(n.Transform):
   """Class used to create mappings from a raw string to a vector and back.
@@ -76,30 +74,29 @@ class StringTransform(n.Transform):
     }
 
   def define_waterwork(self):
-    input = pl.Placeholder(np.ndarray, self.input_dtype, name='input')
-    tokenizer = pl.Placeholder(type(lambda a: a), None, name='tokenizer')
-    delimiter = pl.Placeholder(str, None, name='delimiter')
-
-    tokens = td.tokenize(input, tokenizer, self.max_sent_len, delimiter)
+    tokens, tokens_slots = td.tokenize(max_len=self.max_sent_len)
     tokens['diff'].set_name('tokenize_diff')
+    tokens_slots['strings'].set_name('input')
+    tokens_slots['tokenizer'].set_name('tokenizer')
+    tokens_slots['delimiter'].set_name('delimiter')
 
     if self.lower_case:
-      tokens = td.lower_case(tokens['target'])
+      tokens, tokens_slots = td.lower_case(tokens['target'])
       tokens['diff'].set_name('lower_case_diff')
     if self.half_width:
-      tokens = td.half_width(tokens['target'])
+      tokens, tokens_slots = td.half_width(tokens['target'])
       tokens['diff'].set_name('half_width_diff')
     if self.lemmatize:
-      lemmatizer = pl.Placeholder(type(lambda a: a), None, name='lemmatizer')
-      tokens = td.lemmatize(tokens['target'], lemmatizer)
+      tokens, tokens_slots = td.lemmatize(tokens['target'])
       tokens['diff'].set_name('lemmatize_diff')
+      tokens_slots['lemmatizer'].set_name('lemmatizer')
     if self.unk_index is not None:
-      isin = td.isin(tokens['target'], self.index_to_word + [''])
-      mask = td.logical_not(isin['target'])
-      tokens = td.replace(isin['a'], mask['target'], self.index_to_word[self.unk_index])
+      isin, _ = td.isin(tokens['target'], self.index_to_word + [''])
+      mask, _ = td.logical_not(isin['target'])
+      tokens, _ = td.replace(isin['a'], mask['target'], self.index_to_word[self.unk_index])
       tokens['replaced_vals'].set_name('missing_vals')
 
-    indices = td.cat_to_index(tokens['target'], self.word_to_index)
+    indices, _ = td.cat_to_index(tokens['target'], self.word_to_index)
     indices['target'].set_name('indices')
 
     if self.unk_index is None:
@@ -127,10 +124,11 @@ class StringTransform(n.Transform):
     elif self.lemmatize:
       funnel_dict['lemmatizer'] = self.lemmatizer
 
+    funnel_dict = self._add_name_to_dict(funnel_dict)
     ww = self.get_waterwork()
     tap_dict = ww.pour(funnel_dict, key_type='str')
 
-    r_dict = {k: tap_dict[k] for k in ['indices', 'missing_vals', 'tokenize_diff']}
+    r_dict = {k: tap_dict[os.path.join(self.name, k)] for k in ['indices', 'missing_vals', 'tokenize_diff']}
     if self.lower_case:
       r_dict['lower_case_diff'] = tap_dict['lower_case_diff']
     if self.half_width:
@@ -151,34 +149,34 @@ class StringTransform(n.Transform):
       'missing_vals': missing_vals,
       ('CatToIndex_0', 'cat_to_index_map'): self.word_to_index,
       ('CatToIndex_0', 'input_dtype'): self.input_dtype,
-      ('TokenizeTyped_0', 'delimiter'): delimiter,
-      ('TokenizeTyped_0', 'tokenizer'): self.tokenizer,
-      ('TokenizeTyped_0', 'diff'): tokenize_diff
+      ('Tokenize_0', 'delimiter'): delimiter,
+      ('Tokenize_0', 'tokenizer'): self.tokenizer,
+      ('Tokenize_0', 'diff'): tokenize_diff
     }
     if self.lower_case:
-      u_dict = {('LowerCaseTyped_0', 'diff'): lower_case_diff}
+      u_dict = {('LowerCase_0', 'diff'): lower_case_diff}
       tap_dict.update(u_dict)
     if self.half_width:
-      u_dict = {('HalfWidthTyped_0', 'diff'): half_width_diff}
+      u_dict = {('HalfWidth_0', 'diff'): half_width_diff}
       tap_dict.update(u_dict)
     if self.lemmatize:
       u_dict = {
-        ('LemmatizeTyped_0', 'diff'): lemmatize_diff,
-        ('LemmatizeTyped_0', 'lemmatizer'): self.lemmatizer
+        ('Lemmatize_0', 'diff'): lemmatize_diff,
+        ('Lemmatize_0', 'lemmatizer'): self.lemmatizer
       }
       tap_dict.update(u_dict)
     if self.unk_index is not None:
       u_dict = {
         ('CatToIndex_0', 'missing_vals'): [''] * indices[indices == -1].size,
-        ('ReplaceTyped_0', 'mask'): indices == self.unk_index,
-        ('ReplaceTyped_0', 'replace_with_shape'): (1,),
-        ('IsInTyped_0', 'b'): self.index_to_word[self.unk_index]
+        ('Replace_0', 'mask'): indices == self.unk_index,
+        ('Replace_0', 'replace_with_shape'): (1,),
+        ('IsIn_0', 'b'): self.index_to_word[self.unk_index]
       }
       tap_dict.update(u_dict)
 
     tap_dict = self._add_name_to_dict(tap_dict)
-    funnel_dict = ww.pump(tap_dict, key_type='tuple')
-    return funnel_dict[(self._name('TokenizeTyped_0'), 'strings')]
+    funnel_dict = ww.pump(tap_dict, key_type='str')
+    return funnel_dict[os.path.join(self.name, 'input')]
   # def forward_transform(self, array, verbose=True):
   #   """Convert a row in a dataframe to a vector.
   #

@@ -1,6 +1,6 @@
 import transform as n
 import reversible_transforms.waterworks.waterwork as wa
-import reversible_transforms.waterworks.placeholder as pl
+from reversible_transforms.waterworks.empty import empty
 import reversible_transforms.tanks.tank_defs as td
 import numpy as np
 import warnings
@@ -104,31 +104,28 @@ class CatTransform(n.Transform):
         self.std[self.std == 0] = 1.0
 
   def define_waterwork(self):
-    input = pl.Placeholder(np.ndarray, self.input_dtype)
-
-    cti = td.cat_to_index(
-      input,
+    cti, cti_slots = td.cat_to_index(
+      empty,
       self.cat_val_to_index,
-      type_dict={'cats': np.ndarray}
     )
     cti['missing_vals'].set_name('missing_vals')
 
-    one_hots = td.one_hot(cti['target'], len(self.cat_val_to_index))
+    one_hots, _ = td.one_hot(cti['target'], len(self.cat_val_to_index))
 
     if self.norm_mode == 'mean_std':
-      one_hots = one_hots['target'] - self.mean
-      one_hots = one_hots['target'] / self.std
+      one_hots, _ = one_hots['target'] - self.mean
+      one_hots, _ = one_hots['target'] / self.std
 
     one_hots['target'].set_name('one_hots')
 
   def pour(self, array):
     ww = self.get_waterwork()
 
-    tank_name = os.path.join(self.name, 'CatToIndex_0')
-    funnel_dict = {(tank_name, 'cats'): array[:, 0]}
+    funnel_name = os.path.join(self.name, 'CatToIndex_0/slots/cats')
+    funnel_dict = {funnel_name: array[:, 0]}
     tap_dict = ww.pour(funnel_dict, key_type='str')
 
-    return {k: tap_dict[k] for k in ['one_hots', 'missing_vals']}
+    return {k: tap_dict[os.path.join(self.name, k)] for k in ['one_hots', 'missing_vals']}
 
   def pump(self, one_hots, missing_vals):
     ww = self.get_waterwork()
@@ -137,29 +134,31 @@ class CatTransform(n.Transform):
 
     if self.norm_mode == 'mean_std':
       tap_dict = {
-        (self._name('OneHotTyped_0'), 'missing_vals'): mvs,
-        (self._name('DivTyped_0'), 'target'): one_hots,
-        (self._name('DivTyped_0'), 'smaller_size_array'): self.std,
-        (self._name('DivTyped_0'), 'a_is_smaller'): False,
-        (self._name('DivTyped_0'), 'missing_vals'): np.array([], dtype=float),
-        (self._name('DivTyped_0'), 'remainder'): np.array([], dtype=one_hots.dtype),
-        (self._name('SubTyped_0'), 'smaller_size_array'): self.mean,
-        (self._name('SubTyped_0'), 'a_is_smaller'): False,
-        (self._name('CatToIndex_0'), 'missing_vals'): missing_vals,
-        (self._name('CatToIndex_0'), 'cat_to_index_map'): self.cat_val_to_index,
-        (self._name('CatToIndex_0'), 'input_dtype'): self.input_dtype
+        'OneHot_0/tubes/missing_vals': mvs,
+        'one_hots': one_hots,
+        'Div_0/tubes/smaller_size_array': self.std,
+        'Div_0/tubes/a_is_smaller': False,
+        'Div_0/tubes/missing_vals': np.array([], dtype=float),
+        'Div_0/tubes/remainder': np.array([], dtype=one_hots.dtype),
+        'Sub_0/tubes/smaller_size_array': self.mean,
+        'Sub_0/tubes/a_is_smaller': False,
+        'missing_vals': missing_vals,
+        'CatToIndex_0/tubes/cat_to_index_map': self.cat_val_to_index,
+        'CatToIndex_0/tubes/input_dtype': self.input_dtype
       }
     else:
       tap_dict = {
-        (self._name('OneHotTyped_0'), 'missing_vals'): mvs,
-        (self._name('OneHotTyped_0'), 'target'): one_hots,
-        (self._name('CatToIndex_0'), 'missing_vals'): missing_vals,
-        (self._name('CatToIndex_0'), 'cat_to_index_map'): self.cat_val_to_index,
-        (self._name('CatToIndex_0'), 'input_dtype'): self.input_dtype
+        'OneHot_0/tubes/missing_vals': mvs,
+        'one_hots': one_hots,
+        'missing_vals': missing_vals,
+        'CatToIndex_0/tubes/cat_to_index_map': self.cat_val_to_index,
+        'CatToIndex_0/tubes/input_dtype': self.input_dtype
       }
+    tap_dict = self._add_name_to_dict(tap_dict)
     funnel_dict = ww.pump(tap_dict)
 
     array_key = ww.get_slot(os.path.join(self.name, 'CatToIndex_0'), 'cats')
+
     return np.expand_dims(funnel_dict[array_key], axis=1)
 
   def __len__(self):

@@ -96,7 +96,7 @@ class TestTank (WWTest):
 
 
 class TestTransform(WWTest):
-  def pour_pump(self, trans, array, output_dict):
+  def pour_pump(self, trans, array, output_dict, test_type=True):
     trans.calc_global_values(array)
     tap_dict = trans.pour(array)
     out_dict = {str(k): v for k, v in tap_dict.iteritems()}
@@ -104,7 +104,7 @@ class TestTransform(WWTest):
     self.assertEqual(sorted(out_dict.keys()), sorted(output_dict.keys()))
     for key in out_dict:
       try:
-        self.equals(out_dict[key], output_dict[key])
+        self.equals(out_dict[key], output_dict[key], test_type=test_type)
       except (ValueError, AssertionError) as e:
         print 'Pour direction, key:', key
         raise e
@@ -112,7 +112,7 @@ class TestTransform(WWTest):
     original = trans.pump(**out_dict)
 
     try:
-      self.equals(original, array)
+      self.equals(original, array, test_type=test_type)
     except (ValueError, AssertionError) as e:
       raise e
 

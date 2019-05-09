@@ -93,7 +93,7 @@ class Tank(wp.WaterworkPart):
         raise ValueError("Cannot pass slot as argument to " + str(type(self)))
       # If data is directly inputted into the slot, then
       # create a placeholder with it's value set to the data.
-      if type(input_dict[key]) is not tu.Tube and input_dict[key] is empty:
+      if type(input_dict[key]) is not tu.Tube and input_dict[key] is not empty:
         self.slots[key].set_val(input_dict[key])
         self.slots[key].tube = empty
 
