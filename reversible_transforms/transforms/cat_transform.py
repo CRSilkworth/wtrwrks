@@ -109,6 +109,7 @@ class CatTransform(n.Transform):
       self.cat_val_to_index,
     )
     cti['missing_vals'].set_name('missing_vals')
+    cti['target'].set_name('indices')
 
     one_hots, _ = td.one_hot(cti['target'], len(self.cat_val_to_index))
 
@@ -125,9 +126,11 @@ class CatTransform(n.Transform):
     funnel_dict = {funnel_name: array[:, 0]}
     tap_dict = ww.pour(funnel_dict, key_type='str')
 
-    return {k: tap_dict[os.path.join(self.name, k)] for k in ['one_hots', 'missing_vals']}
+    r_dict = {k: tap_dict[os.path.join(self.name, k)] for k in ['one_hots', 'missing_vals']}
+    r_dict['indices'] = ww.tubes[os.path.join(self.name, 'indices')].get_val()
+    return r_dict
 
-  def pump(self, one_hots, missing_vals):
+  def pump(self, one_hots, missing_vals, indices):
     ww = self.get_waterwork()
 
     mvs = -1.0 * np.ones([len(missing_vals)])
