@@ -2,6 +2,7 @@ import transform as n
 import numpy as np
 import warnings
 import reversible_transforms.tanks.tank_defs as td
+from reversible_transforms.waterworks.empty import empty
 import os
 
 class NumTransform(n.Transform):
@@ -78,9 +79,9 @@ class NumTransform(n.Transform):
         if verbose:
           warnings.warn("NumTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")
 
-  def define_waterwork(self):
+  def define_waterwork(self, array=empty):
     # Replace all the NaT's with the inputted replace_with.
-    nans, _ = td.isnan()
+    nans, _ = td.isnan(array)
     nums, _ = td.replace(nans['a'], nans['target'])
 
     nums['replaced_vals'].set_name('replaced_vals')
@@ -95,19 +96,17 @@ class NumTransform(n.Transform):
 
     nums['target'].set_name('nums')
 
-  def pour(self, array):
-    ww = self.get_waterwork()
+  def _get_funnel_dict(self, array, prefix=''):
     funnel_dict = {
       'IsNan_0/slots/a': array,
       'Replace_0/slots/replace_with': self.fill_nan_func(array)
     }
-    tap_dict = ww.pour(self._add_name_to_dict(funnel_dict), key_type='str')
+    return self._add_name_to_dict(funnel_dict, prefix)
 
-    return {k: tap_dict[os.path.join(self.name, k)] for k in ['nums', 'nans']}
+  def _extract_pour_outputs(self, tap_dict, prefix=''):
+    return {k: tap_dict[self._add_name(k, prefix)] for k in ['nums', 'nans']}
 
-  def pump(self, nums, nans):
-    ww = self.get_waterwork()
-
+  def _get_tap_dict(self, nums, nans, prefix=''):
     num_nans = len(np.where(nans)[0])
     tap_dict = {
       'nums': nums,
@@ -131,7 +130,7 @@ class NumTransform(n.Transform):
         ('Div_0/tubes/missing_vals'): np.array([], dtype=float)
       }
       tap_dict.update(norm_mode_dict)
-    tap_dict = self._add_name_to_dict(tap_dict)
-    funnel_dict = ww.pump(tap_dict, key_type='str')
+    return self._add_name_to_dict(tap_dict, prefix)
 
-    return funnel_dict[os.path.join(self.name, 'IsNan_0/slots/a')]
+  def _extract_pump_outputs(self, funnel_dict, prefix=''):
+    return funnel_dict[self._add_name('IsNan_0/slots/a', prefix)]

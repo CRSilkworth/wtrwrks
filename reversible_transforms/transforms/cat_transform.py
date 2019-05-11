@@ -103,15 +103,17 @@ class CatTransform(n.Transform):
 
         self.std[self.std == 0] = 1.0
 
-  def define_waterwork(self):
+  def define_waterwork(self, array=empty):
     cti, cti_slots = td.cat_to_index(
-      empty,
+      array,
       self.cat_val_to_index,
     )
     cti['missing_vals'].set_name('missing_vals')
-    cti['target'].set_name('indices')
 
-    one_hots, _ = td.one_hot(cti['target'], len(self.cat_val_to_index))
+    cloned, _ = td.clone(cti['target'])
+    cloned['a'].set_name('indices')
+
+    one_hots, _ = td.one_hot(cloned['b'], len(self.cat_val_to_index))
 
     if self.norm_mode == 'mean_std':
       one_hots, _ = one_hots['target'] - self.mean
@@ -119,19 +121,16 @@ class CatTransform(n.Transform):
 
     one_hots['target'].set_name('one_hots')
 
-  def pour(self, array):
-    ww = self.get_waterwork()
-
-    funnel_name = os.path.join(self.name, 'CatToIndex_0/slots/cats')
+  def _get_funnel_dict(self, array, prefix=''):
+    funnel_name = self._add_name('CatToIndex_0/slots/cats', prefix)
     funnel_dict = {funnel_name: array[:, 0]}
-    tap_dict = ww.pour(funnel_dict, key_type='str')
+    return funnel_dict
 
-    r_dict = {k: tap_dict[os.path.join(self.name, k)] for k in ['one_hots', 'missing_vals']}
-    r_dict['indices'] = ww.tubes[os.path.join(self.name, 'indices')].get_val()
+  def _extract_pour_outputs(self, tap_dict, prefix=''):
+    r_dict = {k: tap_dict[self._add_name(k, prefix)] for k in ['one_hots', 'missing_vals', 'indices']}
     return r_dict
 
-  def pump(self, one_hots, missing_vals, indices):
-    ww = self.get_waterwork()
+  def _get_tap_dict(self, one_hots, missing_vals, indices, prefix=''):
 
     mvs = -1.0 * np.ones([len(missing_vals)])
 
@@ -139,6 +138,7 @@ class CatTransform(n.Transform):
       tap_dict = {
         'OneHot_0/tubes/missing_vals': mvs,
         'one_hots': one_hots,
+        'indices': indices,
         'Div_0/tubes/smaller_size_array': self.std,
         'Div_0/tubes/a_is_smaller': False,
         'Div_0/tubes/missing_vals': np.array([], dtype=float),
@@ -153,15 +153,15 @@ class CatTransform(n.Transform):
       tap_dict = {
         'OneHot_0/tubes/missing_vals': mvs,
         'one_hots': one_hots,
+        'indices': indices,
         'missing_vals': missing_vals,
         'CatToIndex_0/tubes/cat_to_index_map': self.cat_val_to_index,
         'CatToIndex_0/tubes/input_dtype': self.input_dtype
       }
-    tap_dict = self._add_name_to_dict(tap_dict)
-    funnel_dict = ww.pump(tap_dict)
+    return self._add_name_to_dict(tap_dict, prefix)
 
-    array_key = ww.get_slot(os.path.join(self.name, 'CatToIndex_0'), 'cats')
-
+  def _extract_pump_outputs(self, funnel_dict, prefix=''):
+    array_key = os.path.join(prefix, self.name, 'CatToIndex_0', 'slots', 'cats')
     return np.expand_dims(funnel_dict[array_key], axis=1)
 
   def __len__(self):

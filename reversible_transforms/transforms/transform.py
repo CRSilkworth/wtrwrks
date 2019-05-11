@@ -48,39 +48,8 @@ class Transform(object):
       else:
         setattr(self, key, attribute_dict[key])
 
-  def row_to_vector(self, row):
-    """Abstract method to be defined by the subclasses."""
-    pass
-
-  def vector_to_row(self, vector):
-    """Abstract method to be defined by the subclasses."""
-    pass
-
-  def batch_vector_to_row(self, vectors):
-    """Recreate a partial raw dataframe from batch of vectors.
-
-    Parameters
-    ----------
-    vectors : np.array(
-      shape=[batch_size, len(self)],
-      dtype=np.float64
-    )
-      The vectors to be mapped back into a dataframe.
-
-    Returns
-    -------
-    pd.DataFrame
-      The 'raw' data corresponding to the batch of vectors. Where 'raw' means it was first mapped to vectors and then mapped back.
-
-    """
-    rows = []
-    for vector in vectors:
-      row = self.vector_to_row(vector)
-      rows.append(row)
-    return pd.DataFrame(rows)
-
   def define_waterwork(self):
-    pass
+    raise NotImplementedError()
 
   def get_waterwork(self):
     assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
@@ -90,19 +59,31 @@ class Transform(object):
 
     return ww
 
-  # def _name(self, tank_name):
-  #   return os.path.join(self.name, tank_name)
-  #
-  def _add_name_to_dict(self, d):
+  def _add_name(self, string, prefix=''):
+    return os.path.join(prefix, self.name, string)
+
+  def _add_name_to_dict(self, d, prefix=''):
     r_d = {}
     for key in d:
       if type(key) is tuple and type(key[0]) in (str, unicode):
-        r_d[(os.path.join(self.name, key[0]), key[1])] = d[key]
+        r_d[(os.path.join(prefix, self.name, key[0]), key[1])] = d[key]
       elif type(key) in (str, unicode):
-        r_d[os.path.join(self.name, key)] = d[key]
+        r_d[os.path.join(prefix, self.name, key)] = d[key]
       else:
         r_d[key] = d[key]
     return r_d
+
+  def pour(self, array, **kwargs):
+    ww = self.get_waterwork()
+    funnel_dict = self._get_funnel_dict(array, **kwargs)
+    tap_dict = ww.pour(funnel_dict, key_type='str')
+    return self._extract_pour_outputs(tap_dict)
+
+  def pump(self, **kwargs):
+    ww = self.get_waterwork()
+    tap_dict = self._get_tap_dict(**kwargs)
+    funnel_dict = ww.pump(tap_dict, key_type='str')
+    return self._extract_pump_outputs(funnel_dict)
 
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""

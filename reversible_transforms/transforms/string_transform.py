@@ -1,6 +1,7 @@
 import transform as n
 import numpy as np
 import reversible_transforms.tanks.tank_defs as td
+from reversible_transforms.waterworks.empty import empty
 import os
 
 class StringTransform(n.Transform):
@@ -73,8 +74,8 @@ class StringTransform(n.Transform):
       word: num for num, word in enumerate(self.index_to_word)
     }
 
-  def define_waterwork(self):
-    tokens, tokens_slots = td.tokenize(max_len=self.max_sent_len)
+  def define_waterwork(self, array=empty):
+    tokens, tokens_slots = td.tokenize(strings=array, max_len=self.max_sent_len)
     tokens['diff'].set_name('tokenize_diff')
     tokens_slots['strings'].set_name('input')
     tokens_slots['tokenizer'].set_name('tokenizer')
@@ -102,7 +103,7 @@ class StringTransform(n.Transform):
     if self.unk_index is None:
       indices['missing_vals'].set_name('missing_vals')
 
-  def pour(self, array, tokenizer=None, delimiter=None, lemmatizer=None):
+  def _get_funnel_dict(self, array, tokenizer=None, delimiter=None, lemmatizer=None, prefix=''):
     funnel_dict = {'input': array}
 
     if tokenizer is None and self.tokenizer is None:
@@ -124,11 +125,10 @@ class StringTransform(n.Transform):
     elif self.lemmatize:
       funnel_dict['lemmatizer'] = self.lemmatizer
 
-    funnel_dict = self._add_name_to_dict(funnel_dict)
-    ww = self.get_waterwork()
-    tap_dict = ww.pour(funnel_dict, key_type='str')
+    return self._add_name_to_dict(funnel_dict, prefix)
 
-    r_dict = {k: tap_dict[os.path.join(self.name, k)] for k in ['indices', 'missing_vals', 'tokenize_diff']}
+  def _extract_pour_outputs(self, tap_dict, prefix=''):
+    r_dict = {k: tap_dict[self._add_name(k, prefix)] for k in ['indices', 'missing_vals', 'tokenize_diff']}
     if self.lower_case:
       r_dict['lower_case_diff'] = tap_dict['lower_case_diff']
     if self.half_width:
@@ -138,9 +138,7 @@ class StringTransform(n.Transform):
 
     return r_dict
 
-  def pump(self, indices, missing_vals, tokenize_diff, lower_case_diff=None, half_width_diff=None, lemmatize_diff=None, delimiter=None):
-    ww = self.get_waterwork()
-
+  def _get_tap_dict(self, indices, missing_vals, tokenize_diff, lower_case_diff=None, half_width_diff=None, lemmatize_diff=None, delimiter=None, prefix=''):
     if delimiter is None:
       delimiter = self.delimiter
 
@@ -174,9 +172,10 @@ class StringTransform(n.Transform):
       }
       tap_dict.update(u_dict)
 
-    tap_dict = self._add_name_to_dict(tap_dict)
-    funnel_dict = ww.pump(tap_dict, key_type='str')
-    return funnel_dict[os.path.join(self.name, 'input')]
+    return self._add_name_to_dict(tap_dict, prefix)
+
+  def _extract_pump_outputs(self, funnel_dict, prefix=''):
+    return funnel_dict[self._add_name('input', prefix)]
   # def forward_transform(self, array, verbose=True):
   #   """Convert a row in a dataframe to a vector.
   #

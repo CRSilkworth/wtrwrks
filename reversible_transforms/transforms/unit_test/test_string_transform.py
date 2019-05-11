@@ -3,7 +3,7 @@ import shutil
 import tempfile
 import unittest
 import reversible_transforms.utils.test_helpers as th
-import reversible_transforms.transforms as n
+import reversible_transforms.transforms.string_transform as n
 from chop.mmseg import Tokenizer as MMSEGTokenizer
 from chop.hmm import Tokenizer as HMMTokenizer
 from nltk.stem.wordnet import WordNetLemmatizer

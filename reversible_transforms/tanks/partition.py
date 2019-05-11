@@ -18,8 +18,8 @@ class Partition(ta.Tank):
 
   """
 
-  slot_keys = ['a', 'indices', 'axis']
-  tube_keys = ['target', 'indices', 'axis']
+  slot_keys = ['a', 'indices']
+  tube_keys = ['target', 'indices', 'missing_cols', 'missing_array']
 
   def _pour(self, a, indices):
     """Execute the add in the pour (forward) direction .
@@ -46,14 +46,15 @@ class Partition(ta.Tank):
 
     """
     a = np.array(a)
-    full_cols = np.arange(a.size[0], dtype=int)
+    indices = np.array(indices)
+    full_cols = np.arange(a.shape[0], dtype=int)
 
     target = []
     all_ranges = []
     for col_range in indices:
       target.append(a[col_range[0]: col_range[1]])
       all_ranges.append(np.arange(col_range[0], col_range[1]))
-    all_ranges = np.stack(all_ranges, axis=0)
+    all_ranges = np.concatenate(all_ranges, axis=0)
 
     missing_cols = np.setdiff1d(full_cols, all_ranges)
     missing_array = a[missing_cols]
@@ -61,7 +62,7 @@ class Partition(ta.Tank):
     # min
     return {'target': target, 'indices': indices, 'missing_cols': missing_cols, 'missing_array': missing_array}
 
-  def _pump(self, target, indices, axis):
+  def _pump(self, target, indices, missing_cols, missing_array):
     """Execute the add in the pump (backward) direction .
 
     Parameters
@@ -85,5 +86,18 @@ class Partition(ta.Tank):
     )
 
     """
-    a = np.zeros()
-    return {'a': a, 'indices': indices, 'axis': axis}
+    if target or missing_cols:
+      max_index = np.max(np.concatenate([indices[:, 1] - 1, missing_cols.flatten()]))
+    else:
+      max_index = -1
+
+    inner_dims = missing_array.shape[1:]
+    a = np.zeros([max_index + 1] + list(inner_dims), dtype=missing_array.dtype)
+
+    for subarray, col_range in zip(target, indices):
+      a[col_range[0]: col_range[1]] = subarray
+
+    for col_num, col in enumerate(missing_cols):
+      a[col] = missing_array[col_num]
+
+    return {'a': a, 'indices': indices}

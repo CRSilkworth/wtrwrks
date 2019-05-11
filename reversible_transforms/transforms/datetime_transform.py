@@ -4,6 +4,7 @@ import numpy as np
 import datetime
 import warnings
 import reversible_transforms.tanks.tank_defs as td
+from reversible_transforms.waterworks.empty import empty
 import os
 
 class DateTimeTransform(n.Transform):
@@ -96,10 +97,10 @@ class DateTimeTransform(n.Transform):
         if verbose:
           warnings.warn("DatetimeTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")
 
-  def define_waterwork(self):
+  def define_waterwork(self, array=empty):
 
     # Replace all the NaT's with the inputted replace_with.
-    nats, _ = td.isnat()
+    nats, _ = td.isnat(array)
 
     replaced, _ = td.replace(nats['a'], nats['target'])
 
@@ -118,9 +119,7 @@ class DateTimeTransform(n.Transform):
 
     nums['target'].set_name('nums')
 
-  def pour(self, array):
-    ww = self.get_waterwork()
-
+  def _get_funnel_dict(self, array, prefix=''):
     if self.fill_nat_func is None:
       fill_nat_func = lambda a: np.full(a[np.isnat(a)].shape, self.zero_datetime)
     else:
@@ -130,13 +129,12 @@ class DateTimeTransform(n.Transform):
       'IsNan_0/slots/a': array,
       'Replace_0/slots/replace_with': fill_nat_func(array)
     }
-    tap_dict = ww.pour(self._add_name_to_dict(funnel_dict), key_type='str')
+    return self._add_name_to_dict(funnel_dict, prefix)
 
-    return {k: tap_dict[os.path.join(self.name, k)] for k in ['nums', 'nats', 'diff']}
+  def _extract_pour_outputs(self, tap_dict, prefix=''):
+    return {k: tap_dict[self._add_name(k, prefix)] for k in ['nums', 'nats', 'diff']}
 
-  def pump(self, nums, nats, diff):
-    ww = self.get_waterwork()
-
+  def _get_tap_dict(self, nums, nats, diff, prefix=''):
     num_nats = len(np.where(nats)[0])
     tap_dict = {
       'nums': nums,
@@ -164,10 +162,11 @@ class DateTimeTransform(n.Transform):
         'Div_0/tubes/missing_vals': np.array([], dtype=float)
       }
       tap_dict.update(norm_mode_dict)
-    tap_dict = self._add_name_to_dict(tap_dict)
-    funnel_dict = ww.pump(tap_dict, key_type='str')
 
-    return funnel_dict[os.path.join(self.name, 'IsNan_0/slots/a')]
+    return self._add_name_to_dict(tap_dict, prefix)
+
+  def _extract_pump_outputs(self, funnel_dict, prefix=''):
+    return funnel_dict[self._add_name('IsNan_0/slots/a', prefix)]
   # def forward_transform(self, array, verbose=True):
   #   """Convert a row in a dataframe to a vector.
   #
