@@ -1,11 +1,20 @@
 import reversible_transforms.tanks.tank_defs as td
 import reversible_transforms.waterworks.name_space as ns
 import reversible_transforms.waterworks.waterwork as wa
-import reversible_transforms.transforms as tr
+import reversible_transforms.transforms.transform as tr
 from reversible_transforms.waterworks.empty import empty
 import os
 
+
 class DatasetTransform(tr.Transform):
+  attribute_dict = {'name': '', 'transforms': None, 'transform_col_ranges': None}
+
+  def _setattributes(self, **kwargs):
+    super(DatasetTransform, self)._setattributes(**kwargs)
+    if self.transforms is None:
+      self.transforms = {}
+      self.transform_col_ranges = {}
+
   def add_transform(self, col_ranges, transform):
     name = transform.name
     if name is None or name == '':
@@ -29,6 +38,7 @@ class DatasetTransform(tr.Transform):
       indices = [self.transform_col_ranges[k] for k in sorted(self.transforms)]
       parts, parts_slots = td.partition(a=array, indices=indices)
 
+      print parts['target']
       for name, part in zip(parts['target'], sorted(self.transforms)):
         with ns.NameSpace(name):
           self.transforms[name].define_waterwork(array=part)

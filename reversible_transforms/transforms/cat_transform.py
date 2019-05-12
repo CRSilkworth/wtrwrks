@@ -31,7 +31,7 @@ class CatTransform(n.Transform):
   attribute_dict = {'norm_mode': None, 'ignore_null': False, 'name': '', 'valid_cats': None, 'mean': None, 'std': None, 'dtype': np.float64, 'input_dtype': None, 'index_to_cat_val': None, 'cat_val_to_index': None}
 
   def _setattributes(self, **kwargs):
-    super(CatTransform, self)._setattributes(self.attribute_dict, **kwargs)
+    super(CatTransform, self)._setattributes(**kwargs)
 
     if self.norm_mode not in (None, 'mean_std'):
       raise ValueError(self.norm_mode + " not a valid norm mode.")

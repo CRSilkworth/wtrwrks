@@ -39,7 +39,7 @@ class StringTransform(n.Transform):
   attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'index_to_word': None, 'word_to_index': None, 'max_sent_len': 20, 'tokenizer': None, 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'unk_index': None, 'delimiter': ' '}
 
   def _setattributes(self, **kwargs):
-    super(StringTransform, self)._setattributes(self.attribute_dict, **kwargs)
+    super(StringTransform, self)._setattributes(**kwargs)
 
     if self.index_to_word is None:
       raise ValueError("Must supply index_to_word mapping.")

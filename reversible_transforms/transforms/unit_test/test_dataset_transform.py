@@ -1,16 +1,18 @@
-import transform_objects as o
 import shutil
 import tempfile
 import unittest
 import reversible_transforms.utils.test_helpers as th
-import reversible_transforms.transforms as tr
-import os
-import pandas as pd
+import reversible_transforms.transforms.dataset_transform as tr
+import reversible_transforms.transforms.cat_transform as ct
+import reversible_transforms.transforms.num_transform as nt
+import reversible_transforms.transforms.datetime_transform as dt
+import reversible_transforms.transforms.string_transform as st
 import numpy as np
 import datetime
 import nltk
 
 en_tokenizer = nltk.word_tokenize
+
 
 class TestTransform(th.TestTransform):
   def setUp(self):
@@ -19,20 +21,20 @@ class TestTransform(th.TestTransform):
   def tearDown(self):
     shutil.rmtree(self.temp_dir)
 
-  def test_set_transform(self):
+  def test_dataset_transform(self):
     array = self._get_array()
 
-    dataset_transform = tr.DatasetTransform('DT')
+    dataset_transform = tr.DatasetTransform(name='DT')
     dataset_transform.add_transform(
       col_ranges=[0, 1],
-      transform=tr.CatTransform(
+      transform=ct.CatTransform(
         name='CAT',
         norm_mode='mean_std'
       )
     )
     dataset_transform.add_transform(
       col_ranges=[3, 6],
-      transform=tr.DateTimeTransform(
+      transform=dt.DateTimeTransform(
         name='DATE',
         norm_mode='min_max',
         fill_nat_func=lambda a: np.array(datetime.datetime(1950, 1, 1)),
@@ -40,25 +42,26 @@ class TestTransform(th.TestTransform):
     )
     dataset_transform.add_transform(
       col_ranges=[6, 9],
-      transform=tr.NumTransform(
+      transform=nt.NumTransform(
         name='NUM',
         norm_mode='min_max',
+
         fill_nan_func=lambda a: np.array(0),
       )
     )
     dataset_transform.add_transform(
       col_ranges=[9, 11],
-      transform=tr.NumTransform(
+      transform=st.StringTransform(
         name='STRING',
         tokenizer=en_tokenizer,
-        index_to_word=['__UNK__'] + self._get_index_to_word(array[9, 11], en_tokenizer),
+        index_to_word=['__UNK__'] + self._get_index_to_word(array[:, 9:11], en_tokenizer),
         unk_index=0,
       )
     )
     dataset_transform.calc_global_values(array)
 
     for i in xrange(2):
-      self.dataset_pour_pump(
+      self.pour_pump(
         dataset_transform,
         array,
         {
@@ -69,7 +72,7 @@ class TestTransform(th.TestTransform):
           'diff': np.array([], dtype='timedelta64[us]')
         }
       )
-      dataset_transform = self.write_read(dataset_transform, self.temp_dir)
+      # dataset_transform = self.write_read(dataset_transform, self.temp_dir)
 
   def _get_array(self):
     cat_array = np.array([

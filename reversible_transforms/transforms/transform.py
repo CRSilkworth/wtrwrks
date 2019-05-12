@@ -24,7 +24,8 @@ class Transform(object):
     The list of attributes that need to be saved in order to fully reconstruct the transform object. Must start with the attribute which has the same length as the outputed vector from row_to_vector.
 
   """
-
+  attribute_dict = {}
+  
   def __init__(self, from_file=None, save_dict=None, **kwargs):
 
     if from_file is not None:
@@ -35,18 +36,18 @@ class Transform(object):
     else:
       self._setattributes(**kwargs)
 
-  def _setattributes(self, attribute_dict, **kwargs):
-    attribute_set = set(attribute_dict)
+  def _setattributes(self, **kwargs):
+    attribute_set = set(self.attribute_dict)
     invalid_keys = sorted(set(kwargs.keys()) - attribute_set)
 
     if invalid_keys:
       raise ValueError("Keyword arguments: " + str(invalid_keys) + " are invalid.")
 
-    for key in attribute_dict:
+    for key in self.attribute_dict:
       if key in kwargs:
         setattr(self, key, kwargs[key])
       else:
-        setattr(self, key, attribute_dict[key])
+        setattr(self, key, self.attribute_dict[key])
 
   def define_waterwork(self):
     raise NotImplementedError()
