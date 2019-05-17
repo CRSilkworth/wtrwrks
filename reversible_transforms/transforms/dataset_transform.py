@@ -4,6 +4,8 @@ import reversible_transforms.waterworks.waterwork as wa
 import reversible_transforms.transforms as tr
 from reversible_transforms.waterworks.empty import empty
 import os
+import numpy as np
+import tensorflow as tf
 
 class DatasetTransform(tr.Transform):
   def add_transform(self, col_ranges, transform):
@@ -97,3 +99,6 @@ class DatasetTransform(tr.Transform):
   def __iter__(self):
     """Iterator of the transform set is just the iterator of the transforms dictionary"""
     return iter(self.transforms)
+
+  def write_tfrecord(self, file_name, array, transform_kwargs=None):
+    pass

@@ -1,6 +1,7 @@
 import transform as n
 import numpy as np
 import reversible_transforms.tanks.tank_defs as td
+import reversible_transforms.read_write.tf_features as feat
 from reversible_transforms.waterworks.empty import empty
 import os
 
@@ -130,11 +131,11 @@ class StringTransform(n.Transform):
   def _extract_pour_outputs(self, tap_dict, prefix=''):
     r_dict = {k: tap_dict[self._add_name(k, prefix)] for k in ['indices', 'missing_vals', 'tokenize_diff']}
     if self.lower_case:
-      r_dict['lower_case_diff'] = tap_dict['lower_case_diff']
+      r_dict['lower_case_diff'] = tap_dict[self._add_name('lower_case_diff', prefix)]
     if self.half_width:
-      r_dict['half_width_diff'] = tap_dict['half_width_diff']
+      r_dict['half_width_diff'] = tap_dict[self._add_name('half_width_diff', prefix)]
     if self.lemmatize:
-      r_dict['lemmatize_diff'] = tap_dict['lemmatize_diff']
+      r_dict['lemmatize_diff'] = tap_dict[self._add_name('lemmatize_diff', prefix)]
 
     return r_dict
 
@@ -176,6 +177,31 @@ class StringTransform(n.Transform):
 
   def _extract_pump_outputs(self, funnel_dict, prefix=''):
     return funnel_dict[self._add_name('input', prefix)]
+
+  def get_feature_dicts(self, array, tokenizer=None, delimiter=None, lemmatizer=None, prefix=''):
+    pour_outputs = self.pour(array, tokenizer, delimiter, lemmatizer, prefix)
+
+    feature_dicts = []
+    for row_num in array.shape[0]:
+      indices = pour_outputs['indices'][row_num]
+      tokenize_diff = pour_outputs['tokenized_diff'][row_num]
+      missing_vals = pour_outputs['missing_vals'][row_num]
+      feature_dict = {
+        'indices': feat._int_feat(),
+        'shape': feat._int_feat(list(indices.shape)),
+        'missing_vals': feat._bytes_feat(missing_vals[row_num]),
+        'tokenize_diff': feat._bytes_feat(tokenize_diff[row_num]),
+      }
+
+      if self.lower_case:
+        lower_case_diff = pour_outputs['lower_case_diff'][row_num]
+        feature_dict['lower_case_diff'] = feat._bytes_feat(lower_case_diff[row_num])
+      if self.half_width:
+        half_width_diff = pour_outputs['half_width_diff'][row_num]
+        feature_dict['half_width_diff'] = feat._bytes_feat(half_width_diff[row_num])
+      if self.lemmatize:
+        lemmatize_diff = pour_outputs['lemmatize_diff'][row_num]
+        feature_dict['lemmatize_diff'] = feat._bytes_feat(lemmatize_diff[row_num])
   # def forward_transform(self, array, verbose=True):
   #   """Convert a row in a dataframe to a vector.
   #
