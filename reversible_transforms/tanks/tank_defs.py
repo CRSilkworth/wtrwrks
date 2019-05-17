@@ -19,6 +19,7 @@ import reversible_transforms.tanks.half_width as hw
 import reversible_transforms.tanks.lemmatize as lm
 import reversible_transforms.tanks.split as sp
 import reversible_transforms.tanks.partition as pa
+import reversible_transforms.tanks.iterate as it
 import reversible_transforms.tanks.replace_substring as rs
 from reversible_transforms.waterworks.empty import empty
 import numpy as np
@@ -681,8 +682,92 @@ def partition(a=empty, indices=empty, type_dict=None, waterwork=None, name=None,
     return tank.get_tubes(), tank.get_slots()
   return tank.get_tubes(), tank.get_slots(), tank
 
+
+def iter_list(a=empty, num_entries=None, type_dict=None, waterwork=None, name=None, return_tank=False):
+  """Split a np.array into subarrays along one axis in a reversible manner.
+
+  Parameters
+  ----------
+  a : Tube, np.ndarray or None
+      The array to get the min of.
+  indices : np.ndarray
+    The indices of the array to make the split at. e.g. For a = np.array([0, 1, 2, 3, 4]) and indices = np.array([2, 4]) you'd get target = [np.array([0, 1]), np.array([2, 3]), np.array([4])]
+  axis : Tube, int, tuple or None
+      The axis (axis) along which to split.
+  type_dict : dict({
+    keys - ['a', 'b']
+    values - type of argument 'a' type of argument 'b'.
+  })
+    The types of data which will be passed to each argument. Needed when the types of the inputs cannot be infered from the arguments a and b (e.g. when they are None).
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  Tank
+      The created add tank (operation) object.
+
+  """
+  if num_entries is None:
+    raise ValueError("Must explicitly set num_entries.")
+
+  keys = ['a' + str(i) for i in xrange(num_entries)]
+
+  class IterListTyped(it.IterList):
+    tube_keys = keys
+  tank = IterListTyped(a=a, waterwork=waterwork, name=name)
+
+  tubes = tank.get_tubes()
+  if not return_tank:
+    return [tubes[tube_key] for tube_key in keys], tank.get_slots()
+  return [tubes[tube_key] for tube_key in keys], tank.get_slots(), tank
+
+
+def iter_dict(a=empty, keys=None, type_dict=None, waterwork=None, name=None, return_tank=False):
+  """Split a np.array into subarrays along one axis in a reversible manner.
+
+  Parameters
+  ----------
+  a : Tube, np.ndarray or None
+      The array to get the min of.
+  indices : np.ndarray
+    The indices of the array to make the split at. e.g. For a = np.array([0, 1, 2, 3, 4]) and indices = np.array([2, 4]) you'd get target = [np.array([0, 1]), np.array([2, 3]), np.array([4])]
+  axis : Tube, int, tuple or None
+      The axis (axis) along which to split.
+  type_dict : dict({
+    keys - ['a', 'b']
+    values - type of argument 'a' type of argument 'b'.
+  })
+    The types of data which will be passed to each argument. Needed when the types of the inputs cannot be infered from the arguments a and b (e.g. when they are None).
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  Tank
+      The created add tank (operation) object.
+
+  """
+  if keys is None:
+    raise ValueError("Must explicitly set num_entries.")
+
+  class IterDictTyped(it.IterDict):
+    tube_keys = keys
+  tank = IterDictTyped(a=a, waterwork=waterwork, name=name)
+
+  tubes = tank.get_tubes()
+  if not return_tank:
+    return {tube_key: tubes[tube_key] for tube_key in keys}, tank.get_slots()
+  return {tube_key: tubes[tube_key] for tube_key in keys}, tank.get_slots(), tank
+
 isnan = bo.create_one_arg_bool_tank(np.isnan, class_name='IsNan')
-isnat = bo.create_one_arg_bool_tank(np.isnat, class_name='IsNan')
+isnat = bo.create_one_arg_bool_tank(np.isnat, class_name='IsNat')
 equal = bo.create_two_arg_bool_tank(np.equal, class_name='Equals')
 greater = bo.create_two_arg_bool_tank(np.greater, class_name='Greater')
 greater_equal = bo.create_two_arg_bool_tank(np.greater_equal, class_name='GreaterEqual')

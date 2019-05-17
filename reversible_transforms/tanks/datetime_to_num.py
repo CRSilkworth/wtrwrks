@@ -56,6 +56,7 @@ class DatetimeToNum(ta.Tank):
 
     # Must just return 'a' as well since so much information is lost in a
     # min
+
     return {'target': target, 'zero_datetime': zero_datetime, 'num_units': num_units, 'time_unit': time_unit, 'diff': diff}
 
   def _pump(self, target, zero_datetime, num_units, time_unit, diff):

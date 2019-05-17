@@ -97,11 +97,12 @@ class NumTransform(n.Transform):
 
     nums['target'].set_name('nums')
 
-  def _get_funnel_dict(self, array, prefix=''):
+  def _get_funnel_dict(self, array=None, prefix=''):
     funnel_dict = {
-      'IsNan_0/slots/a': array,
       'Replace_0/slots/replace_with': self.fill_nan_func(array)
     }
+    if array is not None:
+      funnel_dict['IsNan_0/slots/a'] = array
     return self._add_name_to_dict(funnel_dict, prefix)
 
   def _extract_pour_outputs(self, tap_dict, prefix=''):

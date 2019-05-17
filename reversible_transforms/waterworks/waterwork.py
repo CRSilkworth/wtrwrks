@@ -74,8 +74,37 @@ class Waterwork(object):
         The tanks ordered in such a way that they are guaranteed to have all the information to perform the operation.
 
     """
-    tanks = sorted([self.tanks[t] for t in self.tanks])
-    return sorted(tanks, cmp=lambda a, b: 1 if b in a.get_pour_dependencies() else -1)
+    tanks = sorted([self.tanks[t] for t in self.tanks if not self.tanks[t].get_slot_tanks()])
+    visited = set(tanks)
+    sorted_tanks = []
+
+    while tanks:
+      tank = tanks.pop(0)
+      sorted_tanks.append(tank)
+
+      child_tanks = tank.get_tube_tanks() - visited
+      for child_tank in child_tanks:
+        # If there are any tanks child_tank depnends on , that haven't been
+        # visited, then continue.
+        if child_tank.get_slot_tanks() - visited:
+          continue
+
+        tanks.append(child_tank)
+        visited.add(child_tank)
+
+    # p_dict = {}
+    # for t in [t for t in tanks if str(t).startswith('DT/DATE')]:
+    #   p_dict[str(t)] = [str(d) for d in t.get_pour_dependencies()]
+    # pprint.pprint(p_dict)
+
+    # def cmp_func(a, b):
+    #   val = -1 if a in b.get_pour_dependencies() else 1
+    #   if a.name.startswith('DT/DATE') and b.name.startswith('DT/DATE'):
+    #     print a, b, val
+    #   return val
+    # sorted_tanks = sorted(tanks, cmp=cmp_func)
+
+    return sorted_tanks
 
   def _pump_tank_order(self):
     """Get the order to calculate the tanks in the pump direction.
@@ -86,8 +115,26 @@ class Waterwork(object):
         The tanks ordered in such a way that they are guaranteed to have all the information to perform the operation.
 
     """
-    tanks = sorted([self.tanks[t] for t in self.tanks])
-    return sorted(tanks, cmp=lambda a, b: 0 if b in a.get_pump_dependencies() else -1)
+    tanks = sorted([self.tanks[t] for t in self.tanks if not self.tanks[t].get_tube_tanks()])
+    visited = set(tanks)
+    sorted_tanks = []
+
+    while tanks:
+      tank = tanks.pop(0)
+      sorted_tanks.append(tank)
+
+      child_tanks = tank.get_slot_tanks() - visited
+      for child_tank in child_tanks:
+        # If there are any tanks child_tank depnends on , that haven't been
+        # visited, then continue.
+        if child_tank.get_tube_tanks() - visited:
+          continue
+
+        tanks.append(child_tank)
+        visited.add(child_tank)
+    # tanks = sorted([self.tanks[t] for t in self.tanks])
+    # return sorted(tanks, cmp=lambda a, b: 0 if b in a.get_pump_dependencies() else -1)
+    return sorted_tanks
 
   def maybe_get_slot(self, *args):
     """Get a particular tank's slot.
@@ -425,9 +472,12 @@ class Waterwork(object):
     # Run all the tanks (operations) in the pour direction, filling all slots'
     # and tubes' val attributes as you go.
     tanks = self._pour_tank_order()
+    print [str(t) for t in tanks if str(t).startswith('DT/DATE')]
     # print [str(t) for t in tanks]
     for tank in tanks:
+      # print tank
       kwargs = {k: tank.slots[k].get_val() for k in tank.slots}
+      # pprint.pprint(kwargs)
       tube_dict = tank.pour(**kwargs)
 
       for key in tube_dict:

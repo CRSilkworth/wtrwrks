@@ -99,7 +99,6 @@ class DateTimeTransform(n.Transform):
           warnings.warn("DatetimeTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")
 
   def define_waterwork(self, array=empty):
-
     # Replace all the NaT's with the inputted replace_with.
     nats, _ = td.isnat(array)
 
@@ -120,16 +119,18 @@ class DateTimeTransform(n.Transform):
 
     nums['target'].set_name('nums')
 
-  def _get_funnel_dict(self, array, prefix=''):
+  def _get_funnel_dict(self, array=None, prefix=''):
     if self.fill_nat_func is None:
       fill_nat_func = lambda a: np.full(a[np.isnat(a)].shape, self.zero_datetime)
     else:
       fill_nat_func = self.fill_nat_func
 
     funnel_dict = {
-      'IsNan_0/slots/a': array,
       'Replace_0/slots/replace_with': fill_nat_func(array)
     }
+    if array is not None:
+      funnel_dict['IsNan_0/slots/a'] = array
+
     return self._add_name_to_dict(funnel_dict, prefix)
 
   def _extract_pour_outputs(self, tap_dict, prefix=''):

@@ -120,6 +120,43 @@ class TestWaterwork(unittest.TestCase):
     for funnel in funnel_dict:
       th.assert_arrays_equal(self, funnel_dict[funnel], true_funnel_dict[funnel])
 
+  def test_pour_pump_iter_tube(self):
+    with wa.Waterwork() as ww:
+      ls, ls_slots = td.iter_list(empty, 2)
+      ds, ds_slots = td.iter_dict(ls[1], ['a', 'b'])
+
+      add0, _ = ls[0] + ds['a']
+      add1, _ = ds['b'] + add0['target']
+    true_funnel_dict = {
+      ls_slots['a']: [7, {'a': 4, 'b': 5}]
+    }
+    tap_dict = ww.pour(true_funnel_dict)
+
+    true_tap_dict = {
+      add0['smaller_size_array']: 4,
+      add0['a_is_smaller']: False,
+      add1['target']: 16,
+      add1['smaller_size_array']: 11,
+      add1['a_is_smaller']: False,
+    }
+    temp_tap_dict = {}
+    temp_tap_dict.update(true_tap_dict)
+
+    self.assertEqual(sorted(tap_dict.keys()), sorted(temp_tap_dict.keys()))
+    for tap in tap_dict:
+      th.assert_arrays_equal(self, tap_dict[tap], temp_tap_dict[tap])
+
+    funnel_dict = ww.pump(true_tap_dict)
+
+    self.assertEqual(sorted(funnel_dict.keys()), sorted(true_funnel_dict.keys()))
+    for funnel in funnel_dict:
+      self.assertEqual(funnel_dict[funnel], true_funnel_dict[funnel])
+
+    ww.clear_vals()
+    for d in [ww.slots, ww.tubes]:
+      for key in d:
+        self.assertEqual(d[key].get_val(), None)
+
   # def test_merge(self):
   #   with wa.Waterwork(name='ww1') as ww1:
   #     cl0 = td.clone(a=np.array([1, 2]))

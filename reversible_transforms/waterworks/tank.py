@@ -402,9 +402,24 @@ class Tank(wp.WaterworkPart):
 
     return slot_dict
 
+  def get_slot_tanks(self):
+    tanks = set()
+    for slot_key in self.slots:
+      slot = self.slots[slot_key]
+      if slot.tube is not empty:
+        tanks.add(slot.tube.tank)
+    return tanks
+
+  def get_tube_tanks(self):
+    tanks = set()
+    for tube_key in self.tubes:
+      tube = self.tubes[tube_key]
+      if tube.slot is not empty:
+        tanks.add(tube.slot.tank)
+    return tanks
   def get_pour_dependencies(self):
     tanks = [self]
-    dependencies = []
+    dependencies = set()
 
     while tanks:
       tank = tanks.pop()
@@ -424,12 +439,13 @@ class Tank(wp.WaterworkPart):
         parent_tank = slot.tube.tank
 
         tanks.append(parent_tank)
-        dependencies.append(parent_tank)
+        dependencies.add(parent_tank)
+
     return dependencies
 
   def get_pump_dependencies(self):
     tanks = [self]
-    dependencies = []
+    dependencies = set()
     while tanks:
       tank = tanks.pop()
 
@@ -446,7 +462,7 @@ class Tank(wp.WaterworkPart):
         parent_tank = tube.slot.tank
 
         tanks.append(parent_tank)
-        dependencies.append(parent_tank)
+        dependencies.add(parent_tank)
     return dependencies
 
   def _slot_is_valid_type(self, key, val):

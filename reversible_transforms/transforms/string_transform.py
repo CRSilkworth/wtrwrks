@@ -103,8 +103,11 @@ class StringTransform(n.Transform):
     if self.unk_index is None:
       indices['missing_vals'].set_name('missing_vals')
 
-  def _get_funnel_dict(self, array, tokenizer=None, delimiter=None, lemmatizer=None, prefix=''):
-    funnel_dict = {'input': array}
+  def _get_funnel_dict(self, array=None, tokenizer=None, delimiter=None, lemmatizer=None, prefix=''):
+    if array is not None:
+      funnel_dict = {'input': array}
+    else:
+      funnel_dict = {}
 
     if tokenizer is None and self.tokenizer is None:
       raise ValueError("No tokenizer set for this Transform. Must supply one as input into pour.")

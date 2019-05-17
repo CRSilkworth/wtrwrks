@@ -2,8 +2,13 @@ import reversible_transforms.tanks.tank_defs as td
 import reversible_transforms.waterworks.name_space as ns
 import reversible_transforms.waterworks.waterwork as wa
 import reversible_transforms.transforms.transform as tr
+import reversible_transforms.transforms.cat_transform as ct
+import reversible_transforms.transforms.datetime_transform as dt
+import reversible_transforms.transforms.num_transform as nt
+import reversible_transforms.transforms.string_transform as st
 from reversible_transforms.waterworks.empty import empty
 import os
+import numpy as np
 
 
 class DatasetTransform(tr.Transform):
@@ -36,12 +41,21 @@ class DatasetTransform(tr.Transform):
   def define_waterwork(self, array=empty):
     with ns.NameSpace(self.name):
       indices = [self.transform_col_ranges[k] for k in sorted(self.transforms)]
-      parts, parts_slots = td.partition(a=array, indices=indices)
+      transp, transp_slots = td.transpose(a=array, axes=[1, 0])
+      parts, _ = td.partition(a=transp['target'], indices=indices)
+      transp_slots['a'].set_name('input')
 
-      print parts['target']
-      for name, part in zip(parts['target'], sorted(self.transforms)):
+      parts_list, _ = td.iter_list(parts['target'], num_entries=len(self.transforms))
+      for part, name in zip(parts_list, sorted(self.transforms)):
+        trans = self.transforms[name]
+        if isinstance(trans, nt.NumTransform):
+          cast, _ = td.cast(part, np.float64, name='-'.join([name, 'cast']))
+          part = cast['target']
+        elif isinstance(trans, dt.DateTimeTransform):
+          cast, _ = td.cast(part, np.datetime64, name='-'.join([name, 'cast']))
+          part = cast['target']
         with ns.NameSpace(name):
-          self.transforms[name].define_waterwork(array=part)
+          trans.define_waterwork(array=part)
 
   def get_waterwork(self, array=empty):
     with wa.Waterwork() as ww:
@@ -49,27 +63,29 @@ class DatasetTransform(tr.Transform):
 
     return ww
 
-  def pour(self, array, **transform_kwargs):
+  def pour(self, array, transform_kwargs):
     ww = self.get_waterwork()
 
-    funnel_dict = {}
+    funnel_dict = {'input': array}
+    funnel_dict = self._add_name_to_dict(funnel_dict)
     for name in self.transforms:
       trans = self.transforms[name]
-      col_range = self.transform_col_ranges[name]
-      subarray = array[col_range[0]: col_range[1]]
-
       if name in transform_kwargs:
         kwargs = transform_kwargs[name]
       else:
         kwargs = {}
 
       funnel_dict.update(
-        trans._get_funnel_dict(subarray, prefix=self.name, **kwargs)
+        trans._get_funnel_dict(prefix=self.name, **kwargs)
       )
 
-    tap_dict = ww.pour(funnel_dict, key_type=str)
+    tap_dict = ww.pour(funnel_dict, key_type='str')
 
-    pour_outputs = {}
+    keys_to_output = [
+      self._add_name('Partition_0/tubes/missing_cols'),
+      self._add_name('Partition_0/tubes/missing_array'),
+    ]
+    pour_outputs = {k: tap_dict[k] for k in keys_to_output}
     for name in self.transforms:
       trans = self.transforms[name]
 
@@ -79,12 +95,30 @@ class DatasetTransform(tr.Transform):
 
     return pour_outputs
 
-  def pump(self, **pour_outputs):
+  def pump(self, pour_outputs):
     ww = self.get_waterwork()
 
-    tap_dict = {}
-    for name in self.transforms:
+    keys_to_input = [
+      self._add_name('Partition_0/tubes/missing_cols'),
+      self._add_name('Partition_0/tubes/missing_array'),
+
+    ]
+    tap_dict = {k: pour_outputs[k] for k in keys_to_input}
+    tap_dict[self._add_name('Partition_0/tubes/indices')] = np.array([self.transform_col_ranges[k] for k in sorted(self.transform_col_ranges)])
+    tap_dict[self._add_name('Transpose_0/tubes/axes')] = [1, 0]
+
+    for name in sorted(self.transforms):
       trans = self.transforms[name]
+      if isinstance(trans, nt.NumTransform):
+        input_dtype = trans.input_dtype
+        tank_name = os.path.join(self.name, '-'.join([name, 'cast']))
+        tap_dict[os.path.join(tank_name, 'tubes', 'diff')] = np.zeros((), input_dtype)
+        tap_dict[os.path.join(tank_name, 'tubes', 'input_dtype')] = input_dtype
+      elif isinstance(trans, dt.DateTimeTransform):
+        input_dtype = trans.input_dtype
+        tank_name = os.path.join(self.name, '-'.join([name, 'cast']))
+        tap_dict[os.path.join(tank_name, 'tubes', 'diff')] = np.zeros((), dtype='timedelta64')
+        tap_dict[os.path.join(tank_name, 'tubes', 'input_dtype')] = input_dtype
       kwargs = {}
       for output_name in pour_outputs:
         prefix = os.path.join(self.name, name) + '/'
@@ -98,7 +132,7 @@ class DatasetTransform(tr.Transform):
       )
     funnel_dict = ww.pump(tap_dict, key_type='str')
 
-    return funnel_dict[os.path.join(self.name, 'partition/slots/a')]
+    return funnel_dict[os.path.join(self.name, 'input')]
 
   def __getitem__(self, key):
     """Return the transform corresponding to key"""

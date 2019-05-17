@@ -121,9 +121,12 @@ class CatTransform(n.Transform):
 
     one_hots['target'].set_name('one_hots')
 
-  def _get_funnel_dict(self, array, prefix=''):
+  def _get_funnel_dict(self, array=None, prefix=''):
     funnel_name = self._add_name('CatToIndex_0/slots/cats', prefix)
-    funnel_dict = {funnel_name: array[:, 0]}
+    funnel_dict = {}
+    if array is not None:
+      funnel_dict = {funnel_name: array[:, 0]}
+
     return funnel_dict
 
   def _extract_pour_outputs(self, tap_dict, prefix=''):

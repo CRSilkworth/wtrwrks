@@ -52,7 +52,8 @@ class Tokenize(ta.Tank):
 
     """
     strings = np.array(strings)
-
+    if not strings.size:
+      return {'target': ut.maybe_copy(strings), 'diff': ut.maybe_copy(strings), 'tokenizer': tokenizer, 'delimiter': delimiter}
     all_tokens = []
     all_diffs = []
     for string in strings.flatten():

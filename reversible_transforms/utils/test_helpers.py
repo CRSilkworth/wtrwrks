@@ -128,7 +128,7 @@ class TestTransform(WWTest):
 class TestDataset (TestTransform):
   def pour_pump(self, dt, array, transform_kwargs, output_dict, test_type=True):
     dt.calc_global_values(array)
-    tap_dict = dt.pour(array, **transform_kwargs)
+    tap_dict = dt.pour(array, transform_kwargs)
     out_dict = {str(k): v for k, v in tap_dict.iteritems()}
 
     self.assertEqual(sorted(out_dict.keys()), sorted(output_dict.keys()))
@@ -136,10 +136,10 @@ class TestDataset (TestTransform):
       try:
         self.equals(out_dict[key], output_dict[key], test_type=test_type)
       except (ValueError, AssertionError) as e:
-        print 'Pour direction, key:', key
+
         raise e
 
-    original = trans.pump(**out_dict)
+    original = dt.pump(out_dict)
 
     try:
       self.equals(original, array, test_type=test_type)
@@ -148,6 +148,7 @@ class TestDataset (TestTransform):
 
 
 def arrays_equal(first, second, threshold=0.001, test_type=True):
+
   first = np.array(first, copy=True)
   second = np.array(second, copy=True)
 
@@ -171,6 +172,8 @@ def arrays_equal(first, second, threshold=0.001, test_type=True):
     second[np.isnat(second)] = default
 
     return (first == second).all()
+  elif np.issubdtype(first.dtype, np.object) and np.issubdtype(second.dtype, np.object):
+    return (first.astype(np.str) == second.astype(np.str)).all()
 
   try:
     if not (np.isnan(first.astype(np.float64)) == np.isnan(second.astype(np.float64))).all():
