@@ -29,7 +29,7 @@ class NumTransform(n.Transform):
   attribute_dict = {'norm_mode': None, 'norm_axis': None, 'fill_nan_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': np.float64, 'input_dtype': None}
 
   def _setattributes(self, **kwargs):
-    super(NumTransform, self)._setattributes(self.attribute_dict, **kwargs)
+    super(NumTransform, self)._setattributes(**kwargs)
 
     if self.norm_mode not in (None, 'min_max', 'mean_std'):
       raise ValueError(self.norm_mode + " not a valid norm mode.")
@@ -53,11 +53,12 @@ class NumTransform(n.Transform):
     """
     # Set the input dtype
     self.input_dtype = array.dtype
+    array = array.astype(self.dtype)
 
     if self.norm_mode == 'mean_std':
       # Find the means and standard deviations of each column
-      self.mean = np.nanmean(array, axis=self.norm_axis).astype(self.dtype)
-      self.std = np.nanstd(array, axis=self.norm_axis).astype(self.dtype)
+      self.mean = np.nanmean(array, axis=self.norm_axis)
+      self.std = np.nanstd(array, axis=self.norm_axis)
 
       # If any of the standard deviations are 0, replace them with 1's and
       # print out a warning
@@ -68,8 +69,8 @@ class NumTransform(n.Transform):
 
     elif self.norm_mode == 'min_max':
       # Find the means and standard deviations of each column
-      self.min = np.nanmin(array, axis=self.norm_axis).astype(self.dtype)
-      self.max = np.nanmax(array, axis=self.norm_axis).astype(self.dtype)
+      self.min = np.nanmin(array, axis=self.norm_axis)
+      self.max = np.nanmax(array, axis=self.norm_axis)
 
       # Test to make sure that min and max are not equal. If they are replace
       # with default values.

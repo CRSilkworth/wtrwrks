@@ -32,7 +32,7 @@ class DateTimeTransform(n.Transform):
   attribute_dict = {'norm_mode': None, 'norm_axis': None, 'num_units': 1, 'time_unit': 'D', 'fill_nat_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': np.float64, 'input_dtype': None, 'zero_datetime': datetime.datetime(1970, 1, 1)}
 
   def _setattributes(self, **kwargs):
-    super(DateTimeTransform, self)._setattributes(self.attribute_dict, **kwargs)
+    super(DateTimeTransform, self)._setattributes(**kwargs)
 
     if self.norm_mode not in (None, 'min_max', 'mean_std'):
       raise ValueError(self.norm_mode + " not a valid norm mode.")
@@ -56,6 +56,7 @@ class DateTimeTransform(n.Transform):
       The 'zero times' for each of the columns. Must be the same length as columns
 
     """
+    array = array.astype(np.datetime64)
     # Get the inputted dtype
     self.input_dtype = array.dtype
 
