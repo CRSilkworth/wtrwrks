@@ -57,8 +57,6 @@ class Replace(ta.Tank):
     else:
       replace_with_shape = (replace_with,)
 
-    # Must just return 'a' as well since so much information is lost in a
-    # min
     return {'target': target, 'mask': mask, 'replaced_vals': replaced_vals.flatten(), 'replace_with_shape': replace_with_shape}
 
   def _pump(self, target, mask, replaced_vals, replace_with_shape):
@@ -102,6 +100,5 @@ class Replace(ta.Tank):
         replace_with = replace_with.flatten()[0].reshape(replace_with_shape)
     else:
       replace_with = replace_with_shape[0]
-
-    a = a.astype(replaced_vals.dtype)
+    a = a.astype(replaced_vals.dtype.type)
     return {'a': a, 'mask': mask, 'replace_with': replace_with}

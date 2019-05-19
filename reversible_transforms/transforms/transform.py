@@ -2,7 +2,7 @@ import pandas as pd
 import reversible_transforms.utils.dir_functions as d
 import reversible_transforms.waterworks.waterwork as wa
 import os
-
+import numpy as np
 
 class Transform(object):
   """Abstract class used to create mappings from raw to vectorized, normalized data and vice versa.
@@ -25,7 +25,7 @@ class Transform(object):
 
   """
   attribute_dict = {}
-  
+
   def __init__(self, from_file=None, save_dict=None, **kwargs):
 
     if from_file is not None:
@@ -36,6 +36,7 @@ class Transform(object):
     else:
       self._setattributes(**kwargs)
 
+    self.waterwork = None
   def _setattributes(self, **kwargs):
     attribute_set = set(self.attribute_dict)
     invalid_keys = sorted(set(kwargs.keys()) - attribute_set)
@@ -52,12 +53,16 @@ class Transform(object):
   def define_waterwork(self):
     raise NotImplementedError()
 
-  def get_waterwork(self):
+  def get_waterwork(self, recreate=False):
     assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
+
+    if self.waterwork is not None and not recreate:
+      return self.waterwork
 
     with wa.Waterwork(name=self.name) as ww:
       self.define_waterwork()
 
+    self.waterwork = ww
     return ww
 
   def _add_name(self, string, prefix=''):
@@ -85,6 +90,19 @@ class Transform(object):
     tap_dict = self._get_tap_dict(**kwargs)
     funnel_dict = ww.pump(tap_dict, key_type='str')
     return self._extract_pump_outputs(funnel_dict)
+
+  def _full_missing_vals(self, mask, missing_vals):
+    dtype = self.input_dtype
+    if dtype.type in (np.string_, np.unicode_):
+      str_len = max([len(i) for i in missing_vals] + [1])
+      full_missing_vals = np.full(mask.shape, '', dtype='|U' + str(str_len))
+    elif dtype in (np.int64, np.int32, np.float64, np.float32):
+      full_missing_vals = np.zeros(mask.shape, dtype=dtype)
+    else:
+      raise TypeError("Only string and number types are supported. Got " + str(dtype))
+
+    full_missing_vals[mask] = missing_vals
+    return full_missing_vals
 
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""

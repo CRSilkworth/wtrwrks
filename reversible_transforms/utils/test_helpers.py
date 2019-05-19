@@ -9,7 +9,7 @@ import unittest
 import shutil
 import tempfile
 import reversible_transforms.waterworks.waterwork as wa
-
+import pprint
 
 class WWTest(unittest.TestCase):
   def setUp(self):
@@ -19,6 +19,7 @@ class WWTest(unittest.TestCase):
       shutil.rmtree(self.temp_dir)
 
   def equals(self, first, second, test_type=True):
+
     if type(first) in (np.dtype, type(int)):
       pass
     elif type(first) is list:
@@ -110,7 +111,6 @@ class TestTransform(WWTest):
         raise e
 
     original = trans.pump(**out_dict)
-
     try:
       self.equals(original, array, test_type=test_type)
     except (ValueError, AssertionError) as e:
@@ -124,6 +124,42 @@ class TestTransform(WWTest):
 
     return trans
 
+  def write_read_example(self, trans, array, dir, test_type=True):
+    remade_array = None
+    example_dicts = trans.pour_examples(array)
+    file_name = os.path.join(dir, 'temp.tfrecord')
+    writer = tf.python_io.TFRecordWriter(file_name)
+    for feature_dict in example_dicts:
+      example = tf.train.Example(
+        features=tf.train.Features(feature=feature_dict)
+      )
+      writer.write(example.SerializeToString())
+    writer.close()
+
+    dataset = tf.data.TFRecordDataset(file_name)
+
+    def read_and_decode(serialzed):
+      return tf.parse_single_example(
+        serialzed,
+        features=trans._feature_def(num_cols=array.shape[1])
+      )
+    dataset = dataset.map(read_and_decode)
+    iter = tf.data.Iterator.from_structure(
+      dataset.output_types,
+      dataset.output_shapes
+    )
+    init = iter.make_initializer(dataset)
+    features = iter.get_next()
+    with tf.Session() as sess:
+      sess.run(init)
+
+      example_dicts = []
+      for _ in xrange(array.shape[0]):
+        example_dict = sess.run(features)
+        example_dicts.append(example_dict)
+
+    remade_array = trans.pump_examples(example_dicts)
+    self.equals(array, remade_array, test_type)
 
 class TestDataset (TestTransform):
   def pour_pump(self, dt, array, transform_kwargs, output_dict, test_type=True):
@@ -148,7 +184,6 @@ class TestDataset (TestTransform):
 
 
 def arrays_equal(first, second, threshold=0.001, test_type=True):
-
   first = np.array(first, copy=True)
   second = np.array(second, copy=True)
 
@@ -172,9 +207,8 @@ def arrays_equal(first, second, threshold=0.001, test_type=True):
     second[np.isnat(second)] = default
 
     return (first == second).all()
-  elif np.issubdtype(first.dtype, np.object) and np.issubdtype(second.dtype, np.object):
-    return (first.astype(np.str) == second.astype(np.str)).all()
-
+  elif first.dtype is np.object and second.dtype is np.object:
+    return (first.astype(np.unicode) == second.astype(np.unicode)).all()
   try:
     if not (np.isnan(first.astype(np.float64)) == np.isnan(second.astype(np.float64))).all():
       return False

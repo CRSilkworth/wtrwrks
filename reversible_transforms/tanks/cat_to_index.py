@@ -43,7 +43,7 @@ class CatToIndex(ta.Tank):
     )
 
     """
-    cats = np.array(cats)
+    cats = np.array(cats, copy=True)
     # Pull out all the cats which are not in the cat_to_index_map.
     # If you have a nan not in a float, you're going to get
     # unexpected results, so here we force nans not to show up in
@@ -117,5 +117,4 @@ class CatToIndex(ta.Tank):
     # missing_vals.pop
     # otype = str if not len(cat_to_index_map) else type(cat_to_index_map.keys()[0])
     cats = np.vectorize(map_back, otypes=[input_dtype])(target)
-
     return {'cats': cats, 'cat_to_index_map': cat_to_index_map}

@@ -773,7 +773,7 @@ greater = bo.create_two_arg_bool_tank(np.greater, class_name='Greater')
 greater_equal = bo.create_two_arg_bool_tank(np.greater_equal, class_name='GreaterEqual')
 less = bo.create_two_arg_bool_tank(np.less, class_name='Less')
 less_equal = bo.create_two_arg_bool_tank(np.less_equal, class_name='LessEqual')
-isin = bo.create_two_arg_bool_tank(np.isin, class_name='IsIn', target_type=(np.ndarray, np.bool))
+isin = bo.create_two_arg_bool_tank(np.isin, class_name='IsIn')
 
 max = rd.create_one_arg_reduce_tank(np.max, class_name='Max')
 min = rd.create_one_arg_reduce_tank(np.min, class_name='Min')

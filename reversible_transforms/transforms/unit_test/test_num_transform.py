@@ -108,6 +108,31 @@ class TestNumTransform(th.TestTransform):
         )
         trans = self.write_read(trans, self.temp_dir)
 
+    def test_read_write(self):
+      def fill(array):
+        return np.array(0.0)
+      trans = n.NumTransform(
+        name='num',
+        norm_mode='min_max',
+        fill_nan_func=fill,
+        norm_axis=0
+      )
+      trans.calc_global_values(self.array[:, 0: 2])
+      target = self.array[:, 0: 2]
+      target = (target - trans.min)/(trans.max - trans.min)
+      target[1, 1] = -trans.min[1]/(trans.max[1] - trans.min[1])
+      for i in xrange(2):
+        self.pour_pump(
+          trans,
+          self.array[:, 0: 2],
+          {
+            'nums': target,
+            'nans': [[False, False], [False, True], [False, False], [False, False]],
+          }
+        )
+        self.write_read_example(trans, self.array[:, 0: 2], self.temp_dir, test_type=False)
+        trans = self.write_read(trans, self.temp_dir)
+
     def test_errors(self):
 
       with self.assertRaises(ValueError):

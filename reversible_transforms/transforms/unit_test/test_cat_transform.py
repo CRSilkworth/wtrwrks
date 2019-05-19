@@ -7,169 +7,184 @@ import numpy as np
 
 
 class TestCatTransform(th.TestTransform):
-    def setUp(self):
-        self.temp_dir = tempfile.mkdtemp()
-        self.array = np.array([
-          ['a', 'b', 1.0],
-          ['b', 'None', 2.0],
-          ['c', 'b', np.nan],
-          ['a', 'c', 1.0],
-        ], dtype=np.object)
-        self.valid_cats = ['a', 'b']
+  def setUp(self):
+      self.temp_dir = tempfile.mkdtemp()
+      self.array = np.array([
+        ['a', 'b', 1.0],
+        ['b', 'None', 2.0],
+        ['c', 'b', np.nan],
+        ['a', 'c', 1.0],
+      ], dtype=np.object)
+      self.valid_cats = ['a', 'b']
 
-    def tearDown(self):
-        shutil.rmtree(self.temp_dir)
+  def tearDown(self):
+      shutil.rmtree(self.temp_dir)
 
-    def test_no_norm(self):
-      trans = n.CatTransform(
-        name='cat'
+  def test_no_norm(self):
+    trans = n.CatTransform(
+      name='cat'
+    )
+    trans.calc_global_values(self.array[:, 0: 1])
+    target = np.array([
+      [1., 0., 0.],
+      [0., 1., 0.],
+      [0., 0., 1.],
+      [1., 0., 0.]
+    ])
+    indices = np.array([0, 1, 2, 0])
+    for i in xrange(2):
+      self.pour_pump(
+        trans,
+        self.array[:, 0: 1],
+        {
+          'missing_vals': [],
+          'one_hots': target,
+          'indices': indices
+        }
       )
-      trans.calc_global_values(self.array[:, 0: 1])
-      target = np.array([
-        [1., 0., 0.],
-        [0., 1., 0.],
-        [0., 0., 1.],
-        [1., 0., 0.]
-      ])
-      indices = np.array([0, 1, 2, 0])
-      for i in xrange(2):
-        self.pour_pump(
-          trans,
-          self.array[:, 0: 1],
-          {
-            'missing_vals': [],
-            'one_hots': target,
-            'indices': indices
-          }
-        )
-        trans = self.write_read(trans, self.temp_dir)
+      trans = self.write_read(trans, self.temp_dir)
 
-    def test_valid_cats(self):
-      trans = n.CatTransform(
-        name='cat',
-        valid_cats=['a', 'b']
+  def test_valid_cats(self):
+    trans = n.CatTransform(
+      name='cat',
+      valid_cats=['a', 'b']
+    )
+    trans.calc_global_values(self.array[:, 0: 1])
+    target = np.array([
+          [1, 0],
+          [0, 1],
+          [0, 0],
+          [1, 0]
+        ]).astype(float)
+    indices = np.array([0, 1, -1, 0])
+    for i in xrange(2):
+      self.pour_pump(
+        trans,
+        self.array[:, 0: 1],
+        {
+          'missing_vals': ['c'],
+          'one_hots': target,
+          'indices': indices
+        }
       )
-      trans.calc_global_values(self.array[:, 0: 1])
-      target = np.array([
-            [1, 0],
-            [0, 1],
-            [0, 0],
-            [1, 0]
-          ]).astype(float)
-      indices = np.array([0, 1, -1, 0])
-      for i in xrange(2):
-        self.pour_pump(
-          trans,
-          self.array[:, 0: 1],
-          {
-            'missing_vals': ['c'],
-            'one_hots': target,
-            'indices': indices
-          }
-        )
-        trans = self.write_read(trans, self.temp_dir)
+      trans = self.write_read(trans, self.temp_dir)
 
-    def test_null(self):
-      trans = n.CatTransform(
-        name='cat',
+  def test_null(self):
+    trans = n.CatTransform(
+      name='cat',
+    )
+    trans.calc_global_values(self.array[:, 2: 3])
+    target = np.array([
+          [0, 1, 0],
+          [0, 0, 1],
+          [1, 0, 0],
+          [0, 1, 0]
+        ]).astype(float)
+    indices = np.array([1, 2, 0, 1])
+    for i in xrange(2):
+      self.pour_pump(
+        trans,
+        self.array[:, 2: 3],
+        {
+          'missing_vals': np.array([], dtype=int),
+          'one_hots': target,
+          'indices': indices
+        }
       )
-      trans.calc_global_values(self.array[:, 2: 3])
-      target = np.array([
-            [0, 1, 0],
-            [0, 0, 1],
-            [1, 0, 0],
-            [0, 1, 0]
-          ]).astype(float)
-      indices = np.array([1, 2, 0, 1])
-      for i in xrange(2):
-        self.pour_pump(
-          trans,
-          self.array[:, 2: 3],
-          {
-            'missing_vals': np.array([], dtype=int),
-            'one_hots': target,
-            'indices': indices
-          }
-        )
-        trans = self.write_read(trans, self.temp_dir)
+      trans = self.write_read(trans, self.temp_dir)
 
-    def test_ignore_null(self):
-      trans = n.CatTransform(
-        name='cat',
-        ignore_null=True
+  def test_ignore_null(self):
+    trans = n.CatTransform(
+      name='cat',
+      ignore_null=True
+    )
+    trans.calc_global_values(self.array[:, 2: 3])
+    indices = np.array([0, 1, -1, 0])
+    target = np.array([
+      [1, 0],
+      [0, 1],
+      [0, 0],
+      [1, 0]
+    ]).astype(float)
+
+    for i in xrange(2):
+      self.pour_pump(
+        trans,
+        self.array[:, 2: 3],
+        {
+          'missing_vals': [np.nan],
+          'one_hots': target,
+          'indices': indices
+        }
       )
-      trans.calc_global_values(self.array[:, 2: 3])
-      indices = np.array([0, 1, -1, 0])
-      target = np.array([
-        [1, 0],
-        [0, 1],
-        [0, 0],
-        [1, 0]
-      ]).astype(float)
+      trans = self.write_read(trans, self.temp_dir)
 
-      for i in xrange(2):
-        self.pour_pump(
-          trans,
-          self.array[:, 2: 3],
-          {
-            'missing_vals': [np.nan],
-            'one_hots': target,
-            'indices': indices
-          }
-        )
-        trans = self.write_read(trans, self.temp_dir)
+  def test_mean_std(self):
+    trans = n.CatTransform(
+      name='cat',
+      norm_mode='mean_std'
+    )
+    trans.calc_global_values(self.array[:, 1: 2])
+    target = np.array([
+          [0., 1, 0],
+          [1, 0, 0],
+          [0, 1, 0],
+          [0, 0, 1],
+        ]).astype(float)
+    target = (target - trans.mean)/trans.std
+    indices = np.array([1, 0, 1, 2])
+    for i in xrange(2):
+      self.pour_pump(
+        trans,
+        self.array[:, 1: 2],
+        {
+          'missing_vals': np.array([], dtype=int),
+          'one_hots': target,
+          'indices': indices
+        }
+      )
+      trans = self.write_read(trans, self.temp_dir)
 
-    def test_mean_std(self):
+  def test_read_write(self):
+
+    for i in xrange(3):
+      if i in (0, 1):
+        array = self.array[:, i: i + 1].astype(np.str)
+      else:
+        array = self.array[:, i: i + 1].astype(np.float)
       trans = n.CatTransform(
         name='cat',
         norm_mode='mean_std'
       )
-      trans.calc_global_values(self.array[:, 1: 2])
-      target = np.array([
-            [0., 1, 0],
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 0, 1],
-          ]).astype(float)
-      target = (target - trans.mean)/trans.std
-      indices = np.array([1, 0, 1, 2])
-      for i in xrange(2):
-        self.pour_pump(
-          trans,
-          self.array[:, 1: 2],
-          {
-            'missing_vals': np.array([], dtype=int),
-            'one_hots': target,
-            'indices': indices
-          }
-        )
-        trans = self.write_read(trans, self.temp_dir)
 
-    def test_errors(self):
-      with self.assertRaises(ValueError):
-        trans = n.CatTransform(
-          norm_mode='whatever',
-          name='cat'
-        )
+      trans.calc_global_values(array)
+      self.write_read_example(trans, array, self.temp_dir)
 
-      with self.assertRaises(ValueError):
-        trans = n.CatTransform(
-          norm_mode='min_max',
-          name='cat'
-        )
-
+  def test_errors(self):
+    with self.assertRaises(ValueError):
       trans = n.CatTransform(
-        name='cat',
-        norm_mode='mean_std',
+        norm_mode='whatever',
+        name='cat'
       )
-      with self.assertRaises(AssertionError):
-        trans.pour(np.array([1]))
 
-      with self.assertRaises(AssertionError):
-        trans.pour({})
+    with self.assertRaises(ValueError):
+      trans = n.CatTransform(
+        norm_mode='min_max',
+        name='cat'
+      )
 
-      with self.assertRaises(ValueError):
-        trans.calc_global_values(np.array([[np.nan]]))
+    trans = n.CatTransform(
+      name='cat',
+      norm_mode='mean_std',
+    )
+    with self.assertRaises(AssertionError):
+      trans.pour(np.array([1]))
+
+    with self.assertRaises(AssertionError):
+      trans.pour({})
+
+    with self.assertRaises(ValueError):
+      trans.calc_global_values(np.array([[np.nan]]))
 
 if __name__ == "__main__":
     unittest.main()

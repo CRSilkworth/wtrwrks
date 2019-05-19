@@ -92,18 +92,6 @@ class Waterwork(object):
         tanks.append(child_tank)
         visited.add(child_tank)
 
-    # p_dict = {}
-    # for t in [t for t in tanks if str(t).startswith('DT/DATE')]:
-    #   p_dict[str(t)] = [str(d) for d in t.get_pour_dependencies()]
-    # pprint.pprint(p_dict)
-
-    # def cmp_func(a, b):
-    #   val = -1 if a in b.get_pour_dependencies() else 1
-    #   if a.name.startswith('DT/DATE') and b.name.startswith('DT/DATE'):
-    #     print a, b, val
-    #   return val
-    # sorted_tanks = sorted(tanks, cmp=cmp_func)
-
     return sorted_tanks
 
   def _pump_tank_order(self):
@@ -472,12 +460,8 @@ class Waterwork(object):
     # Run all the tanks (operations) in the pour direction, filling all slots'
     # and tubes' val attributes as you go.
     tanks = self._pour_tank_order()
-    print [str(t) for t in tanks if str(t).startswith('DT/DATE')]
-    # print [str(t) for t in tanks]
     for tank in tanks:
-      # print tank
       kwargs = {k: tank.slots[k].get_val() for k in tank.slots}
-      # pprint.pprint(kwargs)
       tube_dict = tank.pour(**kwargs)
 
       for key in tube_dict:

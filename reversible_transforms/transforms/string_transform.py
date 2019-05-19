@@ -1,8 +1,11 @@
 import transform as n
 import numpy as np
 import reversible_transforms.tanks.tank_defs as td
+import reversible_transforms.read_write.tf_features as feat
 from reversible_transforms.waterworks.empty import empty
 import os
+import tensorflow as tf
+import pprint
 
 class StringTransform(n.Transform):
   """Class used to create mappings from a raw string to a vector and back.
@@ -46,7 +49,6 @@ class StringTransform(n.Transform):
     # if self.index_to_word is not None and self.index_to_word[0] != '__UNK__':
     #   raise ValueError("First element of the index_to_word map must be the default '__UNK__' token")
 
-
   def calc_global_values(self, array, verbose=True):
     """Set all the relevant attributes for this subclass. Called by the constructor for the Transform class.
 
@@ -77,6 +79,7 @@ class StringTransform(n.Transform):
   def define_waterwork(self, array=empty):
     tokens, tokens_slots = td.tokenize(strings=array, max_len=self.max_sent_len)
     tokens['diff'].set_name('tokenize_diff')
+    tokens_slots['max_len'].set_name('max_sent_len')
     tokens_slots['strings'].set_name('input')
     tokens_slots['tokenizer'].set_name('tokenizer')
     tokens_slots['delimiter'].set_name('delimiter')
@@ -84,30 +87,36 @@ class StringTransform(n.Transform):
     if self.lower_case:
       tokens, tokens_slots = td.lower_case(tokens['target'])
       tokens['diff'].set_name('lower_case_diff')
+
     if self.half_width:
       tokens, tokens_slots = td.half_width(tokens['target'])
       tokens['diff'].set_name('half_width_diff')
+
     if self.lemmatize:
       tokens, tokens_slots = td.lemmatize(tokens['target'])
       tokens['diff'].set_name('lemmatize_diff')
       tokens_slots['lemmatizer'].set_name('lemmatizer')
+
     if self.unk_index is not None:
-      isin, _ = td.isin(tokens['target'], self.index_to_word + [''])
+      isin, isin_slots = td.isin(tokens['target'], self.index_to_word + [''])
       mask, _ = td.logical_not(isin['target'])
       tokens, _ = td.replace(isin['a'], mask['target'], self.index_to_word[self.unk_index])
       tokens['replaced_vals'].set_name('missing_vals')
-
-    indices, _ = td.cat_to_index(tokens['target'], self.word_to_index)
+      isin_slots['b'].set_name('index_to_word')
+    indices, indices_slots = td.cat_to_index(tokens['target'], self.word_to_index)
     indices['target'].set_name('indices')
-
+    indices_slots['cat_to_index_map'].set_name('word_to_index')
     if self.unk_index is None:
       indices['missing_vals'].set_name('missing_vals')
 
   def _get_funnel_dict(self, array=None, tokenizer=None, delimiter=None, lemmatizer=None, prefix=''):
     if array is not None:
-      funnel_dict = {'input': array}
+      funnel_dict = {'input': array, 'word_to_index': self.word_to_index}
     else:
       funnel_dict = {}
+
+    if self.unk_index is not None:
+      funnel_dict['index_to_word'] = self.index_to_word + ['']
 
     if tokenizer is None and self.tokenizer is None:
       raise ValueError("No tokenizer set for this Transform. Must supply one as input into pour.")
@@ -133,11 +142,11 @@ class StringTransform(n.Transform):
   def _extract_pour_outputs(self, tap_dict, prefix=''):
     r_dict = {k: tap_dict[self._add_name(k, prefix)] for k in ['indices', 'missing_vals', 'tokenize_diff']}
     if self.lower_case:
-      r_dict['lower_case_diff'] = tap_dict['lower_case_diff']
+      r_dict['lower_case_diff'] = tap_dict[self._add_name('lower_case_diff', prefix)]
     if self.half_width:
-      r_dict['half_width_diff'] = tap_dict['half_width_diff']
+      r_dict['half_width_diff'] = tap_dict[self._add_name('half_width_diff', prefix)]
     if self.lemmatize:
-      r_dict['lemmatize_diff'] = tap_dict['lemmatize_diff']
+      r_dict['lemmatize_diff'] = tap_dict[self._add_name('lemmatize_diff', prefix)]
 
     return r_dict
 
@@ -171,7 +180,7 @@ class StringTransform(n.Transform):
         ('CatToIndex_0', 'missing_vals'): [''] * indices[indices == -1].size,
         ('Replace_0', 'mask'): indices == self.unk_index,
         ('Replace_0', 'replace_with_shape'): (1,),
-        ('IsIn_0', 'b'): self.index_to_word[self.unk_index]
+        ('IsIn_0', 'b'): self.index_to_word + ['']
       }
       tap_dict.update(u_dict)
 
@@ -179,91 +188,94 @@ class StringTransform(n.Transform):
 
   def _extract_pump_outputs(self, funnel_dict, prefix=''):
     return funnel_dict[self._add_name('input', prefix)]
-  # def forward_transform(self, array, verbose=True):
-  #   """Convert a row in a dataframe to a vector.
-  #
-  #   Parameters
-  #   ----------
-  #   row : pd.Series
-  #     A row in a dataframe where the index is the column name and the value is the column value.
-  #   verbose : bool
-  #     Whether or not to print out warnings.
-  #
-  #   Returns
-  #   -------
-  #   np.array(
-  #     shape=[len(self)],
-  #     dtype=np.float64
-  #   )
-  #     The vectorized and normalized data.
-  #
-  #   """
-  #   # Define the key word arguments for the normalizer, ensuring that inverse
-  #   # is set to false.
-  #   kwargs = {}
-  #   kwargs.update(self.normalizer_kwargs)
-  #   kwargs['inverse'] = False
-  #
-  #   # Find the indices for each word, filling with -1 if the vector is
-  #   # longer than the number of tokens.
-  #   indices = -1 * np.ones([array.shape[0], self.max_sent_len], dtype=np.int64)
-  #   diff_string = np.empty([array.shape[0]], dtype=object)
-  #   unks = np.empty([array.shape[0], self.max_sent_len], dtype=object)
-  #   unks.fill('')
-  #   for row_num, string in enumerate(array[:, self.col_index]):
-  #     r_dict = self.normalizer(string, self.max_sent_len, **kwargs)
-  #     tokens = r_dict['tokens']
-  #
-  #     for token_num, token in enumerate(tokens):
-  #       # If the word isn't known, fill it with the 'UNK' index.
-  #       # Otherwise pull out the relevant index.
-  #       if token not in self.word_to_index:
-  #         index = self.word_to_index['__UNK__']
-  #         unks[row_num, token_num] = token
-  #       else:
-  #         index = self.word_to_index[token]
-  #
-  #       # Fill the array and increase the token number.
-  #       indices[row_num, token_num] = index
-  #     diff_string[row_num] = r_dict['diff_string']
-  #   return {'data': indices, 'diff_string': diff_string.astype(np.unicode), 'unknowns': unks}
-  #
-  # def backward_transform(self, arrays_dict, verbose=True):
-  #   """Convert the vectorized and normalized data back into it's raw form. Although a lot of information is lost and so it's best to also keep some outside reference to the original row in the dataframe.
-  #
-  #   Parameters
-  #   ----------
-  #   vector : np.array(
-  #     shape=[len(self)],
-  #     dtype=np.int64
-  #   )
-  #     The vectorized and normalized data.
-  #   verbose : bool
-  #     Whether or not to print out warnings.
-  #
-  #   Returns
-  #   -------
-  #   row : pd.Series
-  #     A row in a dataframe where the index is the column name and the value is the column value.
-  #
-  #   """
-  #   # Fill a dictionary representing the original row. Convert the index to
-  #   # a category value
-  #   kwargs = {}
-  #   kwargs.update(self.normalizer_kwargs)
-  #   kwargs['inverse'] = True
-  #
-  #   array = np.empty([arrays_dict['data'].shape[0], 1], dtype=object)
-  #   for row_num, (indices, diff_string, unks) in enumerate(zip(arrays_dict['data'], arrays_dict['diff_string'], arrays_dict['unknowns'])):
-  #
-  #     tokens = [self.index_to_word[i] if i != 0 else unks[num] for num, i in enumerate(indices) if i != -1]
-  #
-  #     string = self.normalizer({'tokens': tokens, 'diff_string': diff_string}, self.max_sent_len, **kwargs)
-  #
-  #     array[row_num] = string
-  #
-  #   return array.astype(self.input_dtype)
-  #
-  # def __len__(self):
+
+  def pour_examples(self, array, tokenizer=None, delimiter=None, lemmatizer=None):
+    ww = self.get_waterwork()
+    funnel_dict = self._get_funnel_dict(array, tokenizer, delimiter, lemmatizer)
+    tap_dict = ww.pour(funnel_dict, key_type='str')
+
+    pour_outputs = self._extract_pour_outputs(tap_dict)
+
+    mask = pour_outputs['indices'] == self.unk_index
+    missing_vals = pour_outputs['missing_vals'].tolist()
+    pour_outputs['missing_vals'] = self._full_missing_vals(mask, missing_vals)
+
+    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
+    if self.lower_case:
+      array_keys.append('lower_case_diff')
+    if self.half_width:
+      array_keys.append('half_width_diff')
+    if self.lemmatize:
+      array_keys.append('lemmatize_diff')
+
+    example_dicts = []
+    for row_num in xrange(array.shape[0]):
+      example_dict = {}
+      for key in array_keys:
+        serial = pour_outputs[key][row_num].flatten()
+        if key == 'indices':
+          example_dict[key] = feat._int_feat(serial)
+        else:
+          example_dict[key] = feat._bytes_feat(serial)
+
+      example_dicts.append(example_dict)
+
+    return example_dicts
+
+  def pump_examples(self, example_dicts, prefix=''):
+    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
+    if self.lower_case:
+      array_keys.append('lower_case_diff')
+    if self.half_width:
+      array_keys.append('half_width_diff')
+    if self.lemmatize:
+      array_keys.append('lemmatize_diff')
+
+    pour_outputs = {k: list() for k in array_keys}
+    for example_dict in example_dicts:
+      for key in array_keys:
+        fixed_array = example_dict[key]
+
+        if key != 'tokenize_diff':
+          fixed_array = fixed_array.reshape([-1, self.max_sent_len])
+
+        pour_outputs[key].append(fixed_array)
+
+    for key in array_keys:
+      pour_outputs[key] = np.stack(pour_outputs[key])
+
+    mask = pour_outputs['indices'] == self.unk_index
+    pour_outputs['missing_vals'] = pour_outputs['missing_vals'][mask].flatten()
+
+    ww = self.get_waterwork()
+    tap_dict = self._get_tap_dict(**pour_outputs)
+    funnel_dict = ww.pump(tap_dict, key_type='str')
+    return self._extract_pump_outputs(funnel_dict)
+
+  def _feature_def(self, num_cols=1):
+    # Create the dictionary defining the structure of the example
+    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
+    if self.lower_case:
+      array_keys.append('lower_case_diff')
+    if self.half_width:
+      array_keys.append('half_width_diff')
+    if self.lemmatize:
+      array_keys.append('lemmatize_diff')
+
+    feature_dict = {}
+    for key in array_keys:
+      if key == 'indices':
+        dtype = tf.int64
+      else:
+        dtype = tf.string
+
+      if key == 'tokenize_diff':
+        shape = [num_cols]
+      else:
+        shape = [num_cols * self.max_sent_len]
+      feature_dict[key] = tf.FixedLenFeature(shape, dtype)
+    return feature_dict
+
+  def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""
     return self.max_sent_len

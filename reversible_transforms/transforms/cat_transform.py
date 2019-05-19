@@ -2,10 +2,11 @@ import transform as n
 import reversible_transforms.waterworks.waterwork as wa
 from reversible_transforms.waterworks.empty import empty
 import reversible_transforms.tanks.tank_defs as td
+import reversible_transforms.read_write.tf_features as feat
 import numpy as np
 import warnings
 import os
-
+import tensorflow as tf
 
 class CatTransform(n.Transform):
   """Class used to create mappings from raw categorical to vectorized, normalized data and vice versa.
@@ -166,6 +167,99 @@ class CatTransform(n.Transform):
   def _extract_pump_outputs(self, funnel_dict, prefix=''):
     array_key = os.path.join(prefix, self.name, 'CatToIndex_0', 'slots', 'cats')
     return np.expand_dims(funnel_dict[array_key], axis=1)
+
+  def _full_missing_vals(self, mask, missing_vals):
+    dtype = self.input_dtype
+    if dtype.type is np.string_:
+      str_len = max([len(i) for i in missing_vals] + [1])
+      full_missing_vals = np.full(mask.shape, '', dtype='|U' + str(str_len))
+    elif dtype in (np.int64, np.int32, np.float64, np.float32):
+      full_missing_vals = np.zeros(mask.shape, dtype=dtype)
+    else:
+      raise TypeError("Only string and number types are supported. Got " + str(dtype))
+
+    full_missing_vals[mask] = missing_vals
+    return full_missing_vals
+
+  def pour_examples(self, array, tokenizer=None, delimiter=None, lemmatizer=None):
+    ww = self.get_waterwork()
+    funnel_dict = self._get_funnel_dict(array)
+    tap_dict = ww.pour(funnel_dict, key_type='str')
+
+    pour_outputs = self._extract_pour_outputs(tap_dict)
+    mask = pour_outputs['indices'] == -1
+    missing_vals = pour_outputs['missing_vals']
+    full_missing_vals = self._full_missing_vals(mask, missing_vals)
+
+    example_dicts = []
+    for row_num in xrange(array.shape[0]):
+      example_dict = {}
+
+      one_hots = pour_outputs['one_hots'][row_num].flatten()
+      example_dict['one_hots'] = feat._float_feat(one_hots)
+
+      indices = pour_outputs['indices'][row_num].flatten()
+      example_dict['indices'] = feat._int_feat(indices)
+
+      missing_val = full_missing_vals[row_num]
+      dtype = self.input_dtype
+      if dtype.type is np.string_:
+        example_dict['missing_vals'] = feat._bytes_feat(missing_val)
+      elif dtype in (np.int32, np.int64):
+        example_dict['missing_vals'] = feat._int_feat(missing_val)
+      elif dtype in (np.float32, np.float64):
+        example_dict['missing_vals'] = feat._float_feat(missing_val)
+      else:
+        raise TypeError("Only string and number types are supported. Got " + str(dtype))
+
+      example_dicts.append(example_dict)
+
+    return example_dicts
+
+  def pump_examples(self, example_dicts, prefix=''):
+    pour_outputs = {'one_hots': [], 'indices': []}
+
+    missing_vals = []
+    for example_dict in example_dicts:
+      pour_outputs['one_hots'].append(example_dict['one_hots'])
+      pour_outputs['indices'].append(example_dict['indices'])
+      missing_vals.append(example_dict['missing_vals'])
+
+    pour_outputs = {
+      'one_hots': np.stack(pour_outputs['one_hots']),
+      'indices': np.stack(pour_outputs['indices']),
+    }
+
+    missing_vals = np.stack(missing_vals)
+    missing_vals = missing_vals[pour_outputs['indices'] == -1].tolist()
+    pour_outputs['missing_vals'] = missing_vals
+
+    ww = self.get_waterwork()
+    tap_dict = self._get_tap_dict(**pour_outputs)
+    funnel_dict = ww.pump(tap_dict, key_type='str')
+
+    return self._extract_pump_outputs(funnel_dict)
+
+  def _feature_def(self, num_cols=1):
+    # Create the dictionary defining the structure of the example
+    dtype = self.input_dtype
+    if dtype.type is np.string_:
+      tf_dtype = tf.string
+    elif dtype in (np.int32, np.int64):
+      tf_dtype = tf.int64
+    elif dtype in (np.float32, np.float64):
+      tf_dtype = tf.float32
+    else:
+      raise TypeError("Only string and number types are supported. Got " + str(dtype))
+
+    shape = len(self)
+
+    feature_dict = {}
+    feature_dict['missing_vals'] = tf.FixedLenFeature([], tf_dtype)
+    feature_dict['one_hots'] = tf.FixedLenFeature(shape, tf.float32)
+    feature_dict['indices'] = tf.FixedLenFeature([], tf.int64)
+
+    return feature_dict
 
   def __len__(self):
     assert self.input_dtype is not None, ("Run calc_global_values before attempting to get the length.")

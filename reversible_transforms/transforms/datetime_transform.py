@@ -4,8 +4,12 @@ import numpy as np
 import datetime
 import warnings
 import reversible_transforms.tanks.tank_defs as td
+import reversible_transforms.read_write.tf_features as feat
 from reversible_transforms.waterworks.empty import empty
 import os
+import numpy as np
+import tensorflow as tf
+import pprint
 
 class DateTimeTransform(n.Transform):
   """Class used to create mappings from raw datetime data to vectorized, normalized data and vice versa.
@@ -129,7 +133,7 @@ class DateTimeTransform(n.Transform):
       'Replace_0/slots/replace_with': fill_nat_func(array)
     }
     if array is not None:
-      funnel_dict['IsNan_0/slots/a'] = array
+      funnel_dict['IsNat_0/slots/a'] = array
 
     return self._add_name_to_dict(funnel_dict, prefix)
 
@@ -168,106 +172,63 @@ class DateTimeTransform(n.Transform):
     return self._add_name_to_dict(tap_dict, prefix)
 
   def _extract_pump_outputs(self, funnel_dict, prefix=''):
-    return funnel_dict[self._add_name('IsNan_0/slots/a', prefix)]
-  # def forward_transform(self, array, verbose=True):
-  #   """Convert a row in a dataframe to a vector.
-  #
-  #   Parameters
-  #   ----------
-  #   row : pd.Series
-  #     A row in a dataframe where the index is the column name and the value is the column value.
-  #   verbose : bool
-  #     Whether or not to print out warnings.
-  #
-  #   Returns
-  #   -------
-  #   np.array(
-  #     shape=[len(self)],
-  #     dtype=np.float64
-  #   )
-  #     The vectorized and normalized data.
-  #
-  #   """
-  #   assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
-  #
-  #   col = array[:, self.col_index: self.col_index + 1]
-  #   isnan = np.isnat(col)
-  #
-  #   if self.fill_nat_func is not None:
-  #     col = self.fill_nat_func(array, self.col_index)
-  #
-  #   # Find the total seconds since the start time
-  #   secs = (col - self.zero_datetime)/np.timedelta64(1, 's')
-  #   secs = secs.astype(self.dtype)
-  #
-  #   # Subtract out the mean and divide by the standard deviation to give a
-  #   # mean of zero and standard deviation of one.
-  #   if self.norm_mode == 'mean_std':
-  #     secs = (secs - self.mean) / self.std
-  #   elif self.norm_mode == 'min_max':
-  #     secs = (secs - self.min) / (self.max - self.min)
-  #
-  #   # Convert them to a vector
-  #   return {'isnan': isnan, 'data': secs}
-  #
-  # def seconds_to_vector(self, seconds, verbose=True):
-  #   """Convert the total seconds since start time to vectorized and normalized data.
-  #
-  #   Parameters
-  #   ----------
-  #   seconds : list of numerical
-  #     The seconds to be normalized and converted into the a vector.
-  #   verbose : bool
-  #     Whether or not to print out warnings.
-  #
-  #   Returns
-  #   -------
-  #   np.array(
-  #     shape=[len(self)],
-  #     dtype=np.float64
-  #   )
-  #     The vectorized and normalized data.
-  #
-  #   """
-  #   # Create an array from the inputted seconds, subtract out the mean and
-  #   # divide by the standard deviation giving a mean of zero and and
-  #   # standard deviation of one.
-  #   vector = np.array(seconds, dtype=np.float64)
-  #   if self.mean_std:
-  #     vector = (vector - self.means) / self.stds
-  #
-  #   return vector
-  #
-  # def backward_transform(self, arrays_dict, verbose=True):
-  #   """Convert the vectorized and normalized data back into it's raw dataframe row.
-  #
-  #   Parameters
-  #   ----------
-  #   vector : np.array(
-  #     shape=[len(self)],
-  #     dtype=np.float64
-  #   )
-  #     The vectorized and normalized data.
-  #   verbose : bool
-  #     Whether or not to print out warnings.
-  #
-  #   Returns
-  #   -------
-  #   row : pd.Series
-  #     A row in a dataframe where the index is the column name and the value is the column value.
-  #
-  #   """
-  #   assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
-  #   col = np.array(arrays_dict['data'], copy=True)
-  #   col[arrays_dict['isnan']] = np.datetime64('NaT')
-  #
-  #   # Undo the mean/std or min/max normalizations to give back the unscaled
-  #   # values.
-  #   if self.norm_mode == 'mean_std':
-  #     col = col * self.std + self.mean
-  #   elif self.norm_mode == 'min_max':
-  #     col = col * (self.max - self.min) + self.min
-  #
-  #   col = self.zero_datetime + col * np.timedelta64(1, 's')
-  #
-  #   return col.astype(self.input_dtype)
+    return funnel_dict[self._add_name('IsNat_0/slots/a', prefix)]
+
+  def pour_examples(self, array, tokenizer=None, delimiter=None, lemmatizer=None):
+    ww = self.get_waterwork()
+    funnel_dict = self._get_funnel_dict(array)
+    tap_dict = ww.pour(funnel_dict, key_type='str')
+
+    pour_outputs = self._extract_pour_outputs(tap_dict)
+
+    example_dicts = []
+    for row_num in xrange(array.shape[0]):
+      example_dict = {}
+
+      nums = pour_outputs['nums'][row_num].flatten()
+      example_dict['nums'] = feat._float_feat(nums)
+
+      nats = pour_outputs['nats'][row_num].astype(int).flatten()
+      example_dict['nats'] = feat._int_feat(nats)
+
+      if pour_outputs['diff'].size:
+        diff = pour_outputs['diff'][row_num].astype(int)
+      else:
+        diff = np.zeros(nums.shape, dtype=int)
+      example_dict['diff'] = feat._int_feat(diff)
+
+      example_dicts.append(example_dict)
+
+    return example_dicts
+
+  def pump_examples(self, example_dicts, prefix=''):
+    pour_outputs = {'nums': [], 'nats': [], 'diff': []}
+    for example_dict in example_dicts:
+      pour_outputs['nums'].append(example_dict['nums'])
+      pour_outputs['nats'].append(example_dict['nats'])
+      pour_outputs['diff'].append(example_dict['diff'])
+
+    pour_outputs = {
+      'nums': np.stack(pour_outputs['nums']),
+      'nats': np.stack(pour_outputs['nats']).astype(bool),
+      'diff': np.stack(pour_outputs['diff']).astype(np.timedelta64),
+    }
+
+    ww = self.get_waterwork()
+    tap_dict = self._get_tap_dict(**pour_outputs)
+    funnel_dict = ww.pump(tap_dict, key_type='str')
+
+    return self._extract_pump_outputs(funnel_dict)
+
+  def _feature_def(self, num_cols=1):
+    # Create the dictionary defining the structure of the example
+    feature_dict = {}
+    feature_dict['nums'] = tf.FixedLenFeature([num_cols], tf.float32)
+    feature_dict['nats'] = tf.FixedLenFeature([num_cols], tf.int64)
+    feature_dict['diff'] = tf.FixedLenFeature([num_cols], tf.int64)
+
+    return feature_dict
+
+  def __len__(self):
+    assert self.input_dtype is not None, ("Run calc_global_values before attempting to get the length.")
+    return len(self.index_to_cat_val)

@@ -203,6 +203,82 @@ class TestStringTransform(th.TestTransform):
       )
       trans = self.write_read(trans, self.temp_dir)
 
+  def test_read_write(self):
+    indices = np.array([
+      [
+        [16, 15, 27, 16, 15, 5, -1, -1, -1, -1],
+        [13, 3, 20, 22, 7, 13, 3, 20, 19, -1]
+      ],
+      [
+        [24, 23, 15, 17, 28, 4, 16, 2, 9, 5],
+        [12, 4, 0, 1, -1, -1, -1, -1, -1, -1]
+      ],
+      [
+        [11, 26, 21, 14, 6, 10, 5, -1, -1, -1],
+        [25, 6, 8, -1, -1, -1, -1, -1, -1, -1]
+      ]
+    ])
+    lower_case_diff = [
+      [
+        ['[["i", 0, 1, "I"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]'],
+        ['[["i", 0, 1, "I"]]', '[]', '[]', '[]', '[]', '[["i", 0, 1, "I"]]', '[]', '[]', '[]', '[]']],
+      [
+        ['[["i", 0, 1, "T"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]'],
+        ['[["i", 0, 1, "H"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']],
+      [
+        ['[["i", 0, 1, "E"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]'],
+        ['[["i", 0, 1, "U"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']
+      ]
+    ]
+    tokenize_diff = [
+      [
+        '[["d", 16, 17, ""], ["d", 18, 22, ""]]',
+        '[["d", 1, 2, ""], ["d", 23, 24, ""], ["d", 37, 38, ""]]'
+      ],
+      [
+        '[["d", 21, 22, ""], ["d", 26, 27, ""], ["i", 37, 37, "."], ["i", 38, 38, "OK"]]',
+        '[["d", 3, 4, ""], ["d", 9, 10, ""], ["d", 11, 17, ""]]'
+      ],
+      [
+        '[["d", 30, 31, ""], ["d", 32, 35, ""]]',
+        '[["d", 14, 21, ""]]'
+      ]
+    ]
+    missing_vals = np.array(['you'], dtype='|S40')
+    strings = np.array([
+      ["It is what it is.", "I've seen summer and I've seen rain"],
+      ["The sun is not yellow, it's chicken. OK.", "Hey, you!"],
+      ['Ended up sleeping in a doorway.', 'Under a bodega']
+    ], dtype=np.unicode)
+    index_to_word = self._get_index_to_word(np.char.lower(strings), en_tokenizer)
+
+    index_to_word = ['__UNK__'] + index_to_word[:-1]
+
+    trans = n.StringTransform(
+      index_to_word=index_to_word,
+      tokenizer=en_tokenizer,
+      lower_case=True,
+      unk_index=0,
+      max_sent_len=10,
+    )
+    trans.calc_global_values(strings)
+    # for i in xrange(2):
+    self.pour_pump(
+      trans,
+      strings,
+      {
+        'indices': indices,
+        'missing_vals': missing_vals,
+        'tokenize_diff': tokenize_diff,
+        'lower_case_diff': lower_case_diff
+
+      },
+      test_type=False
+    )
+
+    self.write_read_example(trans, strings, self.temp_dir)
+    trans = self.write_read(trans, self.temp_dir)
+
   def _get_index_to_word(self, strings, tokenizer, lemmatizer=None, half_width=False):
     index_to_word = set()
     for string in strings.flatten():

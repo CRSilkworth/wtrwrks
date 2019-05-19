@@ -2,6 +2,9 @@ import transform as n
 import numpy as np
 import warnings
 import reversible_transforms.tanks.tank_defs as td
+import reversible_transforms.read_write.tf_features as feat
+import numpy as np
+import tensorflow as tf
 from reversible_transforms.waterworks.empty import empty
 import os
 
@@ -136,3 +139,49 @@ class NumTransform(n.Transform):
 
   def _extract_pump_outputs(self, funnel_dict, prefix=''):
     return funnel_dict[self._add_name('IsNan_0/slots/a', prefix)]
+
+  def pour_examples(self, array, tokenizer=None, delimiter=None, lemmatizer=None):
+    ww = self.get_waterwork()
+    funnel_dict = self._get_funnel_dict(array)
+    tap_dict = ww.pour(funnel_dict, key_type='str')
+
+    pour_outputs = self._extract_pour_outputs(tap_dict)
+
+    example_dicts = []
+    for row_num in xrange(array.shape[0]):
+      example_dict = {}
+
+      nums = pour_outputs['nums'][row_num].flatten()
+      example_dict['nums'] = feat._float_feat(nums)
+
+      nans = pour_outputs['nans'][row_num].astype(int).flatten()
+      example_dict['nans'] = feat._int_feat(nans)
+
+      example_dicts.append(example_dict)
+
+    return example_dicts
+
+  def pump_examples(self, example_dicts, prefix=''):
+    pour_outputs = {'nums': [], 'nans': []}
+    for example_dict in example_dicts:
+      pour_outputs['nums'].append(example_dict['nums'])
+      pour_outputs['nans'].append(example_dict['nans'])
+
+    pour_outputs = {
+      'nums': np.stack(pour_outputs['nums']),
+      'nans': np.stack(pour_outputs['nans']).astype(bool),
+    }
+
+    ww = self.get_waterwork()
+    tap_dict = self._get_tap_dict(**pour_outputs)
+    funnel_dict = ww.pump(tap_dict, key_type='str')
+
+    return self._extract_pump_outputs(funnel_dict)
+
+  def _feature_def(self, num_cols=1):
+    # Create the dictionary defining the structure of the example
+    feature_dict = {}
+    feature_dict['nums'] = tf.FixedLenFeature([num_cols], tf.float32)
+    feature_dict['nans'] = tf.FixedLenFeature([num_cols], tf.int64)
+
+    return feature_dict

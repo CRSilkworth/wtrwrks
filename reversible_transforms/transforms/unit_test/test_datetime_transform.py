@@ -22,26 +22,27 @@ class TestDateTimeTransform(th.TestTransform):
     def tearDown(self):
       shutil.rmtree(self.temp_dir)
 
-    def test_no_norm(self):
-      def fill(array):
-        return np.array(datetime.datetime(1970, 1, 1))
-      trans = n.DateTimeTransform(
-        name='datetime',
-        # fill_nat_func=fill
-      )
-      trans.calc_global_values(self.array[:, 0: 1])
-      target = np.array((self.array[:, 0: 1] - trans.zero_datetime) / np.timedelta64(1, 'D'), copy=True)
-      for i in xrange(2):
-        self.pour_pump(
-          trans,
-          self.array[:, 0: 1],
-          {
-            'nums': target,
-            'nats': [[False], [False], [False], [False]],
-            'diff': np.array([], dtype='timedelta64[us]')
-          }
-        )
-        trans = self.write_read(trans, self.temp_dir)
+    # def test_no_norm(self):
+    #   def fill(array):
+    #     return np.array(datetime.datetime(1970, 1, 1))
+    #   trans = n.DateTimeTransform(
+    #     name='datetime',
+    #     # fill_nat_func=fill
+    #   )
+    #   trans.calc_global_values(self.array[:, 0: 1])
+    #   target = np.array((self.array[:, 0: 1] - trans.zero_datetime) / np.timedelta64(1, 'D'), copy=True)
+    #   for i in xrange(2):
+    #     self.pour_pump(
+    #       trans,
+    #       self.array[:, 0: 1],
+    #       {
+    #         'nums': target,
+    #         'nats': [[False], [False], [False], [False]],
+    #         'diff': np.array([], dtype='timedelta64[us]')
+    #       },
+    #       test_type=False
+    #     )
+    #     trans = self.write_read(trans, self.temp_dir)
 
     def test_nan(self):
       def fill(array):
@@ -64,7 +65,8 @@ class TestDateTimeTransform(th.TestTransform):
             'nums': target,
             'nats': [[False], [True], [False], [False]],
             'diff': np.array([[259200000000], [-172800000000], [518400000000], [518400000000]], dtype='timedelta64[us]')
-          }
+          },
+          test_type=False
         )
         trans = self.write_read(trans, self.temp_dir)
 
@@ -91,7 +93,8 @@ class TestDateTimeTransform(th.TestTransform):
             'nums': target,
             'nats': [[False], [True], [False], [False]],
             'diff': np.array([], dtype='timedelta64[us]')
-          }
+          },
+          test_type=False
         )
         trans = self.write_read(trans, self.temp_dir)
 
@@ -120,7 +123,8 @@ class TestDateTimeTransform(th.TestTransform):
             'nums': target,
             'nats': [[False], [True], [False], [False]],
             'diff': np.array([], dtype='timedelta64[us]')
-          }
+          },
+          test_type=False
         )
         trans = self.write_read(trans, self.temp_dir)
 
@@ -147,8 +151,39 @@ class TestDateTimeTransform(th.TestTransform):
             'nums': target,
             'nats': [[False], [False], [False], [False]],
             'diff': np.array([], dtype='timedelta64[us]')
-          }
+          },
+          test_type=False
+
         )
+        trans = self.write_read(trans, self.temp_dir)
+
+    def test_read_write(self):
+      def fill(array):
+        mins = np.expand_dims(np.min(array, axis=0), axis=0)
+        mins = np.tile(mins, reps=[4, 1])
+        replace_with = mins[np.isnat(array)]
+        return replace_with
+      trans = n.DateTimeTransform(
+        name='datetime',
+        fill_nat_func=fill,
+        norm_mode='min_max'
+      )
+      trans.calc_global_values(self.array[:, 0: 1])
+      target = np.array((self.array[:, 0: 1] - trans.zero_datetime) / np.timedelta64(1, 'D'), copy=True)
+      target = (target - trans.min)/(trans.max - trans.min)
+
+      for i in xrange(2):
+        self.pour_pump(
+          trans,
+          self.array[:, 0: 1],
+          {
+            'nums': target,
+            'nats': [[False], [False], [False], [False]],
+            'diff': np.array([], dtype='timedelta64[us]')
+          },
+          test_type=False
+        )
+        self.write_read_example(trans, self.array[:, 0: 1].astype(np.datetime64), self.temp_dir, test_type=False)
         trans = self.write_read(trans, self.temp_dir)
 
     def test_errors(self):
