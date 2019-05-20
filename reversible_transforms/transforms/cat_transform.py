@@ -216,9 +216,9 @@ class CatTransform(n.Transform):
     }
 
     missing_vals = np.stack(missing_vals)
-    missing_vals = missing_vals[pour_outputs['indices'] == -1].tolist()
+    missing_vals = missing_vals[pour_outputs['indices'] == -1]
     pour_outputs['missing_vals'] = missing_vals
-
+    print missing_vals.shape
     pour_outputs = self._pre(pour_outputs, prefix)
     return pour_outputs
 
@@ -236,9 +236,9 @@ class CatTransform(n.Transform):
     shape = len(self)
 
     feature_dict = {}
-    feature_dict['missing_vals'] = tf.FixedLenFeature([], tf_dtype)
+    feature_dict['missing_vals'] = tf.FixedLenFeature([1], tf_dtype)
     feature_dict['one_hots'] = tf.FixedLenFeature(shape, tf.float32)
-    feature_dict['indices'] = tf.FixedLenFeature([], tf.int64)
+    feature_dict['indices'] = tf.FixedLenFeature([1], tf.int64)
 
     feature_dict = self._pre(feature_dict, prefix)
     return feature_dict

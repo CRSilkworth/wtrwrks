@@ -189,9 +189,9 @@ class DateTimeTransform(n.Transform):
       example_dict['nats'] = feat._int_feat(nats)
 
       if pour_outputs['diff'].size:
-        diff = pour_outputs['diff'][row_num].astype(int)
+        diff = pour_outputs['diff'][row_num].astype(np.int64)
       else:
-        diff = np.zeros(nums.shape, dtype=int)
+        diff = np.zeros(nums.shape, dtype=np.int64)
       example_dict['diff'] = feat._int_feat(diff)
 
       example_dict = self._pre(example_dict, prefix)
@@ -221,6 +221,7 @@ class DateTimeTransform(n.Transform):
     feature_dict['nats'] = tf.FixedLenFeature([num_cols], tf.int64)
     feature_dict['diff'] = tf.FixedLenFeature([num_cols], tf.int64)
 
+    feature_dict = self._pre(feature_dict, prefix)
     return feature_dict
 
   def __len__(self):

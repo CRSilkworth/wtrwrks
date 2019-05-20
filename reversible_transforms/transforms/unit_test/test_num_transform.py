@@ -112,25 +112,25 @@ class TestNumTransform(th.TestTransform):
       def fill(array):
         return np.array(0.0)
       trans = n.NumTransform(
-        name='num',
+        name='NUM',
         norm_mode='min_max',
-        fill_nan_func=fill,
-        norm_axis=0
+
+        fill_nan_func=lambda a: np.array(0),
       )
-      trans.calc_global_values(self.array[:, 0: 2])
-      target = self.array[:, 0: 2]
-      target = (target - trans.min)/(trans.max - trans.min)
-      target[1, 1] = -trans.min[1]/(trans.max[1] - trans.min[1])
+      trans.calc_global_values(self.array)
+      # target = self.array[:, 0: 3]
+      # target = (target - trans.min)/(trans.max - trans.min)
+      # target[1, 1] = -trans.min[1]/(trans.max[1] - trans.min[1])
       for i in xrange(2):
-        self.pour_pump(
-          trans,
-          self.array[:, 0: 2],
-          {
-            'num/nums': target,
-            'num/nans': [[False, False], [False, True], [False, False], [False, False]],
-          }
-        )
-        self.write_read_example(trans, self.array[:, 0: 2], self.temp_dir, test_type=False)
+        # self.pour_pump(
+        #   trans,
+        #   self.array[:, 0: 2],
+        #   {
+        #     'num/nums': target,
+        #     'num/nans': [[False, False], [False, True], [False, False], [False, False]],
+        #   }
+        # )
+        self.write_read_example(trans, self.array, self.temp_dir, test_type=False)
         trans = self.write_read(trans, self.temp_dir)
 
     def test_errors(self):

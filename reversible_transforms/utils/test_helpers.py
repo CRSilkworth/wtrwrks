@@ -129,18 +129,20 @@ class TestTransform(WWTest):
     example_dicts = trans.pour_examples(array)
     file_name = os.path.join(dir, 'temp.tfrecord')
     writer = tf.python_io.TFRecordWriter(file_name)
+
     for feature_dict in example_dicts:
       example = tf.train.Example(
         features=tf.train.Features(feature=feature_dict)
       )
       writer.write(example.SerializeToString())
+
     writer.close()
 
     dataset = tf.data.TFRecordDataset(file_name)
 
-    def read_and_decode(serialzed):
+    def read_and_decode(serialized):
       return tf.parse_single_example(
-        serialzed,
+        serialized,
         features=trans._feature_def(num_cols=array.shape[1])
       )
     dataset = dataset.map(read_and_decode)
@@ -157,7 +159,7 @@ class TestTransform(WWTest):
       for _ in xrange(array.shape[0]):
         example_dict = sess.run(features)
         example_dicts.append(example_dict)
-
+        
     remade_array = trans.pump_examples(example_dicts)
     self.equals(array, remade_array, test_type)
 

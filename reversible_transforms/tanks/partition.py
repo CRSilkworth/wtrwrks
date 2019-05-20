@@ -91,7 +91,11 @@ class Partition(ta.Tank):
     else:
       max_index = -1
 
-    inner_dims = missing_array.shape[1:]
+    if target:
+      inner_dims = target[0].shape[1:]
+    else:
+      inner_dims = missing_array.shape[1:]
+
     a = np.zeros([max_index + 1] + list(inner_dims), dtype=missing_array.dtype)
 
     for subarray, col_range in zip(target, indices):

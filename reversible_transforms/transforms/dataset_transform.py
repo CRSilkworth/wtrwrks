@@ -33,9 +33,14 @@ class DatasetTransform(tr.Transform):
 
   def calc_global_values(self, array):
     subarrays = {}
+    all_ranges = []
     for key in self:
       trans = self.transforms[key]
+
       col_range = self.transform_col_ranges[key]
+      all_ranges.append(col_range[0])
+      all_ranges.append(col_range[1])
+
       subarray = array[:, col_range[0]: col_range[1]]
       if isinstance(trans, nt.NumTransform):
         subarray = subarray.astype(np.float64)
@@ -48,16 +53,32 @@ class DatasetTransform(tr.Transform):
 
       self.transforms[key].calc_global_values(subarray)
 
+    print array.shape[1]
+    all_ranges = set(range(array.shape[1]))
+    for key in self:
+      col_range = self.transform_col_ranges[key]
+
+      for index in xrange(col_range[0], col_range[1]):
+        if index in all_ranges:
+          all_ranges.remove(index)
+
+    if all_ranges:
+      raise ValueError("Must use all columns in array. Columns " + str(sorted(all_ranges)) + " are unused. Either remove them from the array or all additional transforms which use them.")
   def define_waterwork(self, array=empty):
     with ns.NameSpace(self.name):
       indices = [self.transform_col_ranges[k] for k in sorted(self.transforms)]
       transp, transp_slots = td.transpose(a=array, axes=[1, 0])
       parts, _ = td.partition(a=transp['target'], indices=indices)
+      parts['missing_cols'].set_name('missing_cols')
+      parts['missing_array'].set_name('missing_array')
       transp_slots['a'].set_name('input')
 
       parts_list, _ = td.iter_list(parts['target'], num_entries=len(self.transforms))
       for part, name in zip(parts_list, sorted(self.transforms)):
         trans = self.transforms[name]
+        trans_back, _ = td.transpose(a=part, axes=[1, 0])
+        part = trans_back['target']
+
         if isinstance(trans, nt.NumTransform):
           cast, _ = td.cast(part, np.float64, name='-'.join([name, 'cast']))
           part = cast['target']
@@ -91,30 +112,28 @@ class DatasetTransform(tr.Transform):
 
     tap_dict = ww.pour(funnel_dict, key_type='str')
 
-    keys_to_output = [
-      self._pre('Partition_0/tubes/missing_cols'),
-      self._pre('Partition_0/tubes/missing_array'),
-    ]
-    pour_outputs = {k: tap_dict[k] for k in keys_to_output}
+    pour_outputs = {}
     for name in self.transforms:
       trans = self.transforms[name]
 
       temp_outputs = trans._extract_pour_outputs(tap_dict, prefix=self.name)
       pour_outputs.update(temp_outputs)
-
     return pour_outputs
 
   def pump(self, pour_outputs):
     ww = self.get_waterwork()
 
-    keys_to_input = [
-      self._pre('Partition_0/tubes/missing_cols'),
-      self._pre('Partition_0/tubes/missing_array'),
-
-    ]
-    tap_dict = {k: pour_outputs[k] for k in keys_to_input}
+    shape = (0, 1)
+    tap_dict = {
+      self._pre('missing_cols'): np.zeros(shape, dtype=np.object),
+      self._pre('missing_array'): np.zeros(shape, dtype=np.object),
+    }
     tap_dict[self._pre('Partition_0/tubes/indices')] = np.array([self.transform_col_ranges[k] for k in sorted(self.transform_col_ranges)])
     tap_dict[self._pre('Transpose_0/tubes/axes')] = [1, 0]
+    for num, _ in enumerate(self):
+      num += 1
+      transp_key = 'Transpose_' + str(num) + '/tubes/axes'
+      tap_dict[self._pre(transp_key)] = [1, 0]
 
     for name in sorted(self.transforms):
       trans = self.transforms[name]
@@ -141,10 +160,11 @@ class DatasetTransform(tr.Transform):
       kwargs = {}
       prefix = os.path.join(self.name, name) + '/'
       for output_name in pour_outputs:
+        # if prefix == 'DT/STRING/':
+          # print output_name, output_name.startswith(prefix)
         if not output_name.startswith(prefix):
           continue
         kwargs[output_name] = pour_outputs[output_name]
-
       tap_dict.update(
         trans._get_tap_dict(kwargs, prefix=self.name)
       )
@@ -170,7 +190,7 @@ class DatasetTransform(tr.Transform):
       all_example_dicts[key] = trans._get_example_dicts(pour_outputs, prefix=self.name)
 
     example_dicts = []
-    for trans_dicts in zip(*[all_example_dicts[k] for k in self.transforms]):
+    for row_num, trans_dicts in enumerate(zip(*[all_example_dicts[k] for k in self.transforms])):
       example_dict = {}
       for trans_dict in trans_dicts:
         example_dict.update(trans_dict)
@@ -178,6 +198,7 @@ class DatasetTransform(tr.Transform):
     return example_dicts
 
   def _parse_example_dicts(self, example_dicts, prefix=''):
+    pour_outputs = {}
     for key in self.transforms:
       trans = self.transforms[key]
       trans_pour_outputs = trans._parse_example_dicts(example_dicts, prefix=self.name)
@@ -193,5 +214,4 @@ class DatasetTransform(tr.Transform):
       trans_feature_dict = trans._feature_def(num_cols=num_cols, prefix=self.name)
 
       feature_dict.update(trans_feature_dict)
-    print feature_dict.keys()
     return feature_dict

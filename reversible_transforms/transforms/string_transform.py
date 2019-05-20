@@ -210,7 +210,6 @@ class StringTransform(n.Transform):
 
       example_dict = self._pre(example_dict, prefix)
       example_dicts.append(example_dict)
-
     return example_dicts
 
   def _parse_example_dicts(self, example_dicts, prefix=''):
@@ -238,6 +237,7 @@ class StringTransform(n.Transform):
     mask = pour_outputs['indices'] == self.unk_index
     pour_outputs['missing_vals'] = pour_outputs['missing_vals'][mask].flatten()
 
+    pour_outputs = self._pre(pour_outputs, prefix)
     return pour_outputs
 
   def _feature_def(self, num_cols=1, prefix=''):
