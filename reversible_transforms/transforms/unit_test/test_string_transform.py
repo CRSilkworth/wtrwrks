@@ -71,13 +71,14 @@ class TestStringTransform(th.TestTransform):
       ["The sun is not yellow, it's chicken. OK."]
     ])
     tokenize_diff = [['[["d", 16, 17, ""], ["d", 18, 22, ""]]'], ['[["d", 8, 9, ""], ["d", 14, 15, ""], ["d", 43, 44, ""]]'], ['[["d", 21, 22, ""], ["d", 26, 27, ""], ["i", 37, 37, "."], ["i", 38, 38, "OK"]]']]
-    missing_vals = np.array(['', '', '', ''], dtype='|S8')
-    index_to_word = self._get_index_to_word(strings, en_tokenizer)
+    missing_vals = np.array([], dtype='|S42')
+    index_to_word = self._get_index_to_word(strings, en_tokenizer) + ['__UNK__']
     trans = n.StringTransform(
       index_to_word=index_to_word,
       tokenizer=en_tokenizer,
       name='string_transform',
       max_sent_len=10,
+      unk_index=len(index_to_word) - 1
     )
     trans.calc_global_values(strings)
     for i in xrange(2):
@@ -85,9 +86,9 @@ class TestStringTransform(th.TestTransform):
         trans,
         strings,
         {
-          'indices': indices,
-          'missing_vals': missing_vals,
-          'tokenize_diff': tokenize_diff,
+          'string_transform/indices': indices,
+          'string_transform/missing_vals': missing_vals,
+          'string_transform/tokenize_diff': tokenize_diff,
 
         },
         test_type=False
@@ -146,13 +147,14 @@ class TestStringTransform(th.TestTransform):
       [u'すみませんが、もう一度どお願いします。']
     ])
     tokenize_diff = [['[]'], ['[]']]
-    missing_vals = np.array(['', '', '', '', '', ''], dtype='|S8')
-    index_to_word = self._get_index_to_word(strings, ja_tokenizer)
+    missing_vals = np.array([], dtype='|U20')
+    index_to_word = self._get_index_to_word(strings, ja_tokenizer) + ['__UNK__']
     trans = n.StringTransform(
       tokenizer=ja_tokenizer,
       index_to_word=index_to_word,
       delimiter='',
-      max_sent_len=15
+      max_sent_len=15,
+      unk_index=len(index_to_word) - 1
     )
     trans.calc_global_values(strings)
     for i in xrange(2):
@@ -177,15 +179,16 @@ class TestStringTransform(th.TestTransform):
       [u'すみませんが、もう一度どお願いします。']
     ])
     tokenize_diff = [['[]'], ['[]']]
-    missing_vals = np.array(['', '', '', ''], dtype='|S8')
-    index_to_word = self._get_index_to_word(strings, ja_tokenizer, half_width=True)
+    missing_vals = np.array([], dtype='|U20')
+    index_to_word = self._get_index_to_word(strings, ja_tokenizer, half_width=True) + ['__UNK__']
     half_width_diff = [[['[["i", 0, 1, "\\uff12"]]', '[["i", 0, 1, "\\uff10"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']], [['[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']]]
     trans = n.StringTransform(
       tokenizer=ja_tokenizer,
       index_to_word=index_to_word,
       delimiter='',
       half_width=True,
-      max_sent_len=15
+      max_sent_len=15,
+      unk_index=len(index_to_word) - 1
     )
     trans.calc_global_values(strings)
     for i in xrange(2):

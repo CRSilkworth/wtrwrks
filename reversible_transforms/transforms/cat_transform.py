@@ -123,7 +123,7 @@ class CatTransform(n.Transform):
     one_hots['target'].set_name('one_hots')
 
   def _get_funnel_dict(self, array=None, prefix=''):
-    funnel_name = self._add_name('CatToIndex_0/slots/cats', prefix)
+    funnel_name = self._pre('CatToIndex_0/slots/cats', prefix)
     funnel_dict = {}
     if array is not None:
       funnel_dict = {funnel_name: array[:, 0]}
@@ -131,75 +131,72 @@ class CatTransform(n.Transform):
     return funnel_dict
 
   def _extract_pour_outputs(self, tap_dict, prefix=''):
-    r_dict = {k: tap_dict[self._add_name(k, prefix)] for k in ['one_hots', 'missing_vals', 'indices']}
+    r_dict = {self._pre(k, prefix): tap_dict[self._pre(k, prefix)] for k in ['one_hots', 'missing_vals', 'indices']}
     return r_dict
 
-  def _get_tap_dict(self, one_hots, missing_vals, indices, prefix=''):
-
-    mvs = -1.0 * np.ones([len(missing_vals)])
-
+  def _get_tap_dict(self, pour_outputs, prefix=''):
+    pour_outputs = self._nopre(pour_outputs, prefix)
+    mvs = -1.0 * np.ones([len(pour_outputs['missing_vals'])])
+    dtype = pour_outputs['one_hots'].dtype
     if self.norm_mode == 'mean_std':
       tap_dict = {
         'OneHot_0/tubes/missing_vals': mvs,
-        'one_hots': one_hots,
-        'indices': indices,
+        'one_hots': pour_outputs['one_hots'],
+        'indices': pour_outputs['indices'],
         'Div_0/tubes/smaller_size_array': self.std,
         'Div_0/tubes/a_is_smaller': False,
         'Div_0/tubes/missing_vals': np.array([], dtype=float),
-        'Div_0/tubes/remainder': np.array([], dtype=one_hots.dtype),
+        'Div_0/tubes/remainder': np.array([], dtype=dtype),
         'Sub_0/tubes/smaller_size_array': self.mean,
         'Sub_0/tubes/a_is_smaller': False,
-        'missing_vals': missing_vals,
+        'missing_vals': pour_outputs['missing_vals'],
         'CatToIndex_0/tubes/cat_to_index_map': self.cat_val_to_index,
         'CatToIndex_0/tubes/input_dtype': self.input_dtype
       }
     else:
       tap_dict = {
         'OneHot_0/tubes/missing_vals': mvs,
-        'one_hots': one_hots,
-        'indices': indices,
-        'missing_vals': missing_vals,
+        'one_hots': pour_outputs['one_hots'],
+        'indices': pour_outputs['indices'],
+        'missing_vals': pour_outputs['missing_vals'],
         'CatToIndex_0/tubes/cat_to_index_map': self.cat_val_to_index,
         'CatToIndex_0/tubes/input_dtype': self.input_dtype
       }
-    return self._add_name_to_dict(tap_dict, prefix)
+    return self._pre(tap_dict, prefix)
 
   def _extract_pump_outputs(self, funnel_dict, prefix=''):
-    array_key = os.path.join(prefix, self.name, 'CatToIndex_0', 'slots', 'cats')
+    array_key = self._pre('CatToIndex_0/slots/cats', prefix)
     return np.expand_dims(funnel_dict[array_key], axis=1)
 
   def _get_example_dicts(self, pour_outputs, prefix=''):
-    indices_key = self._add_name('indices', prefix)
-    one_hots_key = self._add_name('one_hots', prefix)
-    missing_vals_key = self._add_name('missing_vals', prefix)
-
-    mask = pour_outputs[indices_key] == -1
-    missing_vals = pour_outputs[missing_vals_key]
+    pour_outputs = self._nopre(pour_outputs, prefix)
+    mask = pour_outputs['indices'] == -1
+    missing_vals = pour_outputs['missing_vals']
     full_missing_vals = self._full_missing_vals(mask, missing_vals)
 
-    num_examples = pour_outputs[indices_key].shape[0]
+    num_examples = pour_outputs['indices'].shape[0]
     example_dicts = []
     for row_num in xrange(num_examples):
       example_dict = {}
 
-      one_hots = pour_outputs[one_hots_key][row_num].flatten()
-      example_dict[one_hots_key] = feat._float_feat(one_hots)
+      one_hots = pour_outputs['one_hots'][row_num].flatten()
+      example_dict['one_hots'] = feat._float_feat(one_hots)
 
-      indices = pour_outputs[indices_key][row_num].flatten()
-      example_dict[indices_key] = feat._int_feat(indices)
+      indices = pour_outputs['indices'][row_num].flatten()
+      example_dict['indices'] = feat._int_feat(indices)
 
       missing_val = full_missing_vals[row_num]
       dtype = self.input_dtype
-      if dtype.type is np.string_:
-        example_dict[missing_vals_key] = feat._bytes_feat(missing_val)
+      if dtype.type in (np.string_, np.unicode_):
+        example_dict['missing_vals'] = feat._bytes_feat(missing_val)
       elif dtype in (np.int32, np.int64):
-        example_dict[missing_vals_key] = feat._int_feat(missing_val)
+        example_dict['missing_vals'] = feat._int_feat(missing_val)
       elif dtype in (np.float32, np.float64):
-        example_dict[missing_vals_key] = feat._float_feat(missing_val)
+        example_dict['missing_vals'] = feat._float_feat(missing_val)
       else:
         raise TypeError("Only string and number types are supported. Got " + str(dtype))
 
-      example_dict = self._add_name_to_dict(example_dict, prefix)
+      example_dict = self._pre(example_dict, prefix)
       example_dicts.append(example_dict)
 
     return example_dicts
@@ -209,9 +206,9 @@ class CatTransform(n.Transform):
 
     missing_vals = []
     for example_dict in example_dicts:
-      pour_outputs['one_hots'].append(example_dict['one_hots'])
-      pour_outputs['indices'].append(example_dict['indices'])
-      missing_vals.append(example_dict['missing_vals'])
+      pour_outputs['one_hots'].append(example_dict[self._pre('one_hots', prefix)])
+      pour_outputs['indices'].append(example_dict[self._pre('indices', prefix)])
+      missing_vals.append(example_dict[self._pre('missing_vals', prefix)])
 
     pour_outputs = {
       'one_hots': np.stack(pour_outputs['one_hots']),
@@ -222,13 +219,12 @@ class CatTransform(n.Transform):
     missing_vals = missing_vals[pour_outputs['indices'] == -1].tolist()
     pour_outputs['missing_vals'] = missing_vals
 
-    pour_outputs = self._add_name_to_dict(pour_outputs, prefix)
+    pour_outputs = self._pre(pour_outputs, prefix)
     return pour_outputs
 
-  def _feature_def(self, num_cols=1):
-    # Create the dictionary defining the structure of the example
+  def _feature_def(self, num_cols=1, prefix=''):
     dtype = self.input_dtype
-    if dtype.type is np.string_:
+    if dtype.type in (np.string_, np.unicode_):
       tf_dtype = tf.string
     elif dtype in (np.int32, np.int64):
       tf_dtype = tf.int64
@@ -244,6 +240,7 @@ class CatTransform(n.Transform):
     feature_dict['one_hots'] = tf.FixedLenFeature(shape, tf.float32)
     feature_dict['indices'] = tf.FixedLenFeature([], tf.int64)
 
+    feature_dict = self._pre(feature_dict, prefix)
     return feature_dict
 
   def __len__(self):

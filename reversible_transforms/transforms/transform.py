@@ -37,6 +37,7 @@ class Transform(object):
       self._setattributes(**kwargs)
 
     self.waterwork = None
+
   def _setattributes(self, **kwargs):
     attribute_set = set(self.attribute_dict)
     invalid_keys = sorted(set(kwargs.keys()) - attribute_set)
@@ -49,6 +50,9 @@ class Transform(object):
         setattr(self, key, kwargs[key])
       else:
         setattr(self, key, self.attribute_dict[key])
+
+    if '/' in self.name:
+      raise ValueError("Cannot give Transform a name with '/'. Got " + str(self.name))
 
   def define_waterwork(self):
     raise NotImplementedError()
@@ -65,10 +69,10 @@ class Transform(object):
     self.waterwork = ww
     return ww
 
-  def _add_name(self, string, prefix=''):
-    return os.path.join(prefix, self.name, string)
+  def _pre(self, d, prefix=''):
+    if type(d) is not dict:
+      return os.path.join(prefix, self.name, d)
 
-  def _add_name_to_dict(self, d, prefix=''):
     r_d = {}
     for key in d:
       if type(key) is tuple and type(key[0]) in (str, unicode):
@@ -79,15 +83,32 @@ class Transform(object):
         r_d[key] = d[key]
     return r_d
 
-  def pour(self, array, **kwargs):
+  def _nopre(self, d, prefix=''):
+    str_len = len(os.path.join(prefix, self.name) + '/')
+    if str_len == 1:
+      str_len = 0
+    if type(d) is not dict:
+      return d[str_len:]
+
+    r_d = {}
+    for key in d:
+      if type(key) is tuple and type(key[0]) in (str, unicode):
+        r_d[(key[0][str_len:], key[1])] = d[key]
+      elif type(key) in (str, unicode):
+        r_d[key[str_len:]] = d[key]
+      else:
+        r_d[key] = d[key]
+    return r_d
+
+  def pour(self, array):
     ww = self.get_waterwork()
-    funnel_dict = self._get_funnel_dict(array, **kwargs)
+    funnel_dict = self._get_funnel_dict(array)
     tap_dict = ww.pour(funnel_dict, key_type='str')
     return self._extract_pour_outputs(tap_dict)
 
-  def pump(self, **kwargs):
+  def pump(self, kwargs):
     ww = self.get_waterwork()
-    tap_dict = self._get_tap_dict(**kwargs)
+    tap_dict = self._get_tap_dict(kwargs)
     funnel_dict = ww.pump(tap_dict, key_type='str')
     return self._extract_pump_outputs(funnel_dict)
 
@@ -99,19 +120,20 @@ class Transform(object):
     elif dtype in (np.int64, np.int32, np.float64, np.float32):
       full_missing_vals = np.zeros(mask.shape, dtype=dtype)
     else:
+      print dtype, dtype.type, dtype.type in (np.string_, np.unicode_)
       raise TypeError("Only string and number types are supported. Got " + str(dtype))
 
     full_missing_vals[mask] = missing_vals
     return full_missing_vals
 
-  def pour_examples(self, array, **kwargs):
-    pour_outputs = self.pour(array, **kwargs)
+  def pour_examples(self, array):
+    pour_outputs = self.pour(array)
     example_dicts = self._get_example_dicts(pour_outputs)
     return example_dicts
 
   def pump_examples(self, example_dicts):
     pour_outputs = self._parse_example_dicts(example_dicts)
-    return self.pump(**pour_outputs)
+    return self.pump(pour_outputs)
 
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""

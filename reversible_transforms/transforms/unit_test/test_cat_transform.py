@@ -37,9 +37,9 @@ class TestCatTransform(th.TestTransform):
         trans,
         self.array[:, 0: 1],
         {
-          'missing_vals': [],
-          'one_hots': target,
-          'indices': indices
+          'cat/missing_vals': [],
+          'cat/one_hots': target,
+          'cat/indices': indices
         }
       )
       trans = self.write_read(trans, self.temp_dir)
@@ -62,9 +62,9 @@ class TestCatTransform(th.TestTransform):
         trans,
         self.array[:, 0: 1],
         {
-          'missing_vals': ['c'],
-          'one_hots': target,
-          'indices': indices
+          'cat/missing_vals': ['c'],
+          'cat/one_hots': target,
+          'cat/indices': indices
         }
       )
       trans = self.write_read(trans, self.temp_dir)
@@ -86,9 +86,9 @@ class TestCatTransform(th.TestTransform):
         trans,
         self.array[:, 2: 3],
         {
-          'missing_vals': np.array([], dtype=int),
-          'one_hots': target,
-          'indices': indices
+          'cat/missing_vals': np.array([], dtype=int),
+          'cat/one_hots': target,
+          'cat/indices': indices
         }
       )
       trans = self.write_read(trans, self.temp_dir)
@@ -112,9 +112,9 @@ class TestCatTransform(th.TestTransform):
         trans,
         self.array[:, 2: 3],
         {
-          'missing_vals': [np.nan],
-          'one_hots': target,
-          'indices': indices
+          'cat/missing_vals': [np.nan],
+          'cat/one_hots': target,
+          'cat/indices': indices
         }
       )
       trans = self.write_read(trans, self.temp_dir)
@@ -138,9 +138,9 @@ class TestCatTransform(th.TestTransform):
         trans,
         self.array[:, 1: 2],
         {
-          'missing_vals': np.array([], dtype=int),
-          'one_hots': target,
-          'indices': indices
+          'cat/missing_vals': np.array([], dtype=int),
+          'cat/one_hots': target,
+          'cat/indices': indices
         }
       )
       trans = self.write_read(trans, self.temp_dir)

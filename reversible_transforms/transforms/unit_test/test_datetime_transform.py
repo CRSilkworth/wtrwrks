@@ -22,27 +22,27 @@ class TestDateTimeTransform(th.TestTransform):
     def tearDown(self):
       shutil.rmtree(self.temp_dir)
 
-    # def test_no_norm(self):
-    #   def fill(array):
-    #     return np.array(datetime.datetime(1970, 1, 1))
-    #   trans = n.DateTimeTransform(
-    #     name='datetime',
-    #     # fill_nat_func=fill
-    #   )
-    #   trans.calc_global_values(self.array[:, 0: 1])
-    #   target = np.array((self.array[:, 0: 1] - trans.zero_datetime) / np.timedelta64(1, 'D'), copy=True)
-    #   for i in xrange(2):
-    #     self.pour_pump(
-    #       trans,
-    #       self.array[:, 0: 1],
-    #       {
-    #         'nums': target,
-    #         'nats': [[False], [False], [False], [False]],
-    #         'diff': np.array([], dtype='timedelta64[us]')
-    #       },
-    #       test_type=False
-    #     )
-    #     trans = self.write_read(trans, self.temp_dir)
+    def test_no_norm(self):
+      def fill(array):
+        return np.array(datetime.datetime(1970, 1, 1))
+      trans = n.DateTimeTransform(
+        name='datetime',
+        # fill_nat_func=fill
+      )
+      trans.calc_global_values(self.array[:, 0: 1])
+      target = np.array((self.array[:, 0: 1] - trans.zero_datetime) / np.timedelta64(1, 'D'), copy=True)
+      for i in xrange(2):
+        self.pour_pump(
+          trans,
+          self.array[:, 0: 1],
+          {
+            'datetime/nums': target,
+            'datetime/nats': [[False], [False], [False], [False]],
+            'datetime/diff': np.array([], dtype='timedelta64[us]')
+          },
+          test_type=False
+        )
+        trans = self.write_read(trans, self.temp_dir)
 
     def test_nan(self):
       def fill(array):
@@ -62,9 +62,9 @@ class TestDateTimeTransform(th.TestTransform):
           trans,
           self.array[:, 1: 2],
           {
-            'nums': target,
-            'nats': [[False], [True], [False], [False]],
-            'diff': np.array([[259200000000], [-172800000000], [518400000000], [518400000000]], dtype='timedelta64[us]')
+            'datetime/nums': target,
+            'datetime/nats': [[False], [True], [False], [False]],
+            'datetime/diff': np.array([[259200000000], [-172800000000], [518400000000], [518400000000]], dtype='timedelta64[us]')
           },
           test_type=False
         )
@@ -120,9 +120,9 @@ class TestDateTimeTransform(th.TestTransform):
           trans,
           self.array[:, 1: 2],
           {
-            'nums': target,
-            'nats': [[False], [True], [False], [False]],
-            'diff': np.array([], dtype='timedelta64[us]')
+            'datetime/nums': target,
+            'datetime/nats': [[False], [True], [False], [False]],
+            'datetime/diff': np.array([], dtype='timedelta64[us]')
           },
           test_type=False
         )
@@ -148,9 +148,9 @@ class TestDateTimeTransform(th.TestTransform):
           trans,
           self.array[:, 0: 1],
           {
-            'nums': target,
-            'nats': [[False], [False], [False], [False]],
-            'diff': np.array([], dtype='timedelta64[us]')
+            'datetime/nums': target,
+            'datetime/nats': [[False], [False], [False], [False]],
+            'datetime/diff': np.array([], dtype='timedelta64[us]')
           },
           test_type=False
 
@@ -177,9 +177,9 @@ class TestDateTimeTransform(th.TestTransform):
           trans,
           self.array[:, 0: 1],
           {
-            'nums': target,
-            'nats': [[False], [False], [False], [False]],
-            'diff': np.array([], dtype='timedelta64[us]')
+            'datetime/nums': target,
+            'datetime/nats': [[False], [False], [False], [False]],
+            'datetime/diff': np.array([], dtype='timedelta64[us]')
           },
           test_type=False
         )

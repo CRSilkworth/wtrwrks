@@ -110,7 +110,7 @@ class TestTransform(WWTest):
         print 'Pour direction, key:', key
         raise e
 
-    original = trans.pump(**out_dict)
+    original = trans.pump(out_dict)
     try:
       self.equals(original, array, test_type=test_type)
     except (ValueError, AssertionError) as e:
@@ -164,7 +164,7 @@ class TestTransform(WWTest):
 class TestDataset (TestTransform):
   def pour_pump(self, dt, array, transform_kwargs, output_dict, test_type=True):
     dt.calc_global_values(array)
-    tap_dict = dt.pour(array, transform_kwargs)
+    tap_dict = dt.pour(array)
     out_dict = {str(k): v for k, v in tap_dict.iteritems()}
 
     self.assertEqual(sorted(out_dict.keys()), sorted(output_dict.keys()))

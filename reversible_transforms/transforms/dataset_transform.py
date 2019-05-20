@@ -34,8 +34,17 @@ class DatasetTransform(tr.Transform):
   def calc_global_values(self, array):
     subarrays = {}
     for key in self:
+      trans = self.transforms[key]
       col_range = self.transform_col_ranges[key]
       subarray = array[:, col_range[0]: col_range[1]]
+      if isinstance(trans, nt.NumTransform):
+        subarray = subarray.astype(np.float64)
+      elif isinstance(trans, dt.DateTimeTransform):
+        subarray = subarray.astype(np.datetime64)
+      elif isinstance(trans, st.StringTransform):
+        subarray = subarray.astype(np.unicode)
+      elif isinstance(trans, ct.CatTransform):
+        subarray = subarray.astype(np.unicode)
 
       self.transforms[key].calc_global_values(subarray)
 
@@ -55,6 +64,12 @@ class DatasetTransform(tr.Transform):
         elif isinstance(trans, dt.DateTimeTransform):
           cast, _ = td.cast(part, np.datetime64, name='-'.join([name, 'cast']))
           part = cast['target']
+        elif isinstance(trans, st.StringTransform):
+          cast, _ = td.cast(part, np.unicode, name='-'.join([name, 'cast']))
+          part = cast['target']
+        elif isinstance(trans, ct.CatTransform):
+          cast, _ = td.cast(part, np.unicode, name='-'.join([name, 'cast']))
+          part = cast['target']
         with ns.NameSpace(name):
           trans.define_waterwork(array=part)
 
@@ -64,36 +79,28 @@ class DatasetTransform(tr.Transform):
 
     return ww
 
-  def pour(self, array, transform_kwargs=None):
-    if transform_kwargs is None:
-      transform_kwargs = {}
+  def pour(self, array):
     ww = self.get_waterwork()
     funnel_dict = {'input': array}
-    funnel_dict = self._add_name_to_dict(funnel_dict)
+    funnel_dict = self._pre(funnel_dict)
     for name in self.transforms:
       trans = self.transforms[name]
-      if name in transform_kwargs:
-        kwargs = transform_kwargs[name]
-      else:
-        kwargs = {}
-
       funnel_dict.update(
-        trans._get_funnel_dict(prefix=self.name, **kwargs)
+        trans._get_funnel_dict(prefix=self.name)
       )
 
     tap_dict = ww.pour(funnel_dict, key_type='str')
 
     keys_to_output = [
-      self._add_name('Partition_0/tubes/missing_cols'),
-      self._add_name('Partition_0/tubes/missing_array'),
+      self._pre('Partition_0/tubes/missing_cols'),
+      self._pre('Partition_0/tubes/missing_array'),
     ]
     pour_outputs = {k: tap_dict[k] for k in keys_to_output}
     for name in self.transforms:
       trans = self.transforms[name]
 
       temp_outputs = trans._extract_pour_outputs(tap_dict, prefix=self.name)
-      for k, v in temp_outputs.iteritems():
-        pour_outputs[os.path.join(self.name, name, k)] = v
+      pour_outputs.update(temp_outputs)
 
     return pour_outputs
 
@@ -101,13 +108,13 @@ class DatasetTransform(tr.Transform):
     ww = self.get_waterwork()
 
     keys_to_input = [
-      self._add_name('Partition_0/tubes/missing_cols'),
-      self._add_name('Partition_0/tubes/missing_array'),
+      self._pre('Partition_0/tubes/missing_cols'),
+      self._pre('Partition_0/tubes/missing_array'),
 
     ]
     tap_dict = {k: pour_outputs[k] for k in keys_to_input}
-    tap_dict[self._add_name('Partition_0/tubes/indices')] = np.array([self.transform_col_ranges[k] for k in sorted(self.transform_col_ranges)])
-    tap_dict[self._add_name('Transpose_0/tubes/axes')] = [1, 0]
+    tap_dict[self._pre('Partition_0/tubes/indices')] = np.array([self.transform_col_ranges[k] for k in sorted(self.transform_col_ranges)])
+    tap_dict[self._pre('Transpose_0/tubes/axes')] = [1, 0]
 
     for name in sorted(self.transforms):
       trans = self.transforms[name]
@@ -121,16 +128,25 @@ class DatasetTransform(tr.Transform):
         tank_name = os.path.join(self.name, '-'.join([name, 'cast']))
         tap_dict[os.path.join(tank_name, 'tubes', 'diff')] = np.zeros((), dtype='timedelta64')
         tap_dict[os.path.join(tank_name, 'tubes', 'input_dtype')] = input_dtype
+      elif isinstance(trans, st.StringTransform):
+        input_dtype = trans.input_dtype
+        tank_name = os.path.join(self.name, '-'.join([name, 'cast']))
+        tap_dict[os.path.join(tank_name, 'tubes', 'diff')] = np.array([], dtype=np.unicode)
+        tap_dict[os.path.join(tank_name, 'tubes', 'input_dtype')] = input_dtype
+      elif isinstance(trans, ct.CatTransform):
+        input_dtype = trans.input_dtype
+        tank_name = os.path.join(self.name, '-'.join([name, 'cast']))
+        tap_dict[os.path.join(tank_name, 'tubes', 'diff')] = np.array([], dtype=np.unicode)
+        tap_dict[os.path.join(tank_name, 'tubes', 'input_dtype')] = input_dtype
       kwargs = {}
+      prefix = os.path.join(self.name, name) + '/'
       for output_name in pour_outputs:
-        prefix = os.path.join(self.name, name) + '/'
         if not output_name.startswith(prefix):
           continue
-        key = output_name.replace(prefix, '')
-        kwargs[key] = pour_outputs[output_name]
+        kwargs[output_name] = pour_outputs[output_name]
 
       tap_dict.update(
-        trans._get_tap_dict(prefix=self.name, **kwargs)
+        trans._get_tap_dict(kwargs, prefix=self.name)
       )
     funnel_dict = ww.pump(tap_dict, key_type='str')
 
@@ -162,10 +178,20 @@ class DatasetTransform(tr.Transform):
     return example_dicts
 
   def _parse_example_dicts(self, example_dicts, prefix=''):
-    pour_outputs = {}
     for key in self.transforms:
       trans = self.transforms[key]
       trans_pour_outputs = trans._parse_example_dicts(example_dicts, prefix=self.name)
-
       pour_outputs.update(trans_pour_outputs)
     return pour_outputs
+
+  def _feature_def(self, num_cols=None):
+    feature_dict = {}
+    for key in self.transforms:
+      trans = self.transforms[key]
+
+      num_cols = self.transform_col_ranges[key][1] - self.transform_col_ranges[key][0]
+      trans_feature_dict = trans._feature_def(num_cols=num_cols, prefix=self.name)
+
+      feature_dict.update(trans_feature_dict)
+    print feature_dict.keys()
+    return feature_dict

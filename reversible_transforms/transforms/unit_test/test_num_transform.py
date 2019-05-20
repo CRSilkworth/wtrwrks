@@ -31,8 +31,8 @@ class TestNumTransform(th.TestTransform):
             trans,
             self.array[:, 0: 1],
             {
-              'nums': target,
-              'nans': [[False], [False], [False], [False]],
+              'num/nums': target,
+              'num/nans': [[False], [False], [False], [False]],
             }
           )
           trans = self.write_read(trans, self.temp_dir)
@@ -55,8 +55,8 @@ class TestNumTransform(th.TestTransform):
           trans,
           self.array[:, 1: 2],
           {
-            'nums': target,
-            'nans': [[False], [True], [False], [False]],
+            'num/nums': target,
+            'num/nans': [[False], [True], [False], [False]],
           }
         )
         trans = self.write_read(trans, self.temp_dir)
@@ -78,8 +78,8 @@ class TestNumTransform(th.TestTransform):
           trans,
           self.array[:, 0: 1],
           {
-            'nums': target,
-            'nans': [[False], [False], [False], [False]],
+            'num/nums': target,
+            'num/nans': [[False], [False], [False], [False]],
           }
         )
         trans = self.write_read(trans, self.temp_dir)
@@ -102,8 +102,8 @@ class TestNumTransform(th.TestTransform):
           trans,
           self.array[:, 0: 2],
           {
-            'nums': target,
-            'nans': [[False, False], [False, True], [False, False], [False, False]],
+            'num/nums': target,
+            'num/nans': [[False, False], [False, True], [False, False], [False, False]],
           }
         )
         trans = self.write_read(trans, self.temp_dir)
@@ -126,8 +126,8 @@ class TestNumTransform(th.TestTransform):
           trans,
           self.array[:, 0: 2],
           {
-            'nums': target,
-            'nans': [[False, False], [False, True], [False, False], [False, False]],
+            'num/nums': target,
+            'num/nans': [[False, False], [False, True], [False, False], [False, False]],
           }
         )
         self.write_read_example(trans, self.array[:, 0: 2], self.temp_dir, test_type=False)

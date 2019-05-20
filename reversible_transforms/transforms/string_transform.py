@@ -46,8 +46,8 @@ class StringTransform(n.Transform):
 
     if self.index_to_word is None:
       raise ValueError("Must supply index_to_word mapping.")
-    # if self.index_to_word is not None and self.index_to_word[0] != '__UNK__':
-    #   raise ValueError("First element of the index_to_word map must be the default '__UNK__' token")
+    if self.unk_index is None:
+      raise ValueError("Must specify an unk_index. The index to assign the unknown words.")
 
   def calc_global_values(self, array, verbose=True):
     """Set all the relevant attributes for this subclass. Called by the constructor for the Transform class.
@@ -97,19 +97,19 @@ class StringTransform(n.Transform):
       tokens['diff'].set_name('lemmatize_diff')
       tokens_slots['lemmatizer'].set_name('lemmatizer')
 
-    if self.unk_index is not None:
-      isin, isin_slots = td.isin(tokens['target'], self.index_to_word + [''])
-      mask, _ = td.logical_not(isin['target'])
-      tokens, _ = td.replace(isin['a'], mask['target'], self.index_to_word[self.unk_index])
-      tokens['replaced_vals'].set_name('missing_vals')
-      isin_slots['b'].set_name('index_to_word')
+    isin, isin_slots = td.isin(tokens['target'], self.index_to_word + [''])
+    mask, _ = td.logical_not(isin['target'])
+    tokens, _ = td.replace(isin['a'], mask['target'], self.index_to_word[self.unk_index])
+    tokens['replaced_vals'].set_name('missing_vals')
+    isin_slots['b'].set_name('index_to_word')
+
     indices, indices_slots = td.cat_to_index(tokens['target'], self.word_to_index)
     indices['target'].set_name('indices')
     indices_slots['cat_to_index_map'].set_name('word_to_index')
     if self.unk_index is None:
       indices['missing_vals'].set_name('missing_vals')
 
-  def _get_funnel_dict(self, array=None, tokenizer=None, delimiter=None, lemmatizer=None, prefix=''):
+  def _get_funnel_dict(self, array=None, prefix=''):
     if array is not None:
       funnel_dict = {'input': array, 'word_to_index': self.word_to_index}
     else:
@@ -118,106 +118,97 @@ class StringTransform(n.Transform):
     if self.unk_index is not None:
       funnel_dict['index_to_word'] = self.index_to_word + ['']
 
-    if tokenizer is None and self.tokenizer is None:
+    if self.tokenizer is None:
       raise ValueError("No tokenizer set for this Transform. Must supply one as input into pour.")
-    elif tokenizer is not None:
-      funnel_dict['tokenizer'] = tokenizer
     else:
       funnel_dict['tokenizer'] = self.tokenizer
 
-    if delimiter is not None:
-      funnel_dict['delimiter'] = delimiter
-    else:
-      funnel_dict['delimiter'] = self.delimiter
+    funnel_dict['delimiter'] = self.delimiter
 
-    if self.lemmatize and lemmatizer is None and self.lemmatizer is None:
+    if self.lemmatize and self.lemmatizer is None:
       raise ValueError("No lemmatizer set for this Transform. Must supply one as input into pour.")
-    elif self.lemmatize and lemmatizer is not None:
-      funnel_dict['lemmatizer'] = lemmatizer
     elif self.lemmatize:
       funnel_dict['lemmatizer'] = self.lemmatizer
 
-    return self._add_name_to_dict(funnel_dict, prefix)
+    return self._pre(funnel_dict, prefix)
 
   def _extract_pour_outputs(self, tap_dict, prefix=''):
-    r_dict = {k: tap_dict[self._add_name(k, prefix)] for k in ['indices', 'missing_vals', 'tokenize_diff']}
+    r_dict = {k: tap_dict[self._pre(k, prefix)] for k in ['indices', 'missing_vals', 'tokenize_diff']}
     if self.lower_case:
-      r_dict['lower_case_diff'] = tap_dict[self._add_name('lower_case_diff', prefix)]
+      r_dict['lower_case_diff'] = tap_dict[self._pre('lower_case_diff', prefix)]
     if self.half_width:
-      r_dict['half_width_diff'] = tap_dict[self._add_name('half_width_diff', prefix)]
+      r_dict['half_width_diff'] = tap_dict[self._pre('half_width_diff', prefix)]
     if self.lemmatize:
-      r_dict['lemmatize_diff'] = tap_dict[self._add_name('lemmatize_diff', prefix)]
-
+      r_dict['lemmatize_diff'] = tap_dict[self._pre('lemmatize_diff', prefix)]
+    r_dict = self._pre(r_dict, prefix)
     return r_dict
 
-  def _get_tap_dict(self, indices, missing_vals, tokenize_diff, lower_case_diff=None, half_width_diff=None, lemmatize_diff=None, delimiter=None, prefix=''):
-    if delimiter is None:
-      delimiter = self.delimiter
-
+  def _get_tap_dict(self, pour_outputs, prefix=''):
+    pour_outputs = self._nopre(pour_outputs, prefix)
     tap_dict = {
-      'indices': indices,
-      'missing_vals': missing_vals,
+      'indices': pour_outputs['indices'],
+      'missing_vals': pour_outputs['missing_vals'],
       ('CatToIndex_0', 'cat_to_index_map'): self.word_to_index,
       ('CatToIndex_0', 'input_dtype'): self.input_dtype,
-      ('Tokenize_0', 'delimiter'): delimiter,
+      ('Tokenize_0', 'delimiter'): self.delimiter,
       ('Tokenize_0', 'tokenizer'): self.tokenizer,
-      ('Tokenize_0', 'diff'): tokenize_diff
+      ('Tokenize_0', 'diff'): pour_outputs['tokenize_diff']
     }
     if self.lower_case:
-      u_dict = {('LowerCase_0', 'diff'): lower_case_diff}
+      u_dict = {('LowerCase_0', 'diff'): pour_outputs['lower_case_diff']}
       tap_dict.update(u_dict)
     if self.half_width:
-      u_dict = {('HalfWidth_0', 'diff'): half_width_diff}
+      u_dict = {('HalfWidth_0', 'diff'): pour_outputs['half_width_diff']}
       tap_dict.update(u_dict)
     if self.lemmatize:
       u_dict = {
-        ('Lemmatize_0', 'diff'): lemmatize_diff,
+        ('Lemmatize_0', 'diff'): pour_outputs['lemmatize_diff'],
         ('Lemmatize_0', 'lemmatizer'): self.lemmatizer
       }
       tap_dict.update(u_dict)
     if self.unk_index is not None:
+      empties = pour_outputs['indices'][pour_outputs['indices'] == -1]
+      mask = pour_outputs['indices'] == self.unk_index
       u_dict = {
-        ('CatToIndex_0', 'missing_vals'): [''] * indices[indices == -1].size,
-        ('Replace_0', 'mask'): indices == self.unk_index,
+        ('CatToIndex_0', 'missing_vals'): [''] * empties.size,
+        ('Replace_0', 'mask'): mask,
         ('Replace_0', 'replace_with_shape'): (1,),
         ('IsIn_0', 'b'): self.index_to_word + ['']
       }
       tap_dict.update(u_dict)
 
-    return self._add_name_to_dict(tap_dict, prefix)
+    return self._pre(tap_dict, prefix)
 
   def _extract_pump_outputs(self, funnel_dict, prefix=''):
-    return funnel_dict[self._add_name('input', prefix)]
+    return funnel_dict[self._pre('input', prefix)]
 
   def _get_example_dicts(self, pour_outputs, prefix=''):
-    indices_key = self._add_name('indices', prefix)
-    missing_vals_key = self._add_name('missing_vals', prefix)
-    tokenize_key = self._add_name('tokenize_diff', prefix)
+    pour_outputs = self._nopre(pour_outputs, prefix)
+    mask = pour_outputs['indices'] == self.unk_index
+    missing_vals = pour_outputs['missing_vals']
 
-    mask = pour_outputs[indices_key] == self.unk_index
-    missing_vals = pour_outputs[missing_vals_key].tolist()
-    pour_outputs[missing_vals_key] = self._full_missing_vals(mask, missing_vals)
+    pour_outputs['missing_vals'] = self._full_missing_vals(mask, missing_vals)
 
-    array_keys = [indices_key, tokenize_key, missing_vals_key]
+    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
     if self.lower_case:
-      array_keys.append(self._add_name('lower_case_diff'))
+      array_keys.append(self._pre('lower_case_diff'))
     if self.half_width:
-      array_keys.append(self._add_name('half_width_diff'))
+      array_keys.append(self._pre('half_width_diff'))
     if self.lemmatize:
-      array_keys.append(self._add_name('lemmatize_diff'))
+      array_keys.append(self._pre('lemmatize_diff'))
 
-    num_examples = pour_outputs[indices_key].shape[0]
+    num_examples = pour_outputs['indices'].shape[0]
     example_dicts = []
     for row_num in xrange(num_examples):
       example_dict = {}
       for key in array_keys:
         serial = pour_outputs[key][row_num].flatten()
-        if key == indices_key:
+        if key == 'indices':
           example_dict[key] = feat._int_feat(serial)
         else:
           example_dict[key] = feat._bytes_feat(serial)
 
-      example_dict = self._add_name_to_dict(example_dict, prefix)
+      example_dict = self._pre(example_dict, prefix)
       example_dicts.append(example_dict)
 
     return example_dicts
@@ -234,7 +225,7 @@ class StringTransform(n.Transform):
     pour_outputs = {k: list() for k in array_keys}
     for example_dict in example_dicts:
       for key in array_keys:
-        fixed_array = example_dict[key]
+        fixed_array = example_dict[self._pre(key, prefix)]
 
         if key != 'tokenize_diff':
           fixed_array = fixed_array.reshape([-1, self.max_sent_len])
@@ -247,18 +238,16 @@ class StringTransform(n.Transform):
     mask = pour_outputs['indices'] == self.unk_index
     pour_outputs['missing_vals'] = pour_outputs['missing_vals'][mask].flatten()
 
-    pour_outputs = self._add_name_to_dict(pour_outputs, prefix)
     return pour_outputs
 
-  def _feature_def(self, num_cols=1):
-    # Create the dictionary defining the structure of the example
+  def _feature_def(self, num_cols=1, prefix=''):
     array_keys = ['indices', 'tokenize_diff', 'missing_vals']
     if self.lower_case:
-      array_keys.append('lower_case_diff')
+      array_keys.append(self._pre('lower_case_diff', prefix))
     if self.half_width:
-      array_keys.append('half_width_diff')
+      array_keys.append(self._pre('half_width_diff', prefix))
     if self.lemmatize:
-      array_keys.append('lemmatize_diff')
+      array_keys.append(self._pre('lemmatize_diff', prefix))
 
     feature_dict = {}
     for key in array_keys:
@@ -272,6 +261,8 @@ class StringTransform(n.Transform):
       else:
         shape = [num_cols * self.max_sent_len]
       feature_dict[key] = tf.FixedLenFeature(shape, dtype)
+
+    feature_dict = self._pre(feature_dict, prefix)
     return feature_dict
 
   def __len__(self):
