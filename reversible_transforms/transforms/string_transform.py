@@ -189,40 +189,40 @@ class StringTransform(n.Transform):
   def _extract_pump_outputs(self, funnel_dict, prefix=''):
     return funnel_dict[self._add_name('input', prefix)]
 
-  def pour_examples(self, array, tokenizer=None, delimiter=None, lemmatizer=None):
-    ww = self.get_waterwork()
-    funnel_dict = self._get_funnel_dict(array, tokenizer, delimiter, lemmatizer)
-    tap_dict = ww.pour(funnel_dict, key_type='str')
+  def _get_example_dicts(self, pour_outputs, prefix=''):
+    indices_key = self._add_name('indices', prefix)
+    missing_vals_key = self._add_name('missing_vals', prefix)
+    tokenize_key = self._add_name('tokenize_diff', prefix)
 
-    pour_outputs = self._extract_pour_outputs(tap_dict)
+    mask = pour_outputs[indices_key] == self.unk_index
+    missing_vals = pour_outputs[missing_vals_key].tolist()
+    pour_outputs[missing_vals_key] = self._full_missing_vals(mask, missing_vals)
 
-    mask = pour_outputs['indices'] == self.unk_index
-    missing_vals = pour_outputs['missing_vals'].tolist()
-    pour_outputs['missing_vals'] = self._full_missing_vals(mask, missing_vals)
-
-    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
+    array_keys = [indices_key, tokenize_key, missing_vals_key]
     if self.lower_case:
-      array_keys.append('lower_case_diff')
+      array_keys.append(self._add_name('lower_case_diff'))
     if self.half_width:
-      array_keys.append('half_width_diff')
+      array_keys.append(self._add_name('half_width_diff'))
     if self.lemmatize:
-      array_keys.append('lemmatize_diff')
+      array_keys.append(self._add_name('lemmatize_diff'))
 
+    num_examples = pour_outputs[indices_key].shape[0]
     example_dicts = []
-    for row_num in xrange(array.shape[0]):
+    for row_num in xrange(num_examples):
       example_dict = {}
       for key in array_keys:
         serial = pour_outputs[key][row_num].flatten()
-        if key == 'indices':
+        if key == indices_key:
           example_dict[key] = feat._int_feat(serial)
         else:
           example_dict[key] = feat._bytes_feat(serial)
 
+      example_dict = self._add_name_to_dict(example_dict, prefix)
       example_dicts.append(example_dict)
 
     return example_dicts
 
-  def pump_examples(self, example_dicts, prefix=''):
+  def _parse_example_dicts(self, example_dicts, prefix=''):
     array_keys = ['indices', 'tokenize_diff', 'missing_vals']
     if self.lower_case:
       array_keys.append('lower_case_diff')
@@ -247,10 +247,8 @@ class StringTransform(n.Transform):
     mask = pour_outputs['indices'] == self.unk_index
     pour_outputs['missing_vals'] = pour_outputs['missing_vals'][mask].flatten()
 
-    ww = self.get_waterwork()
-    tap_dict = self._get_tap_dict(**pour_outputs)
-    funnel_dict = ww.pump(tap_dict, key_type='str')
-    return self._extract_pump_outputs(funnel_dict)
+    pour_outputs = self._add_name_to_dict(pour_outputs, prefix)
+    return pour_outputs
 
   def _feature_def(self, num_cols=1):
     # Create the dictionary defining the structure of the example

@@ -168,55 +168,43 @@ class CatTransform(n.Transform):
     array_key = os.path.join(prefix, self.name, 'CatToIndex_0', 'slots', 'cats')
     return np.expand_dims(funnel_dict[array_key], axis=1)
 
-  def _full_missing_vals(self, mask, missing_vals):
-    dtype = self.input_dtype
-    if dtype.type is np.string_:
-      str_len = max([len(i) for i in missing_vals] + [1])
-      full_missing_vals = np.full(mask.shape, '', dtype='|U' + str(str_len))
-    elif dtype in (np.int64, np.int32, np.float64, np.float32):
-      full_missing_vals = np.zeros(mask.shape, dtype=dtype)
-    else:
-      raise TypeError("Only string and number types are supported. Got " + str(dtype))
+  def _get_example_dicts(self, pour_outputs, prefix=''):
+    indices_key = self._add_name('indices', prefix)
+    one_hots_key = self._add_name('one_hots', prefix)
+    missing_vals_key = self._add_name('missing_vals', prefix)
 
-    full_missing_vals[mask] = missing_vals
-    return full_missing_vals
-
-  def pour_examples(self, array, tokenizer=None, delimiter=None, lemmatizer=None):
-    ww = self.get_waterwork()
-    funnel_dict = self._get_funnel_dict(array)
-    tap_dict = ww.pour(funnel_dict, key_type='str')
-
-    pour_outputs = self._extract_pour_outputs(tap_dict)
-    mask = pour_outputs['indices'] == -1
-    missing_vals = pour_outputs['missing_vals']
+    mask = pour_outputs[indices_key] == -1
+    missing_vals = pour_outputs[missing_vals_key]
     full_missing_vals = self._full_missing_vals(mask, missing_vals)
 
+    num_examples = pour_outputs[indices_key].shape[0]
     example_dicts = []
-    for row_num in xrange(array.shape[0]):
+    for row_num in xrange(num_examples):
       example_dict = {}
 
-      one_hots = pour_outputs['one_hots'][row_num].flatten()
-      example_dict['one_hots'] = feat._float_feat(one_hots)
+      one_hots = pour_outputs[one_hots_key][row_num].flatten()
+      example_dict[one_hots_key] = feat._float_feat(one_hots)
 
-      indices = pour_outputs['indices'][row_num].flatten()
-      example_dict['indices'] = feat._int_feat(indices)
+      indices = pour_outputs[indices_key][row_num].flatten()
+      example_dict[indices_key] = feat._int_feat(indices)
 
       missing_val = full_missing_vals[row_num]
       dtype = self.input_dtype
       if dtype.type is np.string_:
-        example_dict['missing_vals'] = feat._bytes_feat(missing_val)
+        example_dict[missing_vals_key] = feat._bytes_feat(missing_val)
       elif dtype in (np.int32, np.int64):
-        example_dict['missing_vals'] = feat._int_feat(missing_val)
+        example_dict[missing_vals_key] = feat._int_feat(missing_val)
       elif dtype in (np.float32, np.float64):
-        example_dict['missing_vals'] = feat._float_feat(missing_val)
+        example_dict[missing_vals_key] = feat._float_feat(missing_val)
       else:
         raise TypeError("Only string and number types are supported. Got " + str(dtype))
 
+      example_dict = self._add_name_to_dict(example_dict, prefix)
       example_dicts.append(example_dict)
 
     return example_dicts
 
-  def pump_examples(self, example_dicts, prefix=''):
+  def _parse_example_dicts(self, example_dicts, prefix=''):
     pour_outputs = {'one_hots': [], 'indices': []}
 
     missing_vals = []
@@ -234,11 +222,8 @@ class CatTransform(n.Transform):
     missing_vals = missing_vals[pour_outputs['indices'] == -1].tolist()
     pour_outputs['missing_vals'] = missing_vals
 
-    ww = self.get_waterwork()
-    tap_dict = self._get_tap_dict(**pour_outputs)
-    funnel_dict = ww.pump(tap_dict, key_type='str')
-
-    return self._extract_pump_outputs(funnel_dict)
+    pour_outputs = self._add_name_to_dict(pour_outputs, prefix)
+    return pour_outputs
 
   def _feature_def(self, num_cols=1):
     # Create the dictionary defining the structure of the example

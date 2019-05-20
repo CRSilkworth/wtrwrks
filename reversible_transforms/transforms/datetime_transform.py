@@ -174,34 +174,34 @@ class DateTimeTransform(n.Transform):
   def _extract_pump_outputs(self, funnel_dict, prefix=''):
     return funnel_dict[self._add_name('IsNat_0/slots/a', prefix)]
 
-  def pour_examples(self, array, tokenizer=None, delimiter=None, lemmatizer=None):
-    ww = self.get_waterwork()
-    funnel_dict = self._get_funnel_dict(array)
-    tap_dict = ww.pour(funnel_dict, key_type='str')
+  def _get_example_dicts(self, pour_outputs, prefix=''):
+    nums_key = self._add_name('nums', prefix)
+    nats_key = self._add_name('nats', prefix)
+    diff_key = self._add_name('diff', prefix)
 
-    pour_outputs = self._extract_pour_outputs(tap_dict)
-
+    num_examples = pour_outputs[nums_key].shape[0]
     example_dicts = []
-    for row_num in xrange(array.shape[0]):
+    for row_num in xrange(num_examples):
       example_dict = {}
 
-      nums = pour_outputs['nums'][row_num].flatten()
-      example_dict['nums'] = feat._float_feat(nums)
+      nums = pour_outputs[nums_key][row_num].flatten()
+      example_dict[nums_key] = feat._float_feat(nums)
 
-      nats = pour_outputs['nats'][row_num].astype(int).flatten()
-      example_dict['nats'] = feat._int_feat(nats)
+      nats = pour_outputs[nats_key][row_num].astype(int).flatten()
+      example_dict[nats_key] = feat._int_feat(nats)
 
-      if pour_outputs['diff'].size:
-        diff = pour_outputs['diff'][row_num].astype(int)
+      if pour_outputs[diff_key].size:
+        diff = pour_outputs[diff_key][row_num].astype(int)
       else:
         diff = np.zeros(nums.shape, dtype=int)
-      example_dict['diff'] = feat._int_feat(diff)
+      example_dict[diff_key] = feat._int_feat(diff)
 
+      example_dict = self._add_name_to_dict(example_dict, prefix)
       example_dicts.append(example_dict)
 
     return example_dicts
 
-  def pump_examples(self, example_dicts, prefix=''):
+  def _parse_example_dicts(self, example_dicts, prefix=''):
     pour_outputs = {'nums': [], 'nats': [], 'diff': []}
     for example_dict in example_dicts:
       pour_outputs['nums'].append(example_dict['nums'])
@@ -214,11 +214,8 @@ class DateTimeTransform(n.Transform):
       'diff': np.stack(pour_outputs['diff']).astype(np.timedelta64),
     }
 
-    ww = self.get_waterwork()
-    tap_dict = self._get_tap_dict(**pour_outputs)
-    funnel_dict = ww.pump(tap_dict, key_type='str')
-
-    return self._extract_pump_outputs(funnel_dict)
+    pour_outputs = self._add_name_to_dict(pour_outputs, prefix)
+    return pour_outputs
 
   def _feature_def(self, num_cols=1):
     # Create the dictionary defining the structure of the example

@@ -104,6 +104,15 @@ class Transform(object):
     full_missing_vals[mask] = missing_vals
     return full_missing_vals
 
+  def pour_examples(self, array, **kwargs):
+    pour_outputs = self.pour(array, **kwargs)
+    example_dicts = self._get_example_dicts(pour_outputs)
+    return example_dicts
+
+  def pump_examples(self, example_dicts):
+    pour_outputs = self._parse_example_dicts(example_dicts)
+    return self.pump(**pour_outputs)
+
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""
     save_dict = {}

@@ -64,9 +64,10 @@ class DatasetTransform(tr.Transform):
 
     return ww
 
-  def pour(self, array, transform_kwargs):
+  def pour(self, array, transform_kwargs=None):
+    if transform_kwargs is None:
+      transform_kwargs = {}
     ww = self.get_waterwork()
-
     funnel_dict = {'input': array}
     funnel_dict = self._add_name_to_dict(funnel_dict)
     for name in self.transforms:
@@ -145,3 +146,26 @@ class DatasetTransform(tr.Transform):
 
   def write_tfrecord(self, file_name, array, transform_kwargs=None):
     pass
+
+  def _get_example_dicts(self, pour_outputs):
+    all_example_dicts = {}
+    for key in self.transforms:
+      trans = self.transforms[key]
+      all_example_dicts[key] = trans._get_example_dicts(pour_outputs, prefix=self.name)
+
+    example_dicts = []
+    for trans_dicts in zip(*[all_example_dicts[k] for k in self.transforms]):
+      example_dict = {}
+      for trans_dict in trans_dicts:
+        example_dict.update(trans_dict)
+      example_dicts.append(example_dict)
+    return example_dicts
+
+  def _parse_example_dicts(self, example_dicts, prefix=''):
+    pour_outputs = {}
+    for key in self.transforms:
+      trans = self.transforms[key]
+      trans_pour_outputs = trans._parse_example_dicts(example_dicts, prefix=self.name)
+
+      pour_outputs.update(trans_pour_outputs)
+    return pour_outputs

@@ -140,28 +140,26 @@ class NumTransform(n.Transform):
   def _extract_pump_outputs(self, funnel_dict, prefix=''):
     return funnel_dict[self._add_name('IsNan_0/slots/a', prefix)]
 
-  def pour_examples(self, array, tokenizer=None, delimiter=None, lemmatizer=None):
-    ww = self.get_waterwork()
-    funnel_dict = self._get_funnel_dict(array)
-    tap_dict = ww.pour(funnel_dict, key_type='str')
+  def _get_example_dicts(self, pour_outputs, prefix=''):
+    nums_key = self._add_name('nums', prefix)
+    nans_key = self._add_name('nans', prefix)
 
-    pour_outputs = self._extract_pour_outputs(tap_dict)
-
+    num_examples = pour_outputs[nums_key].shape[0]
     example_dicts = []
-    for row_num in xrange(array.shape[0]):
+    for row_num in xrange(num_examples):
       example_dict = {}
 
-      nums = pour_outputs['nums'][row_num].flatten()
-      example_dict['nums'] = feat._float_feat(nums)
+      nums = pour_outputs[nums_key][row_num].flatten()
+      example_dict[nums_key] = feat._float_feat(nums)
 
-      nans = pour_outputs['nans'][row_num].astype(int).flatten()
-      example_dict['nans'] = feat._int_feat(nans)
+      nans = pour_outputs[nans_key][row_num].astype(int).flatten()
+      example_dict[nans_key] = feat._int_feat(nans)
 
       example_dicts.append(example_dict)
 
     return example_dicts
 
-  def pump_examples(self, example_dicts, prefix=''):
+  def _parse_example_dicts(self, example_dicts, prefix=''):
     pour_outputs = {'nums': [], 'nans': []}
     for example_dict in example_dicts:
       pour_outputs['nums'].append(example_dict['nums'])
@@ -171,12 +169,8 @@ class NumTransform(n.Transform):
       'nums': np.stack(pour_outputs['nums']),
       'nans': np.stack(pour_outputs['nans']).astype(bool),
     }
-
-    ww = self.get_waterwork()
-    tap_dict = self._get_tap_dict(**pour_outputs)
-    funnel_dict = ww.pump(tap_dict, key_type='str')
-
-    return self._extract_pump_outputs(funnel_dict)
+    pour_outputs = self._add_name_to_dict(pour_outputs, prefix)
+    return pour_outputs
 
   def _feature_def(self, num_cols=1):
     # Create the dictionary defining the structure of the example

@@ -207,7 +207,7 @@ def arrays_equal(first, second, threshold=0.001, test_type=True):
     second[np.isnat(second)] = default
 
     return (first == second).all()
-  elif first.dtype is np.object and second.dtype is np.object:
+  elif not np.issubdtype(first.dtype, np.number) and not np.issubdtype(second.dtype, np.number):
     return (first.astype(np.unicode) == second.astype(np.unicode)).all()
   try:
     if not (np.isnan(first.astype(np.float64)) == np.isnan(second.astype(np.float64))).all():
@@ -227,10 +227,8 @@ def arrays_equal(first, second, threshold=0.001, test_type=True):
 
     first[np.isposinf(first.astype(np.float64))] = 0.0
     second[np.isposinf(second.astype(np.float64))] = 0.0
-
   except ValueError:
     pass
-
   if threshold is None or not np.issubdtype(first.dtype, np.number):
     return (first == second).all()
   else:
