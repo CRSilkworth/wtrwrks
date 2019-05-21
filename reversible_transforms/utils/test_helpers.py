@@ -159,12 +159,12 @@ class TestTransform(WWTest):
       for _ in xrange(array.shape[0]):
         example_dict = sess.run(features)
         example_dicts.append(example_dict)
-        
+
     remade_array = trans.pump_examples(example_dicts)
     self.equals(array, remade_array, test_type)
 
 class TestDataset (TestTransform):
-  def pour_pump(self, dt, array, transform_kwargs, output_dict, test_type=True):
+  def pour_pump(self, dt, array, output_dict, test_type=True):
     dt.calc_global_values(array)
     tap_dict = dt.pour(array)
     out_dict = {str(k): v for k, v in tap_dict.iteritems()}

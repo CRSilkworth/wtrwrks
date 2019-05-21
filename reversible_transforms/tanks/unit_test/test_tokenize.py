@@ -8,6 +8,7 @@ import tinysegmenter
 class TestTokenize(th.TestTank):
   def test_scalar(self):
     tokenizer = lambda s: s.split()
+    detokenizer = lambda a: ' '.join(a)
     strings = "It is what it is."
     diff = '[["d", 17, 22, ""]]'
     self.pour_pump(
@@ -16,13 +17,13 @@ class TestTokenize(th.TestTank):
         'strings': strings,
         'tokenizer': tokenizer,
         'max_len': 10,
-        'delimiter': ' '
+        'detokenizer': detokenizer
       },
       {
         'target': ['It', 'is', 'what', 'it', 'is.', '', '', '', '', ''],
         'diff': diff,
         'tokenizer': tokenizer,
-        'delimiter': ' '
+        'detokenizer': detokenizer
       },
       test_type=False
     )
@@ -30,6 +31,7 @@ class TestTokenize(th.TestTank):
   def test_one_d(self):
     ts = tinysegmenter.TinySegmenter()
     tokenizer = ts.tokenize
+    detokenizer = lambda a: ''.join(a)
     strings = np.array([
       u'チラシ・勧誘印刷物の無断投函は一切お断り',
       u'すみませんが、もう一度どお願いします。'
@@ -42,19 +44,20 @@ class TestTokenize(th.TestTank):
         'strings': strings,
         'tokenizer': tokenizer,
         'max_len': 10,
-        'delimiter': ''
+        'detokenizer': detokenizer
       },
       {
         'target': target,
         'diff': diff,
         'tokenizer': tokenizer,
-        'delimiter': ''
+        'detokenizer': detokenizer
       },
       test_type=False
     )
 
   def test_two_d(self):
     tokenizer = lambda s: s.split()
+    detokenizer = lambda a: ' '.join(a)
     strings = np.array([
       [
         "It is what it is.",
@@ -86,13 +89,13 @@ class TestTokenize(th.TestTank):
         'strings': strings,
         'tokenizer': tokenizer,
         'max_len': 10,
-        'delimiter': ' '
+        'detokenizer': detokenizer
       },
       {
         'target': target,
         'diff': diff,
         'tokenizer': tokenizer,
-        'delimiter': ' '
+        'detokenizer': detokenizer
       },
       test_type=False
     )

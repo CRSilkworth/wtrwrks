@@ -26,12 +26,12 @@ class TestCatTransform(th.TestTransform):
     )
     trans.calc_global_values(self.array[:, 0: 1])
     target = np.array([
-      [1., 0., 0.],
-      [0., 1., 0.],
-      [0., 0., 1.],
-      [1., 0., 0.]
+      [[1., 0., 0.]],
+      [[0., 1., 0.]],
+      [[0., 0., 1.]],
+      [[1., 0., 0.]]
     ])
-    indices = np.array([0, 1, 2, 0])
+    indices = np.array([[0], [1], [2], [0]])
     for i in xrange(2):
       self.pour_pump(
         trans,
@@ -50,13 +50,8 @@ class TestCatTransform(th.TestTransform):
       valid_cats=['a', 'b']
     )
     trans.calc_global_values(self.array[:, 0: 1])
-    target = np.array([
-          [1, 0],
-          [0, 1],
-          [0, 0],
-          [1, 0]
-        ]).astype(float)
-    indices = np.array([0, 1, -1, 0])
+    target = np.array([[[1.0, 0.0]], [[0.0, 1.0]], [[0.0, 0.0]], [[1.0, 0.0]]]).astype(float)
+    indices = np.array([[0], [1], [-1], [0]])
     for i in xrange(2):
       self.pour_pump(
         trans,
@@ -75,12 +70,12 @@ class TestCatTransform(th.TestTransform):
     )
     trans.calc_global_values(self.array[:, 2: 3])
     target = np.array([
-          [0, 1, 0],
-          [0, 0, 1],
-          [1, 0, 0],
-          [0, 1, 0]
+          [[0, 1, 0]],
+          [[0, 0, 1]],
+          [[1, 0, 0]],
+          [[0, 1, 0]]
         ]).astype(float)
-    indices = np.array([1, 2, 0, 1])
+    indices = np.array([[1], [2], [0], [1]])
     for i in xrange(2):
       self.pour_pump(
         trans,
@@ -99,12 +94,12 @@ class TestCatTransform(th.TestTransform):
       ignore_null=True
     )
     trans.calc_global_values(self.array[:, 2: 3])
-    indices = np.array([0, 1, -1, 0])
+    indices = np.array([[0], [1], [-1], [0]])
     target = np.array([
-      [1, 0],
-      [0, 1],
-      [0, 0],
-      [1, 0]
+      [[1, 0]],
+      [[0, 1]],
+      [[0, 0]],
+      [[1, 0]]
     ]).astype(float)
 
     for i in xrange(2):
@@ -126,13 +121,13 @@ class TestCatTransform(th.TestTransform):
     )
     trans.calc_global_values(self.array[:, 1: 2])
     target = np.array([
-          [0., 1, 0],
-          [1, 0, 0],
-          [0, 1, 0],
-          [0, 0, 1],
+          [[0., 1, 0]],
+          [[1, 0, 0]],
+          [[0, 1, 0]],
+          [[0, 0, 1]],
         ]).astype(float)
     target = (target - trans.mean)/trans.std
-    indices = np.array([1, 0, 1, 2])
+    indices = np.array([[1], [0], [1], [2]])
     for i in xrange(2):
       self.pour_pump(
         trans,
@@ -179,9 +174,6 @@ class TestCatTransform(th.TestTransform):
     )
     with self.assertRaises(AssertionError):
       trans.pour(np.array([1]))
-
-    with self.assertRaises(AssertionError):
-      trans.pour({})
 
     with self.assertRaises(ValueError):
       trans.calc_global_values(np.array([[np.nan]]))

@@ -293,7 +293,7 @@ def concatenate(a_list=empty, axis=empty, waterwork=None, name=None, return_tank
   return tank.get_tubes(), tank.get_slots(), tank
 
 
-def tokenize(strings=empty, tokenizer=empty, max_len=empty, delimiter=empty, waterwork=None, name=None, return_tank=False):
+def tokenize(strings=empty, tokenizer=empty, max_len=empty, detokenizer=empty, waterwork=None, name=None, return_tank=False):
   """Adds another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
 
   Parameters
@@ -323,7 +323,7 @@ def tokenize(strings=empty, tokenizer=empty, max_len=empty, delimiter=empty, wat
       The created add tank (operation) object.
 
   """
-  tank = to.Tokenize(strings=strings, tokenizer=tokenizer, max_len=max_len, delimiter=delimiter)
+  tank = to.Tokenize(strings=strings, tokenizer=tokenizer, max_len=max_len, detokenizer=detokenizer)
   # return tank['target'], tank['tokenizer'], tank['delimiter'], tank['diff'], tank.get_slots()
   if not return_tank:
     return tank.get_tubes(), tank.get_slots()

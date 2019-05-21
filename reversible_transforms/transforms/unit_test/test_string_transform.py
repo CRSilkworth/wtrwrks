@@ -75,7 +75,7 @@ class TestStringTransform(th.TestTransform):
     index_to_word = self._get_index_to_word(strings, en_tokenizer) + ['__UNK__']
     trans = n.StringTransform(
       index_to_word=index_to_word,
-      tokenizer=en_tokenizer,
+      word_tokenizer=en_tokenizer,
       name='string_transform',
       max_sent_len=10,
       unk_index=len(index_to_word) - 1
@@ -115,7 +115,7 @@ class TestStringTransform(th.TestTransform):
     index_to_word = ['__UNK__'] + index_to_word
     trans = n.StringTransform(
       index_to_word=index_to_word,
-      tokenizer=en_tokenizer,
+      word_tokenizer=en_tokenizer,
       lemmatize=True,
       lemmatizer=basic_lemmatizer,
       lower_case=True,
@@ -150,9 +150,9 @@ class TestStringTransform(th.TestTransform):
     missing_vals = np.array([], dtype='|U20')
     index_to_word = self._get_index_to_word(strings, ja_tokenizer) + ['__UNK__']
     trans = n.StringTransform(
-      tokenizer=ja_tokenizer,
+      word_tokenizer=ja_tokenizer,
       index_to_word=index_to_word,
-      delimiter='',
+      word_detokenizer=lambda a: ''.join(a),
       max_sent_len=15,
       unk_index=len(index_to_word) - 1
     )
@@ -183,9 +183,9 @@ class TestStringTransform(th.TestTransform):
     index_to_word = self._get_index_to_word(strings, ja_tokenizer, half_width=True) + ['__UNK__']
     half_width_diff = [[['[["i", 0, 1, "\\uff12"]]', '[["i", 0, 1, "\\uff10"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']], [['[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']]]
     trans = n.StringTransform(
-      tokenizer=ja_tokenizer,
+      word_tokenizer=ja_tokenizer,
       index_to_word=index_to_word,
-      delimiter='',
+      word_detokenizer=lambda a: ''.join(a),
       half_width=True,
       max_sent_len=15,
       unk_index=len(index_to_word) - 1
@@ -259,7 +259,7 @@ class TestStringTransform(th.TestTransform):
 
     trans = n.StringTransform(
       index_to_word=index_to_word,
-      tokenizer=en_tokenizer,
+      word_tokenizer=en_tokenizer,
       lower_case=True,
       unk_index=0,
       max_sent_len=10,

@@ -53,7 +53,6 @@ class DatasetTransform(tr.Transform):
 
       self.transforms[key].calc_global_values(subarray)
 
-    print array.shape[1]
     all_ranges = set(range(array.shape[1]))
     for key in self:
       col_range = self.transform_col_ranges[key]

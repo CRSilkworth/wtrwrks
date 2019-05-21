@@ -22,10 +22,10 @@ class Tokenize(ta.Tank):
     The tank's (operation's) output keys and their corresponding types.
 
   """
-  slot_keys = ['strings', 'tokenizer', 'max_len', 'delimiter']
-  tube_keys = ['target', 'tokenizer', 'delimiter', 'diff']
+  slot_keys = ['strings', 'tokenizer', 'detokenizer', 'max_len']
+  tube_keys = ['target', 'tokenizer', 'detokenizer', 'diff']
 
-  def _pour(self, strings, tokenizer, max_len, delimiter=' '):
+  def _pour(self, strings, tokenizer, max_len, detokenizer=lambda a: ' '.join(a)):
     """Execute the mapping in the pour (forward) direction .
 
     Parameters
@@ -53,7 +53,7 @@ class Tokenize(ta.Tank):
     """
     strings = np.array(strings)
     if not strings.size:
-      return {'target': ut.maybe_copy(strings), 'diff': ut.maybe_copy(strings), 'tokenizer': tokenizer, 'delimiter': delimiter}
+      return {'target': ut.maybe_copy(strings), 'diff': ut.maybe_copy(strings), 'tokenizer': tokenizer, 'detokenizer': detokenizer}
     all_tokens = []
     all_diffs = []
     for string in strings.flatten():
@@ -66,7 +66,7 @@ class Tokenize(ta.Tank):
 
       all_tokens.append(tokens)
 
-      processed = delimiter.join(tokens)
+      processed = detokenizer(tokens)
       diff = di.get_diff_string(processed, string)
       all_diffs.append(diff)
 
@@ -76,9 +76,9 @@ class Tokenize(ta.Tank):
     diff_array = np.stack(all_diffs)
     diff = np.reshape(diff_array, strings.shape)
 
-    return {'target': target.astype(strings.dtype), 'diff': diff, 'tokenizer': tokenizer, 'delimiter': delimiter}
+    return {'target': target.astype(strings.dtype), 'diff': diff, 'tokenizer': tokenizer, 'detokenizer': detokenizer}
 
-  def _pump(self, target, diff, tokenizer, delimiter):
+  def _pump(self, target, diff, tokenizer, detokenizer):
     """Execute the mapping in the pump (backward) direction .
 
     Parameters
@@ -104,9 +104,9 @@ class Tokenize(ta.Tank):
     max_len = target.shape[-1]
     all_strings = []
     for tokens, diff_string in zip(np.reshape(target, (-1, max_len)), diff.flatten()):
-      string = delimiter.join(tokens)
+      string = detokenizer(tokens)
       string = di.reconstruct(string, diff_string)
       all_strings.append(string)
 
     strings = np.reshape(all_strings, target.shape[:-1])
-    return {'strings': strings, 'tokenizer': tokenizer, 'max_len': max_len, 'delimiter': delimiter}
+    return {'strings': strings, 'tokenizer': tokenizer, 'max_len': max_len, 'detokenizer': detokenizer}

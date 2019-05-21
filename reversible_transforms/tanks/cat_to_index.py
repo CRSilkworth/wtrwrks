@@ -44,6 +44,7 @@ class CatToIndex(ta.Tank):
 
     """
     cats = np.array(cats, copy=True)
+    shape = cats.shape
     # Pull out all the cats which are not in the cat_to_index_map.
     # If you have a nan not in a float, you're going to get
     # unexpected results, so here we force nans not to show up in
@@ -67,6 +68,7 @@ class CatToIndex(ta.Tank):
       else:
         return -1
     target = np.vectorize(safe_map)(cats)
+    target = target.reshape(shape)
 
     return {'target': target, 'missing_vals': missing_vals, 'cat_to_index_map': cat_to_index_map, 'input_dtype': cats.dtype}
 

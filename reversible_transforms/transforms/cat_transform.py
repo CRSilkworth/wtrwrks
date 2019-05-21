@@ -82,7 +82,7 @@ class CatTransform(n.Transform):
       if not col_array.shape[0]:
         raise ValueError("Inputted col_array has no non null values.")
 
-      one_hots = np.zeros([col_array.shape[0], len(uniques)], dtype=np.float64)
+      one_hots = np.zeros(list(col_array.shape) + [len(uniques)], dtype=np.float64)
       row_nums = np.arange(col_array.shape[0], dtype=np.int64)
 
       indices = np.vectorize(self.cat_val_to_index.get)(col_array)
@@ -124,9 +124,7 @@ class CatTransform(n.Transform):
 
   def _get_funnel_dict(self, array=None, prefix=''):
     funnel_name = self._pre('CatToIndex_0/slots/cats', prefix)
-    funnel_dict = {}
-    if array is not None:
-      funnel_dict = {funnel_name: array[:, 0]}
+    funnel_dict = {funnel_name: array}
 
     return funnel_dict
 
@@ -166,7 +164,7 @@ class CatTransform(n.Transform):
 
   def _extract_pump_outputs(self, funnel_dict, prefix=''):
     array_key = self._pre('CatToIndex_0/slots/cats', prefix)
-    return np.expand_dims(funnel_dict[array_key], axis=1)
+    return funnel_dict[array_key]
 
   def _get_example_dicts(self, pour_outputs, prefix=''):
     pour_outputs = self._nopre(pour_outputs, prefix)
@@ -217,8 +215,8 @@ class CatTransform(n.Transform):
 
     missing_vals = np.stack(missing_vals)
     missing_vals = missing_vals[pour_outputs['indices'] == -1]
-    pour_outputs['missing_vals'] = missing_vals
-    print missing_vals.shape
+    pour_outputs['missing_vals'] = missing_vals.tolist()
+
     pour_outputs = self._pre(pour_outputs, prefix)
     return pour_outputs
 
