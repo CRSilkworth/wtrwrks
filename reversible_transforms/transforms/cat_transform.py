@@ -29,7 +29,7 @@ class CatTransform(n.Transform):
 
   """
 
-  attribute_dict = {'norm_mode': None, 'ignore_null': False, 'name': '', 'valid_cats': None, 'mean': None, 'std': None, 'dtype': np.float64, 'input_dtype': None, 'index_to_cat_val': None, 'cat_val_to_index': None}
+  attribute_dict = {'norm_mode': None, 'norm_axis': 0, 'ignore_null': False, 'name': '', 'valid_cats': None, 'mean': None, 'std': None, 'dtype': np.float64, 'input_dtype': None, 'index_to_cat_val': None, 'cat_val_to_index': None}
 
   def _setattributes(self, **kwargs):
     super(CatTransform, self)._setattributes(**kwargs)
@@ -77,20 +77,42 @@ class CatTransform(n.Transform):
       self.cat_val_to_index[cat_val] = unique_num
 
     if self.norm_mode == 'mean_std':
+      if not self.index_to_cat_val:
+        raise ValueError("index_to_cat_val has no valid values.")
       # Create one hot vectors for each row.
-      col_array = array[np.isin(array, self.index_to_cat_val)]
-      if not col_array.shape[0]:
-        raise ValueError("Inputted col_array has no non null values.")
+      valid_cats = np.isin(array, self.index_to_cat_val)
+      array = np.array(array, copy=True)
 
-      one_hots = np.zeros(list(col_array.shape) + [len(uniques)], dtype=np.float64)
-      row_nums = np.arange(col_array.shape[0], dtype=np.int64)
+      default_val = self.index_to_cat_val[0]
+      if isinstance(default_val, float) and np.isnan(default_val):
+        default_val = self.index_to_cat_val[1]
+      array[~valid_cats] = default_val
 
-      indices = np.vectorize(self.cat_val_to_index.get)(col_array)
-      one_hots[row_nums, indices] += 1
+      one_hots = np.zeros(list(array.shape) + [len(uniques)], dtype=np.float64)
 
-      # Find the means and standard deviation of the whole dataframe.
-      self.mean = np.mean(one_hots, axis=0)
-      self.std = np.std(one_hots, axis=0)
+      indices = np.vectorize(self.cat_val_to_index.get)(array)
+      one_hot_indices = np.unravel_index(np.arange(indices.size, dtype=np.int32), indices.shape)
+      one_hot_indices = list(one_hot_indices) + [indices.flatten()]
+      one_hot_indices = np.stack(one_hot_indices).astype(int)
+
+      one_hots[one_hot_indices] = 1
+      one_hots[~valid_cats] = 0
+
+      self.mean = np.mean(one_hots, axis=self.norm_axis)
+      self.std = np.std(one_hots, axis=self.norm_axis)
+
+      # col_array = array[np.isin(array, self.index_to_cat_val)]
+      # if not col_array.shape[0]:
+      #   raise ValueError("Inputted col_array has no non null values.")
+      #
+      # one_hots = np.zeros(list(col_array.shape) + [len(uniques)], dtype=np.float64)
+      # row_nums = np.arange(col_array.shape[0], dtype=np.int64)
+      #
+      # indices = np.vectorize(self.cat_val_to_index.get)(col_array)
+      # one_hots[row_nums, indices] += 1
+      # # Find the means and standard deviation of the whole dataframe.
+      # self.mean = np.mean(one_hots, axis=0)
+      # self.std = np.std(one_hots, axis=0)
 
       # If there are any standard deviations of 0, replace them with 1's,
       # print out a warning.

@@ -63,6 +63,7 @@ class DateTimeTransform(n.Transform):
     array = array.astype(np.datetime64)
     # Get the inputted dtype
     self.input_dtype = array.dtype
+    self.input_shape = array.shape
 
     if self.norm_mode == 'mean_std':
       # Find the means and standard deviations of each column
@@ -201,10 +202,17 @@ class DateTimeTransform(n.Transform):
 
   def _parse_example_dicts(self, example_dicts, prefix=''):
     pour_outputs = {'nums': [], 'nats': [], 'diff': []}
+
+    shape = self.input_shape[1:]
     for example_dict in example_dicts:
-      pour_outputs['nums'].append(example_dict[self._pre('nums', prefix)])
-      pour_outputs['nats'].append(example_dict[self._pre('nats', prefix)])
-      pour_outputs['diff'].append(example_dict[self._pre('diff', prefix)])
+      nums = example_dict[self._pre('nums', prefix)].reshape(shape)
+      pour_outputs['nums'].append(nums)
+
+      nats = example_dict[self._pre('nats', prefix)].reshape(shape)
+      pour_outputs['nats'].append(nats)
+
+      diff example_dict[self._pre('diff', prefix)].reshape(shape)
+      pour_outputs['diff'].append(diff)
 
     pour_outputs = {
       'nums': np.stack(pour_outputs['nums']),

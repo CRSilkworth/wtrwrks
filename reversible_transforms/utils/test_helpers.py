@@ -53,7 +53,7 @@ class WWTest(unittest.TestCase):
       self.assertTrue(arrays_equal(first, second, test_type=test_type))
     except AssertionError as e:
       print 'SHAPES', first.shape, np.array(second).shape
-      print "FIRST", first.tolist(), first.dtype
+      print "FIRST ", first.tolist(), first.dtype
       print "SECOND", second, np.array(second).dtype
       raise e
 

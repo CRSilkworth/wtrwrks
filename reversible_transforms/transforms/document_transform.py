@@ -9,6 +9,7 @@ import os
 import tensorflow as tf
 import pprint
 
+
 class DocumentTransform(n.Transform):
   """Class used to create mappings from a raw string to a vector and back.
 
@@ -78,11 +79,10 @@ class DocumentTransform(n.Transform):
       The maximum number of words allowed to be a part of the known vocabulary.
     """
     self.input_dtype = documents.dtype
+    self.input_shape = documents.shape
     if len(documents.shape) != 2:
       raise ValueError("Must supply an array of rank 2 which represent axes of (examples, columns). Got " + str(len(documents.shape)))
     array = []
-
-    document_lengths = []
     all_sentences = []
     max_len = None
     for cols in documents:
@@ -106,7 +106,6 @@ class DocumentTransform(n.Transform):
       for col_num, sentences in enumerate(document_sentences):
         for sent_num, sentence in enumerate(sentences):
           array[row_num, col_num, sent_num] = sentence
-
     self.string_transform.calc_global_values(array)
 
   def define_waterwork(self, array=empty):
@@ -135,87 +134,15 @@ class DocumentTransform(n.Transform):
     return funnel_dict[self._pre('input', prefix)]
 
   def _get_example_dicts(self, pour_outputs, prefix=''):
-    pour_outputs = self._nopre(pour_outputs, prefix)
-    mask = pour_outputs['indices'] == self.unk_index
-    missing_vals = pour_outputs['missing_vals']
-
-    pour_outputs['missing_vals'] = self._full_missing_vals(mask, missing_vals)
-
-    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
-    if self.lower_case:
-      array_keys.append(self._pre('lower_case_diff'))
-    if self.half_width:
-      array_keys.append(self._pre('half_width_diff'))
-    if self.lemmatize:
-      array_keys.append(self._pre('lemmatize_diff'))
-
-    num_examples = pour_outputs['indices'].shape[0]
-    example_dicts = []
-    for row_num in xrange(num_examples):
-      example_dict = {}
-      for key in array_keys:
-        serial = pour_outputs[key][row_num].flatten()
-        if key == 'indices':
-          example_dict[key] = feat._int_feat(serial)
-        else:
-          example_dict[key] = feat._bytes_feat(serial)
-
-      example_dict = self._pre(example_dict, prefix)
-      example_dicts.append(example_dict)
-    return example_dicts
+    return self.string_transform._get_example_dicts(pour_outputs, os.path.join(prefix, self.name))
 
   def _parse_example_dicts(self, example_dicts, prefix=''):
-    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
-    if self.lower_case:
-      array_keys.append('lower_case_diff')
-    if self.half_width:
-      array_keys.append('half_width_diff')
-    if self.lemmatize:
-      array_keys.append('lemmatize_diff')
-
-    pour_outputs = {k: list() for k in array_keys}
-    for example_dict in example_dicts:
-      for key in array_keys:
-        fixed_array = example_dict[self._pre(key, prefix)]
-
-        if key != 'tokenize_diff':
-          fixed_array = fixed_array.reshape([-1, self.max_sent_len])
-
-        pour_outputs[key].append(fixed_array)
-
-    for key in array_keys:
-      pour_outputs[key] = np.stack(pour_outputs[key])
-
-    mask = pour_outputs['indices'] == self.unk_index
-    pour_outputs['missing_vals'] = pour_outputs['missing_vals'][mask].flatten()
-
-    pour_outputs = self._pre(pour_outputs, prefix)
-    return pour_outputs
+    return self.string_transform._parse_example_dicts(example_dicts, os.path.join(prefix, self.name))
 
   def _feature_def(self, num_cols=1, prefix=''):
-    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
-    if self.lower_case:
-      array_keys.append(self._pre('lower_case_diff', prefix))
-    if self.half_width:
-      array_keys.append(self._pre('half_width_diff', prefix))
-    if self.lemmatize:
-      array_keys.append(self._pre('lemmatize_diff', prefix))
-
-    feature_dict = {}
-    for key in array_keys:
-      if key == 'indices':
-        dtype = tf.int64
-      else:
-        dtype = tf.string
-
-      if key == 'tokenize_diff':
-        shape = [num_cols]
-      else:
-        shape = [num_cols * self.max_sent_len]
-      feature_dict[key] = tf.FixedLenFeature(shape, dtype)
-
-    feature_dict = self._pre(feature_dict, prefix)
+    feature_dict = self.string_transform._feature_def(num_cols * self.max_doc_len, os.path.join(prefix, self.name))
     return feature_dict
+    # return self.string_transform._feature_def(num_cols * self.max_doc_len, os.path.join(prefix, self.name))
 
   def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""

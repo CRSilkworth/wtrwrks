@@ -56,6 +56,7 @@ class NumTransform(n.Transform):
     """
     # Set the input dtype
     self.input_dtype = array.dtype
+    self.input_shape = array.shape
     array = array.astype(self.dtype)
 
     if self.norm_mode == 'mean_std':
@@ -162,9 +163,13 @@ class NumTransform(n.Transform):
 
   def _parse_example_dicts(self, example_dicts, prefix=''):
     pour_outputs = {'nums': [], 'nans': []}
+    shape = self.input_shape[1:]
     for example_dict in example_dicts:
-      pour_outputs['nums'].append(example_dict[self._pre('nums', prefix)])
-      pour_outputs['nans'].append(example_dict[self._pre('nans', prefix)])
+      nums = example_dict[self._pre('nums', prefix)].reshape(shape)
+      pour_outputs['nums'].append(nums)
+
+      nans = example_dict[self._pre('nans', prefix)].reshape(shape)
+      pour_outputs['nans'].append(nans)
 
     pour_outputs = {
       'nums': np.stack(pour_outputs['nums']),

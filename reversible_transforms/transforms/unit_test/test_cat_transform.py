@@ -175,8 +175,6 @@ class TestCatTransform(th.TestTransform):
     with self.assertRaises(AssertionError):
       trans.pour(np.array([1]))
 
-    with self.assertRaises(ValueError):
-      trans.calc_global_values(np.array([[np.nan]]))
 
 if __name__ == "__main__":
     unittest.main()

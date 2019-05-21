@@ -39,7 +39,7 @@ class StringTransform(n.Transform):
     The list of attributes that need to be saved in order to fully reconstruct the transform object.
 
   """
-  attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'index_to_word': None, 'word_to_index': None, 'max_sent_len': None, 'word_tokenizer': None, 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'unk_index': None, 'word_detokenizer': lambda a: ' '.join(a)}
+  attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'input_shape': None, 'index_to_word': None, 'word_to_index': None, 'max_sent_len': None, 'word_tokenizer': None, 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'unk_index': None, 'word_detokenizer': lambda a: ' '.join(a)}
 
   def _setattributes(self, **kwargs):
     super(StringTransform, self)._setattributes(**kwargs)
@@ -74,6 +74,7 @@ class StringTransform(n.Transform):
       The maximum number of words allowed to be a part of the known vocabulary.
     """
     self.input_dtype = array.dtype
+    self.input_shape = array.shape
     self.word_to_index = {
       word: num for num, word in enumerate(self.index_to_word)
     }
@@ -194,11 +195,11 @@ class StringTransform(n.Transform):
 
     array_keys = ['indices', 'tokenize_diff', 'missing_vals']
     if self.lower_case:
-      array_keys.append(self._pre('lower_case_diff'))
+      array_keys.append('lower_case_diff')
     if self.half_width:
-      array_keys.append(self._pre('half_width_diff'))
+      array_keys.append('half_width_diff')
     if self.lemmatize:
-      array_keys.append(self._pre('lemmatize_diff'))
+      array_keys.append('lemmatize_diff')
 
     num_examples = pour_outputs['indices'].shape[0]
     example_dicts = []
@@ -230,7 +231,9 @@ class StringTransform(n.Transform):
         fixed_array = example_dict[self._pre(key, prefix)]
 
         if key != 'tokenize_diff':
-          fixed_array = fixed_array.reshape([-1, self.max_sent_len])
+          fixed_array = fixed_array.reshape(list(self.input_shape[1:]) + [self.max_sent_len])
+        else:
+          fixed_array = fixed_array.reshape(self.input_shape[1:])
 
         pour_outputs[key].append(fixed_array)
 
@@ -246,11 +249,11 @@ class StringTransform(n.Transform):
   def _feature_def(self, num_cols=1, prefix=''):
     array_keys = ['indices', 'tokenize_diff', 'missing_vals']
     if self.lower_case:
-      array_keys.append(self._pre('lower_case_diff', prefix))
+      array_keys.append('lower_case_diff')
     if self.half_width:
-      array_keys.append(self._pre('half_width_diff', prefix))
+      array_keys.append('half_width_diff')
     if self.lemmatize:
-      array_keys.append(self._pre('lemmatize_diff', prefix))
+      array_keys.append('lemmatize_diff')
 
     feature_dict = {}
     for key in array_keys:
