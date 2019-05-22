@@ -255,6 +255,8 @@ class StringTransform(n.Transform):
     if self.lemmatize:
       array_keys.append('lemmatize_diff')
 
+    size = np.prod(self.input_shape[1:])
+
     feature_dict = {}
     for key in array_keys:
       if key == 'indices':
@@ -263,13 +265,31 @@ class StringTransform(n.Transform):
         dtype = tf.string
 
       if key == 'tokenize_diff':
-        shape = [num_cols]
+        shape = [size]
       else:
-        shape = [num_cols * self.max_sent_len]
+        shape = [size * self.max_sent_len]
       feature_dict[key] = tf.FixedLenFeature(shape, dtype)
 
     feature_dict = self._pre(feature_dict, prefix)
     return feature_dict
+
+  def _shape_def(self, prefix=''):
+    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
+    if self.lower_case:
+      array_keys.append('lower_case_diff')
+    if self.half_width:
+      array_keys.append('half_width_diff')
+    if self.lemmatize:
+      array_keys.append('lemmatize_diff')
+
+    shape = list(self.input_shape[1:])
+
+    shape_dict = {}
+    for key in array_keys:
+      shape_dict[key] = shape if key == 'tokenize_diff' else shape + [self.max_sent_len]
+
+    shape_dict = self._pre(shape_dict, prefix)
+    return shape_dict
 
   def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""

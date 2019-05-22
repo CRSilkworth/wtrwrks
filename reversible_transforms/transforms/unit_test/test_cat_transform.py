@@ -44,6 +44,30 @@ class TestCatTransform(th.TestTransform):
       )
       trans = self.write_read(trans, self.temp_dir)
 
+  def test_two_cols(self):
+    trans = n.CatTransform(
+      name='cat'
+    )
+    trans.calc_global_values(self.array[:, 0: 2])
+    target = np.array([
+      [[0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
+      [[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0]],
+      [[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 0.0]],
+      [[0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+    ])
+    indices = np.array([[1, 2], [2, 0], [3, 2], [1, 3]])
+    for i in xrange(2):
+      self.pour_pump(
+        trans,
+        self.array[:, 0: 2],
+        {
+          'cat/missing_vals': [],
+          'cat/one_hots': target,
+          'cat/indices': indices
+        }
+      )
+      trans = self.write_read(trans, self.temp_dir)
+
   def test_valid_cats(self):
     trans = n.CatTransform(
       name='cat',

@@ -1,9 +1,9 @@
 import reversible_transforms.waterworks.waterwork_part as wp
 import reversible_transforms.waterworks.tank as ta
+import reversible_transforms.tanks.utils as ut
 import numpy as np
 
-
-class Cast(ta.Tank):
+class Flatten(ta.Tank):
   """The min class. Handles 'a's of np.ndarray type.
 
   Attributes
@@ -18,68 +18,61 @@ class Cast(ta.Tank):
 
   """
 
-  slot_keys = ['a', 'dtype']
-  tube_keys = ['target', 'input_dtype', 'diff']
+  slot_keys = ['a']
+  tube_keys = ['target', 'shape']
 
-  def _pour(self, a, dtype):
+  def _pour(self, a):
     """Execute the add in the pour (forward) direction .
 
     Parameters
     ----------
     a : np.ndarray
       The array to take the min over.
-    dtype : int, tuple
-      The dtype (axes) to take the min over.
+    indices : np.ndarray
+      The indices of the array to make the split at.
+    axis : int, tuple
+      The axis (axis) to take the min over.
 
     Returns
     -------
     dict(
       'target': np.ndarray
         The result of the min operation.
-      'a': np.ndarray
-        The original a
-      'dtype': dtype
-        The dtype to cast to.
+      'indices' : np.ndarray
+        The indices of the array to make the split at.
+      'axis': in, tuple
+        The axis (axis) to take the min over.
     )
 
     """
-    a = np.array(a)
-    target = a.astype(dtype)
+    shape = a.shape
+    target = a.flatten()
+    print target
+    return {'target': target, 'shape': shape}
 
-    if a.dtype in (np.float64, np.float32) and dtype in (np.int32, np.int64, np.bool, int):
-      diff = a - target
-    else:
-      diff = np.zeros_like(target)
-    # Must just return 'a' as well since so much information is lost in a
-    # min
-    return {'target': target, 'diff': diff, 'input_dtype': a.dtype}
-
-  def _pump(self, target, input_dtype, diff):
+  def _pump(self, target, shape):
     """Execute the add in the pump (backward) direction .
 
     Parameters
     ----------
     target: np.ndarray
       The result of the min operation.
-    a : np.ndarray
-      The array to take the min over.
-    dtype : type
-      The dtype to cast to.
+    indices : np.ndarray
+      The indices of the array to make the split at.
+    axis : int, tuple
+      The axis (axis) to take the min over.
 
     Returns
     -------
     dict(
       'a': np.ndarray
         The original a
-      'dtype': in, tuple
-        The dtype (axes) to take the min over.
+      'indices' : np.ndarray
+        The indices of the array to make the split at.
+      'axis': in, tuple
+        The axis (axis) to take the min over.
     )
 
     """
-    dtype = target.dtype
 
-    a = target
-    if np.issubdtype(input_dtype, np.number):
-      a = diff + target
-    a = a.astype(input_dtype)
-    return {'a': a, 'dtype': dtype}
+    return {'a': target.reshape(shape)}

@@ -20,6 +20,8 @@ import reversible_transforms.tanks.lemmatize as lm
 import reversible_transforms.tanks.split as sp
 import reversible_transforms.tanks.partition as pa
 import reversible_transforms.tanks.iterate as it
+import reversible_transforms.tanks.flatten as fl
+import reversible_transforms.tanks.flat_tokenize as ft
 import reversible_transforms.tanks.replace_substring as rs
 from reversible_transforms.waterworks.empty import empty
 import numpy as np
@@ -325,6 +327,42 @@ def tokenize(strings=empty, tokenizer=empty, max_len=empty, detokenizer=empty, w
   """
   tank = to.Tokenize(strings=strings, tokenizer=tokenizer, max_len=max_len, detokenizer=detokenizer)
   # return tank['target'], tank['tokenizer'], tank['delimiter'], tank['diff'], tank.get_slots()
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
+
+
+def flat_tokenize(strings=empty, ids=empty, tokenizer=empty, detokenizer=empty, waterwork=None, name=None, return_tank=False):
+  """Adds another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
+
+  Parameters
+  ----------
+  strings : Tube, np.ndarray or None
+    The array of strings to tokenize
+  tokenizer : Tube, function or None
+    The function that converts a string into a list of tokens.
+  max_len : Tube, int or None
+    The max number of allowed tokens to be created from one string. I.e.  the size of the last dimension of the target array.
+  delimiter : Tube, str, unicode or None
+    The delimiter used to join string back together from tokens.
+  type_dict : dict({
+    keys - ['a', 'b']
+    values - type of argument 'a' type of argument 'b'.
+  })
+    The types of data which will be passed to each argument. Needed when the types of the inputs cannot be infered from the arguments a and b (e.g. when they are None).
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  Tank
+      The created add tank (operation) object.
+
+  """
+  tank = ft.FlatTokenize(strings=strings, tokenizer=tokenizer, detokenizer=detokenizer, ids=ids)
   if not return_tank:
     return tank.get_tubes(), tank.get_slots()
   return tank.get_tubes(), tank.get_slots(), tank
@@ -765,6 +803,43 @@ def iter_dict(a=empty, keys=None, type_dict=None, waterwork=None, name=None, ret
   if not return_tank:
     return {tube_key: tubes[tube_key] for tube_key in keys}, tank.get_slots()
   return {tube_key: tubes[tube_key] for tube_key in keys}, tank.get_slots(), tank
+
+
+def flatten(a=empty, waterwork=None, name=None, return_tank=False):
+  """Adds another dimension to the array 'strings' of size max_len which the elements of strings split up into tokens (e.g. words).
+
+  Parameters
+  ----------
+  strings : Tube, np.ndarray or None
+    The array of strings to tokenize
+  tokenizer : Tube, function or None
+    The function that converts a string into a list of tokens.
+  max_len : Tube, int or None
+    The max number of allowed tokens to be created from one string. I.e.  the size of the last dimension of the target array.
+  delimiter : Tube, str, unicode or None
+    The delimiter used to join string back together from tokens.
+  type_dict : dict({
+    keys - ['a', 'b']
+    values - type of argument 'a' type of argument 'b'.
+  })
+    The types of data which will be passed to each argument. Needed when the types of the inputs cannot be infered from the arguments a and b (e.g. when they are None).
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  Tank
+      The created add tank (operation) object.
+
+  """
+  tank = fl.Flatten(a=a)
+  if not return_tank:
+    return tank.get_tubes(), tank.get_slots()
+  return tank.get_tubes(), tank.get_slots(), tank
+
 
 isnan = bo.create_one_arg_bool_tank(np.isnan, class_name='IsNan')
 isnat = bo.create_one_arg_bool_tank(np.isnat, class_name='IsNat')

@@ -65,7 +65,7 @@ class TestStringTransform(th.TestTransform):
   def tearDown(self):
     shutil.rmtree(self.temp_dir)
 
-  def test_read_write(self):
+  def test_keep_dims(self):
     indices = np.array([
     [[[18, 17, 36, 18, 17, -1, -1, -1, -1, -1],
        [15, 3, 28, 31, 7, 15, 3, 28, 27, -1],
@@ -124,7 +124,73 @@ class TestStringTransform(th.TestTransform):
     )
 
     self.write_read_example(trans, strings, self.temp_dir)
-    # trans = self.write_read(trans, self.temp_dir)
+    trans = self.write_read(trans, self.temp_dir)
+
+  def test_remove_dims(self):
+    indices = np.array([
+      [18, 17, 36, 18, 17, -1, -1, -1, -1, -1],
+      [15, 3, 28, 31, 7, 15, 3, 28, 27, -1],
+      [33, 32, 17, 23, 37, 4, 18, 2, 10, -1],
+      [0, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+      [14, 4, 0, 1, -1, -1, -1, -1, -1, -1],
+      [13, 35, 29, 16, 6, 12, -1, -1, -1, -1],
+      [34, 6, 8, -1, -1, -1, -1, -1, -1, -1],
+      [21, 26, 9, -1, -1, -1, -1, -1, -1, -1],
+      [22, 25, 20, -1, -1, -1, -1, -1, -1, -1],
+      [19, 30, 0, 11, -1, -1, -1, -1, -1, -1],
+      [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
+    ])
+    lower_case_diff = [['[["i", 0, 1, "I"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]'], ['[["i", 0, 1, "I"]]', '[]', '[]', '[]', '[]', '[["i", 0, 1, "I"]]', '[]', '[]', '[]', '[]'], ['[["i", 0, 1, "T"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]'], ['[["i", 0, 2, "OK"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]'], ['[["i", 0, 1, "H"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]'], ['[["i", 0, 1, "E"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]'], ['[["i", 0, 1, "U"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]'], ['[["i", 0, 1, "L"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]'], ['[["i", 0, 1, "L"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]'], ['[["i", 0, 1, "I"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]'], ['[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']]
+    tokenize_diff = ['[["d", 16, 21, ""]]', '[["i", 0, 0, " "], ["d", 1, 2, ""], ["d", 23, 24, ""], ["d", 37, 38, ""]]', '[["d", 21, 22, ""], ["d", 26, 27, ""], ["d", 37, 38, ""]]', '[["i", 0, 0, " "], ["d", 2, 11, ""]]', '[["i", 0, 0, " "], ["d", 3, 4, ""], ["d", 9, 10, ""], ["d", 11, 17, ""]]', '[["d", 30, 34, ""]]', '[["i", 0, 0, " "], ["d", 14, 21, ""]]', '[["i", 0, 0, " "], ["d", 20, 27, ""]]', '[["d", 12, 19, ""]]', '[["i", 0, 0, " "], ["d", 21, 27, ""]]', '[["d", 0, 9, ""]]']
+    missing_vals = np.array(['ok', 'you', 'you'], dtype='|S40')
+    strings = np.array([
+      [
+        "It is what it is. I've seen summer and I've seen rain",
+        "The sun is not yellow, it's chicken. OK. Hey, you!"
+      ],
+      [
+        'Ended up sleeping in a doorway. Under a bodega. Lights over broadway',
+        'Look out kid. Its something you did.'
+      ]
+    ], dtype=np.unicode)
+    index_to_word = self._get_index_to_word(np.char.lower(strings), en_tokenizer)
+    ids = np.array([
+      'f46a7d9b0971a571b019aef7397ba54de6acf73518609b67d2ac1dee', 'f46a7d9b0971a571b019aef7397ba54de6acf73518609b67d2ac1dee', 'dd1ff31c7034df9b181dec11a0ae633bf9bee80662d76e1b5f655c2e', 'dd1ff31c7034df9b181dec11a0ae633bf9bee80662d76e1b5f655c2e', 'dd1ff31c7034df9b181dec11a0ae633bf9bee80662d76e1b5f655c2e', 'af78931ab7820443f0986de9ef1f276363014d89b9dd587f16b5f3e5', 'af78931ab7820443f0986de9ef1f276363014d89b9dd587f16b5f3e5', 'af78931ab7820443f0986de9ef1f276363014d89b9dd587f16b5f3e5', '52c66ddc2885dd3f2d30d8fbca09abab17e5d512dfd28c13f9a4bf1d', '52c66ddc2885dd3f2d30d8fbca09abab17e5d512dfd28c13f9a4bf1d', '52c66ddc2885dd3f2d30d8fbca09abab17e5d512dfd28c13f9a4bf1d'
+    ])
+    index_to_word = ['__UNK__'] + index_to_word[:-1]
+
+    string_trans = st.StringTransform(
+      index_to_word=index_to_word,
+      word_tokenizer=en_tokenizer,
+      lower_case=True,
+      unk_index=0,
+      max_sent_len=10,
+      name='ST'
+    )
+    trans = dct.DocumentTransform(
+      sent_tokenizer=lambda s: s.split('.'),
+      sent_detokenizer=lambda s: '.'.join(s),
+      string_transform=string_trans,
+      keep_dims=False,
+      name='DT'
+    )
+    # for i in xrange(2):
+    self.pour_pump(
+      trans,
+      strings,
+      {
+        'DT/ST/indices': indices,
+        'DT/ST/missing_vals': missing_vals,
+        'DT/ST/tokenize_diff': tokenize_diff,
+        'DT/ST/lower_case_diff': lower_case_diff,
+        'DT/ids': ids
+
+      },
+      test_type=False
+    )
+
+    self.write_read_example(trans, strings, self.temp_dir, num_cols=1)
+    trans = self.write_read(trans, self.temp_dir)
 
   def _get_index_to_word(self, strings, tokenizer, lemmatizer=None, half_width=False):
     index_to_word = set()

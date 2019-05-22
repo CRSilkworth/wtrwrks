@@ -3,6 +3,8 @@ import reversible_transforms.utils.dir_functions as d
 import reversible_transforms.waterworks.waterwork as wa
 import os
 import numpy as np
+import tensorflow as tf
+
 
 class Transform(object):
   """Abstract class used to create mappings from raw to vectorized, normalized data and vice versa.
@@ -146,7 +148,19 @@ class Transform(object):
     """Reconstruct the transform object from the dictionary of attributes."""
     for key in self.attribute_dict:
       setattr(self, key, save_dict[key])
+  def read_and_decode(self, serialized_example, prefix=''):
+    feature_dict = self._feature_def(prefix)
+    shape_dict = self._shape_def(prefix)
 
+    features = tf.parse_single_example(
+      serialized_example,
+      features=feature_dict
+    )
+
+    for key in shape_dict:
+      features[key] = tf.reshape(features[key], shape_dict[key])
+
+    return features
   def save_to_file(self, path):
     """Save the transform object to disk."""
     save_dict = self._save_dict()

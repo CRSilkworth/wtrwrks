@@ -208,9 +208,14 @@ class DatasetTransform(tr.Transform):
     feature_dict = {}
     for key in self.transforms:
       trans = self.transforms[key]
-
-      num_cols = self.transform_col_ranges[key][1] - self.transform_col_ranges[key][0]
-      trans_feature_dict = trans._feature_def(num_cols=num_cols, prefix=self.name)
-
+      trans_feature_dict = trans._feature_def(prefix=self.name)
       feature_dict.update(trans_feature_dict)
     return feature_dict
+
+  def _shape_def(self, num_cols=None):
+    shape_dict = {}
+    for key in self.transforms:
+      trans = self.transforms[key]
+      trans_shape_dict = trans._shape_def(prefix=self.name)
+      shape_dict.update(trans_shape_dict)
+    return shape_dict

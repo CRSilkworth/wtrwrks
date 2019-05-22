@@ -50,6 +50,7 @@ class CatTransform(n.Transform):
     """
     # Set the input dtype
     self.input_dtype = array.dtype
+    self.input_shape = array.shape
 
     # Pull out the relevant column
 
@@ -93,27 +94,13 @@ class CatTransform(n.Transform):
       indices = np.vectorize(self.cat_val_to_index.get)(array)
       one_hot_indices = np.unravel_index(np.arange(indices.size, dtype=np.int32), indices.shape)
       one_hot_indices = list(one_hot_indices) + [indices.flatten()]
-      one_hot_indices = np.stack(one_hot_indices).astype(int)
+      # one_hot_indices = np.stack(one_hot_indices, axis=1).astype(int)
 
       one_hots[one_hot_indices] = 1
       one_hots[~valid_cats] = 0
 
       self.mean = np.mean(one_hots, axis=self.norm_axis)
       self.std = np.std(one_hots, axis=self.norm_axis)
-
-      # col_array = array[np.isin(array, self.index_to_cat_val)]
-      # if not col_array.shape[0]:
-      #   raise ValueError("Inputted col_array has no non null values.")
-      #
-      # one_hots = np.zeros(list(col_array.shape) + [len(uniques)], dtype=np.float64)
-      # row_nums = np.arange(col_array.shape[0], dtype=np.int64)
-      #
-      # indices = np.vectorize(self.cat_val_to_index.get)(col_array)
-      # one_hots[row_nums, indices] += 1
-      # # Find the means and standard deviation of the whole dataframe.
-      # self.mean = np.mean(one_hots, axis=0)
-      # self.std = np.std(one_hots, axis=0)
-
       # If there are any standard deviations of 0, replace them with 1's,
       # print out a warning.
       if len(self.std[self.std == 0]):
@@ -224,11 +211,20 @@ class CatTransform(n.Transform):
   def _parse_example_dicts(self, example_dicts, prefix=''):
     pour_outputs = {'one_hots': [], 'indices': []}
 
+    shape = list(self.input_shape[1:])
+
     missing_vals = []
     for example_dict in example_dicts:
-      pour_outputs['one_hots'].append(example_dict[self._pre('one_hots', prefix)])
-      pour_outputs['indices'].append(example_dict[self._pre('indices', prefix)])
-      missing_vals.append(example_dict[self._pre('missing_vals', prefix)])
+      one_hots = example_dict[self._pre('one_hots', prefix)]
+      pour_outputs['one_hots'].append(
+        one_hots.reshape(shape + [len(self)])
+      )
+
+      indices = example_dict[self._pre('indices', prefix)]
+      pour_outputs['indices'].append(indices.reshape(shape))
+
+      mvs = example_dict[self._pre('missing_vals', prefix)]
+      missing_vals.append(mvs.reshape(shape))
 
     pour_outputs = {
       'one_hots': np.stack(pour_outputs['one_hots']),
@@ -253,15 +249,24 @@ class CatTransform(n.Transform):
     else:
       raise TypeError("Only string and number types are supported. Got " + str(dtype))
 
-    shape = len(self)
+    size = np.prod(self.input_shape[1:])
 
     feature_dict = {}
-    feature_dict['missing_vals'] = tf.FixedLenFeature([1], tf_dtype)
-    feature_dict['one_hots'] = tf.FixedLenFeature(shape, tf.float32)
-    feature_dict['indices'] = tf.FixedLenFeature([1], tf.int64)
+    feature_dict['missing_vals'] = tf.FixedLenFeature([size], tf_dtype)
+    feature_dict['one_hots'] = tf.FixedLenFeature([size*len(self)], tf.float32)
+    feature_dict['indices'] = tf.FixedLenFeature([size], tf.int64)
 
     feature_dict = self._pre(feature_dict, prefix)
     return feature_dict
+
+  def _shape_def(self, prefix=''):
+    shape_dict = {}
+    shape_dict['missing_vals'] = self.input_shape[1:]
+    shape_dict['one_hots'] = list(self.input_shape[1:]) + [len(self)]
+    shape_dict['indices'] = self.input_shape[1:]
+
+    shape_dict = self._pre(shape_dict, prefix)
+    return shape_dict
 
   def __len__(self):
     assert self.input_dtype is not None, ("Run calc_global_values before attempting to get the length.")

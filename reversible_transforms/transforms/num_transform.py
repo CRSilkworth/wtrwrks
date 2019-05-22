@@ -181,8 +181,17 @@ class NumTransform(n.Transform):
   def _feature_def(self, num_cols=1, prefix=''):
 
     feature_dict = {}
-    feature_dict['nums'] = tf.FixedLenFeature([num_cols], tf.float32)
-    feature_dict['nans'] = tf.FixedLenFeature([num_cols], tf.int64)
+    size = np.prod(self.input_shape[1:])
+    feature_dict['nums'] = tf.FixedLenFeature([size], tf.float32)
+    feature_dict['nans'] = tf.FixedLenFeature([size], tf.int64)
 
     feature_dict = self._pre(feature_dict, prefix)
     return feature_dict
+
+  def _shape_def(self, prefix=''):
+    shape_dict = {}
+    shape_dict['nums'] = self.input_shape[1:]
+    shape_dict['nans'] = self.input_shape[1:]
+
+    shape_dict = self._pre(shape_dict, prefix)
+    return shape_dict

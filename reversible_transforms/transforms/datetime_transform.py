@@ -211,7 +211,7 @@ class DateTimeTransform(n.Transform):
       nats = example_dict[self._pre('nats', prefix)].reshape(shape)
       pour_outputs['nats'].append(nats)
 
-      diff example_dict[self._pre('diff', prefix)].reshape(shape)
+      diff = example_dict[self._pre('diff', prefix)].reshape(shape)
       pour_outputs['diff'].append(diff)
 
     pour_outputs = {
@@ -225,12 +225,22 @@ class DateTimeTransform(n.Transform):
 
   def _feature_def(self, num_cols=1, prefix=''):
     feature_dict = {}
-    feature_dict['nums'] = tf.FixedLenFeature([num_cols], tf.float32)
-    feature_dict['nats'] = tf.FixedLenFeature([num_cols], tf.int64)
-    feature_dict['diff'] = tf.FixedLenFeature([num_cols], tf.int64)
+    size = np.prod(self.input_shape[1:])
+    feature_dict['nums'] = tf.FixedLenFeature([size], tf.float32)
+    feature_dict['nats'] = tf.FixedLenFeature([size], tf.int64)
+    feature_dict['diff'] = tf.FixedLenFeature([size], tf.int64)
 
     feature_dict = self._pre(feature_dict, prefix)
     return feature_dict
+
+  def _shape_def(self, prefix=''):
+    shape_dict = {}
+    shape_dict['nums'] = self.input_shape[1:]
+    shape_dict['nats'] = self.input_shape[1:]
+    shape_dict['diff'] = self.input_shape[1:]
+
+    shape_dict = self._pre(shape_dict, prefix)
+    return shape_dict
 
   def __len__(self):
     assert self.input_dtype is not None, ("Run calc_global_values before attempting to get the length.")

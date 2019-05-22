@@ -34,7 +34,7 @@ class TestWaterwork(unittest.TestCase):
       ('Add_1', 'b'): np.array([1, 2])
     }
     # print [str(t) for t in ww._pour_tank_order()]
-    self.assertEqual(ww._pour_tank_order(), [ww.tanks[k] for k in ['Add_0', 'Clone_0', 'Add_1', 'Add_2']])
+    self.assertEqual(ww._pour_tank_order(), [ww.tanks[k] for k in ['Add_0', 'Add_1', 'Clone_0', 'Add_2']])
     # self.assertEqual(ww._pour_tank_order(), [ww.tanks["Clone_0"], add0, cl1, add1, add2])
     tap_dict = ww.pour(true_funnel_dict)
 
@@ -59,7 +59,7 @@ class TestWaterwork(unittest.TestCase):
       th.assert_arrays_equal(self, tap_dict[tap], temp_tap_dict[tap])
 
     # print [str(t) for t in ww._pump_tank_order()]
-    self.assertEqual(ww._pump_tank_order(), [ww.tanks[k] for k in ['Add_2', 'Clone_0', 'Add_1', 'Add_0']])
+    self.assertEqual(ww._pump_tank_order(), [ww.tanks[k] for k in ['Add_2', 'Add_1', 'Clone_0', 'Add_0']])
     # self.assertEqual(ww._pump_tank_order(), [add2, cl1, add1, add0, ww.tanks["Clone_0"]])
 
     funnel_dict = ww.pump(true_tap_dict)

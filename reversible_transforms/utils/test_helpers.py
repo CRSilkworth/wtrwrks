@@ -124,7 +124,7 @@ class TestTransform(WWTest):
 
     return trans
 
-  def write_read_example(self, trans, array, dir, test_type=True):
+  def write_read_example(self, trans, array, dir, test_type=True, num_cols=None):
     remade_array = None
     example_dicts = trans.pour_examples(array)
     file_name = os.path.join(dir, 'temp.tfrecord')
@@ -140,26 +140,29 @@ class TestTransform(WWTest):
 
     dataset = tf.data.TFRecordDataset(file_name)
 
-    def read_and_decode(serialized):
-      return tf.parse_single_example(
-        serialized,
-        features=trans._feature_def(num_cols=array.shape[1])
-      )
-    dataset = dataset.map(read_and_decode)
+    if num_cols is None:
+      num_cols = array.shape[1]
+
+    dataset = dataset.map(trans.read_and_decode)
     iter = tf.data.Iterator.from_structure(
       dataset.output_types,
       dataset.output_shapes
     )
     init = iter.make_initializer(dataset)
     features = iter.get_next()
+
+    for key in features:
+      features[key] = tf.reshape(features[key], [-1])
     with tf.Session() as sess:
       sess.run(init)
 
       example_dicts = []
-      for _ in xrange(array.shape[0]):
-        example_dict = sess.run(features)
-        example_dicts.append(example_dict)
-
+      try:
+        while True:
+          example_dict = sess.run(features)
+          example_dicts.append(example_dict)
+      except tf.errors.OutOfRangeError:
+        pass
     remade_array = trans.pump_examples(example_dicts)
     self.equals(array, remade_array, test_type)
 

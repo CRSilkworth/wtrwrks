@@ -57,7 +57,6 @@ class TestCasts(th.TestTank):
       td.cast,
       {'a': a, 'dtype': bool},
       {'target': target, 'diff': -0.5, 'input_dtype': type(a)},
-      type_dict={'a': int, 'dtype': type(int)},
       test_type=False
     )
     a = 0
