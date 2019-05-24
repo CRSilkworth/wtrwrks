@@ -61,7 +61,8 @@ setup(
     'chop~=1.0',
     'konlpy~=0.5',
     'simplejson~=3.16',
-    'gensim~=3.6'
+    'gensim~=3.6',
+    'dill~=0.2'
   ],
   cmdclass={
       'install': CustomDependencyInstallCommand
