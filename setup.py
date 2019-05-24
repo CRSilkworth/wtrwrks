@@ -57,8 +57,6 @@ setup(
     'tensorflow~=1.13',
     'tensorflow-serving-api~=1.13',
     'nltk~=3.3',
-    'spacy~=2.0',
-    'janome~=0.3',
     'tinysegmenter~=0.4',
     'chop~=1.0',
     'konlpy~=0.5',
