@@ -1,5 +1,5 @@
+"""Slot definition."""
 import waterworks.waterworks.waterwork_part as wp
-import waterworks.waterworks.globs as gl
 from waterworks.waterworks.empty import empty
 import os
 
@@ -13,8 +13,8 @@ class Slot(wp.WaterworkPart):
   key : str
     The string to identify the slot within the tank. Must be unique among all other slots of this tank.
   val : some data type or None
-    The value last inputted to the tank (i.e. operation), if applicable.
-  tube : Tube or None
+    The value last data inputted to the tank (i.e. operation), if applicable.
+  tube : Tube or empty
     The tube from the other tank this tube is connected to, if applicable.
   name : str
     The string used to identify the slot within the entire waterwork. Must be unique among all other slots of this waterwork.

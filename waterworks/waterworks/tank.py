@@ -1,10 +1,10 @@
+"""Tank definition."""
 import waterworks.waterworks.globs as gl
 import waterworks.waterworks.waterwork_part as wp
 from waterworks.waterworks.empty import empty
 import waterworks.waterworks.slot as sl
 import waterworks.waterworks.tube as tu
 import os
-import numpy as np
 
 
 class Tank(wp.WaterworkPart):
@@ -403,6 +403,14 @@ class Tank(wp.WaterworkPart):
     return slot_dict
 
   def get_slot_tanks(self):
+    """Get a set of all the tanks that pour into this one.
+
+    Returns
+    -------
+    set of Tanks
+      The set of all tanks that feed into this one (in the pour direction).
+
+    """
     tanks = set()
     for slot_key in self.slots:
       slot = self.slots[slot_key]
@@ -411,13 +419,30 @@ class Tank(wp.WaterworkPart):
     return tanks
 
   def get_tube_tanks(self):
+    """Get a set of all the tanks that pump into this one.
+
+    Returns
+    -------
+    set of Tanks
+      The set of all tanks that feed into this one (in the pump direction).
+
+    """
     tanks = set()
     for tube_key in self.tubes:
       tube = self.tubes[tube_key]
       if tube.slot is not empty:
         tanks.add(tube.slot.tank)
     return tanks
+
   def get_pour_dependencies(self):
+    """Get a set of tanks that need to be run before this tank is run (in the pour direction).
+
+    Returns
+    -------
+    set of Tanks
+      The set of tanks that need to be run before this one when executing a pour of a Waterwork.
+
+    """
     tanks = [self]
     dependencies = set()
 
@@ -444,6 +469,14 @@ class Tank(wp.WaterworkPart):
     return dependencies
 
   def get_pump_dependencies(self):
+    """Get a set of tanks that need to be run before this tank is run (in the pump direction).
+
+    Returns
+    -------
+    set of Tanks
+      The set of tanks that need to be run before this one when executing a pump of a Waterwork.
+
+    """
     tanks = [self]
     dependencies = set()
     while tanks:

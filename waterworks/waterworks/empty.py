@@ -1,3 +1,4 @@
+"""Empty definition."""
 import waterworks.waterworks.waterwork_part as wp
 
 
@@ -16,6 +17,7 @@ class Empty(wp.WaterworkPart):
     The slot from the other tank this tube is connected to, if applicable.
   name : str
     The string used to identify the tube within the entire waterwork. Must be unique among all other tubes of this waterwork.
+
   """
 
   def __init__(self):
@@ -31,6 +33,7 @@ class Empty(wp.WaterworkPart):
       The value last outputed by the tank (i.e. operation), if applicable.
     slot : Slot or None
       The slot from the other tank this tube is connected to, if applicable.
+
     """
 
   def __add__(self, other):

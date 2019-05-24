@@ -1,9 +1,29 @@
+"""NameSpace definition."""
 import waterworks.waterworks.globs as gl
 import os
 
 
 class NameSpace(object):
+  """Object used to automatically assign prefixes to water work parts.
+
+  Attributes
+  ----------
+  name : str
+    The prefix to append to the names of waterwork parts.
+  all_name_spaces : list of strs
+    The names of the hierarchy of namespaces this namespace belongs to.
+
+  """
+
   def __init__(self, name):
+    """Define the namespace.
+
+    Parameters
+    ----------
+    name : str
+      The prefix to append to the names of waterwork parts.
+
+    """
     self.name = name
     self.all_name_spaces = []
 
@@ -30,4 +50,5 @@ class NameSpace(object):
     return name_string
 
   def __str__(self):
+    """Print out the full namespace name."""
     return self._get_name_string()

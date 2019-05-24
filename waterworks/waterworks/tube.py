@@ -1,3 +1,4 @@
+"""Tube definition."""
 import waterworks.waterworks.waterwork_part as wp
 from waterworks.waterworks.empty import empty
 import os

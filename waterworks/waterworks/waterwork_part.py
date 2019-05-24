@@ -1,3 +1,4 @@
+"""WaterworkPart definition."""
 import waterworks.waterworks.globs as gl
 import os
 
