@@ -172,6 +172,65 @@ class CatTransform(n.Transform):
 
       return example_dicts
 
+
+  def _get_example_dicts(self, pour_outputs, prefix=''):
+    """Create a list of dictionaries for each example from the outputs of the pour method.
+
+    Parameters
+    ----------
+    pour_outputs : dict
+      The outputs of the _extract_pour_outputs method.
+    prefix : str
+      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
+
+    Returns
+    -------
+    list of dicts of features
+      The example dictionaries which contain tf.train.Features.
+
+    """
+    pour_outputs = self._nopre(pour_outputs, prefix)
+    # Find the locations of all the missing values. i.e. those that have been
+    # replace by the unknown token.
+    mask = pour_outputs['indices'] == -1
+
+    # Convert the 1D missing vals array into a full array of the same size as
+    # the indices array. This is so it can be easily separated into individual
+    # rows that be put into separate examples.
+    missing_vals = pour_outputs['missing_vals']
+    full_missing_vals = self._full_missing_vals(mask, missing_vals)
+
+    # Create an example dict for each row of indices.
+    num_examples = pour_outputs['indices'].shape[0]
+    example_dicts = []
+    for row_num in xrange(num_examples):
+      example_dict = {}
+
+      # Flatten the arrays since tfrecords can only have one dimension.
+      # Convert to the appropriate feature type.
+      one_hots = pour_outputs['one_hots'][row_num].flatten()
+      example_dict['one_hots'] = feat._float_feat(one_hots)
+
+      indices = pour_outputs['indices'][row_num].flatten()
+      example_dict['indices'] = feat._int_feat(indices)
+
+      missing_val = full_missing_vals[row_num]
+      dtype = self.input_dtype
+
+      # Decide the missin_vals type based off the type of the input array.
+      if dtype.type in (np.string_, np.unicode_):
+        example_dict['missing_vals'] = feat._bytes_feat(missing_val)
+      elif dtype in (np.int32, np.int64):
+        example_dict['missing_vals'] = feat._int_feat(missing_val)
+      elif dtype in (np.float32, np.float64):
+        example_dict['missing_vals'] = feat._float_feat(missing_val)
+      else:
+        raise TypeError("Only string and number types are supported. Got " + str(dtype))
+
+      example_dict = self._pre(example_dict, prefix)
+      example_dicts.append(example_dict)
+
+    return example_dicts
   def _get_funnel_dict(self, array=None, prefix=''):
     """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
 

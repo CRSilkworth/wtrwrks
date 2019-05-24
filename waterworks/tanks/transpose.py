@@ -5,15 +5,14 @@ import numpy as np
 
 
 class Transpose(ta.Tank):
-  ------------------------------
-"""The defintion of the Transpose tank. Contains the implementations of the _pour and _pump methods, as well as which slots and tubes the waterwork objects will look for.
+  """The defintion of the Transpose tank. Contains the implementations of the _pour and _pump methods, as well as which slots and tubes the waterwork objects will look for.
 
-  Attributes
-  ----------
-  slot_keys: list of strs
-    The names off all the tank's slots, i.e. inputs in the pour (forward) direction, or outputs in the pump (backward) direction
-  tubes: list of strs
-    The names off all the tank's tubes, i.e. outputs in the pour (forward) direction,
+    Attributes
+    ----------
+    slot_keys: list of strs
+      The names off all the tank's slots, i.e. inputs in the pour (forward) direction, or outputs in the pump (backward) direction
+    tubes: list of strs
+      The names off all the tank's tubes, i.e. outputs in the pour (forward) direction,
 
   """
 

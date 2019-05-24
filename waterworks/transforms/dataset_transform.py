@@ -187,6 +187,8 @@ class DatasetTransform(tr.Transform):
       Whether or not to print out warnings.
 
     """
+    self.input_dtype = array.dtype
+    self.input_shape = array.shape
     all_ranges = []
     for key in self:
       trans = self.transforms[key]

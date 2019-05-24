@@ -49,7 +49,6 @@ class StringTransform(n.Transform):
   attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'input_shape': None, 'index_to_word': None, 'word_to_index': None, 'max_sent_len': None, 'word_tokenizer': None, 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'unk_index': None, 'word_detokenizer': lambda a: ' '.join(a)}
 
   def __len__(self):
-    """Get the length of the vector outputted by the row_to_vector method."""
     return self.max_sent_len
 
   def _extract_pour_outputs(self, tap_dict, prefix=''):
@@ -472,4 +471,3 @@ class StringTransform(n.Transform):
     # Set the names of the slots and tubes of this tank for easier referencing
     indices['target'].set_name('indices')
     indices_slots['cat_to_index_map'].set_name('word_to_index')
-    indices['missing_vals'].set_name('missing_vals')
