@@ -76,3 +76,4 @@ Thumbs.db
 !**/test_data/**
 !**/test_runs/**
 !data_pipeline/definition_jsons/*json
+!images/**
