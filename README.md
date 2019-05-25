@@ -1,5 +1,95 @@
+# TLDR;
+Install:
+```
+pip install git+https://github.com/CRSilkworth/waterworks.git
+
+```
+Build waterwork:
+```python
+from waterworks import Waterwork, add, mul
+import pprint
+
+with Waterwork() as ww:
+  add_tubes, add_slots = add([1., 2., 3.], [3., 4., 5.])
+  mul_tubes, mul_slots = mul(add_tubes['target'], [2., 2., 2.])
+
+taps = ww.pour(key_type='str')
+pprint.pprint(taps)
+```
+Build dataset transform:
+```python
+from waterworks import DatasetTransform, CatTransform, NumTransform
+import numpy as np
+import pprint
+import tensorflow as tf
+# Define the raw input array
+array = np.array([
+  ['a', 1, 0],
+  ['b', 4, np.nan],
+  ['c', 8, np.nan],
+  ['a', 11, np.nan],
+], dtype=np.object)
+
+# Define the full dataset transform
+dataset_transform = DatasetTransform(name='DT')
+
+# Add the categorical transform. Have it taken in column 0 from 'array'.
+# Normalize by (val - mean)/std.
+dataset_transform.add_transform(
+  col_ranges=[0, 1],
+  transform=CatTransform(
+    name='CAT',
+    norm_mode='mean_std'
+  )
+)
+
+# Add the numerical transform. Have it take columsn, 1 and 2 from 'array'.
+# Normalize by (val - min)/(max - min). Replace nans with zeros.
+dataset_transform.add_transform(
+  col_ranges=[1, 3],
+  transform=NumTransform(
+    name='NUM',
+    norm_mode='min_max',
+
+    fill_nan_func=lambda a: np.array(0),
+  )
+)
+
+# Calculate means, stds, mins, maxes, etc.
+dataset_transform.calc_global_values(array)
+outputs = dataset_transform.pour(array)
+
+# Either reconstruct the original array from this
+dataset_transform.pump(outputs)
+
+# Or write directly to tfrecords
+dataset_transform.write_examples(array, 'examples.tfrecord')
+
+# Then read them and use them in an ML pipeline
+dataset = tf.data.TFRecordDataset('examples.tfrecord')
+dataset = dataset.map(dataset_transform.read_and_decode)
+iter = dataset.make_one_shot_iterator()
+features = iter.get_next()
+
+with tf.Session() as sess:
+  example_dicts = []
+  for _ in xrange(4):
+    evaled_features = sess.run(features)
+
+    # Do whatever you need to do with the outputs
+    # ...
+    # Reconstruct the orignal array
+    example_dict = {}
+    for key in evaled_features:
+      example_dict[key] = evaled_features[key].flatten()
+    example_dicts.append(example_dict)
+
+  remade_array = dataset_transform.pump_examples(example_dicts)
+  print remade_array
+
+```
 # Waterworks and Transforms
-When starting a new project, a datascientist or machine learning engineer spends a large portion, if not a majority of their time preparing the data for input into some ML algorithm. This involves cleaning, transforming and normalizing a variety of different data types so that they can all be represented as some set of well behaved vectors (or more generally some higher dimensional tensor). These transformations are usually quite lossy since much of the information contained in the raw data is unhelpful for prediction. This, however, has the unfortunate side effect that it makes it impossible to reconstruct the original raw data from its transformed counterpart, which is a helpful if not necessary ability in many situations. 
+When starting a new project, a data scientist or machine learning engineer spends a large portion, if not a majority of their time preparing the data for input into some ML algorithm. This involves cleaning, transforming and normalizing a variety of different data types so that they can all be represented as some set of well behaved vectors (or more generally some higher dimensional tensor). These transformations are usually quite lossy since much of the information contained in the raw data is unhelpful for prediction. This, however, has the unfortunate side effect that it makes it impossible to reconstruct the original raw data from its transformed counterpart, which is a helpful if not necessary ability in many situations. 
 
 Being able to look at the data in it's original form rather than a large block of numbers makes debugging process smoother and the model diagnosing more intuitive. That was the original motivation for creating this package but this system can be used in a wide variety of situations outsie of ML pipelines and was set up in as general purpose of a way as possible. That being said, there is submodule called 'Transforms' which is build on top of the waterworks system that is specifically for ML pipelines. These transforms convert categorical, numerical, datetime and string datatype into vectorized inputs for ML pipelines. This is discussed further [below](*ml-transfoms)
 
