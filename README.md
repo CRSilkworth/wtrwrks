@@ -12,20 +12,20 @@ As the reader is quickly finding out, there is a fair amount of made up jargon t
 
 Basically, you build a waterwork by connecting tanks together by fitting tubes into slots. The end result it a collection of connected tanks with some slots and tubes left unconnected. These are the inputs and outputs of the function (waterwork) and are known as funnels and taps respectively. 
 
-### Examples
-As a concrete example take the function f(a, b, c) = (a + b) * c. Let's imagine we wanted to build a waterwork that simulates this function. Because addition and multiplication are both actually quite lossy, there is a fair amount of additional information that you need to carry around in order to reconstruct a, b, and c later on. Both addition and multiplication store either the first or second input, depending on whichever has a fewer number of elemements. One can see this full process in action by running the code:
+## Examples
+### Example 1
+As a concrete example take the function f(a, b, c) = (a + b) * c. Let's imagine we wanted to build a waterwork that simulates this function. Because addition and multiplication are both actually quite lossy, there is a fair amount of additional information that you need to carry around in order to reconstruct a, b, and c later on. Both addition and multiplication store either the first (slot 'a') or second (slot 'b') input, depending on whichever has a fewer number of elemements. One can see this full process in action by running the code:
 ```python
 from waterworks import Waterwork, add, mul
 import pprint
 
 with Waterwork() as ww:
-  add_tubes, add_slots = add([1.0, 2.0, 3.0], [3.0, 4.0, 5.0])
-  div_tubes, div_slots = mul(add_tubes['target'], [2.0, 2.0, 2.0])
+  add_tubes, add_slots = add([1., 2., 3.], [3., 4., 5.])
+  mul_tubes, mul_slots = mul(add_tubes['target'], [2., 2., 2.])
 
-taps = ww.pour({}, key_type='str')
+taps = ww.pour(key_type='str')
 pprint.pprint(taps)
 ```
-
 ```
 {'Add_0/tubes/a_is_smaller': False,
  'Add_0/tubes/smaller_size_array': array([3., 4., 5.]),
@@ -34,4 +34,60 @@ pprint.pprint(taps)
  'Mul_0/tubes/smaller_size_array': array([2., 2., 2.]),
  'Mul_0/tubes/target': array([ 8., 12., 16.])}
 ```
-## ML Transforms
+
+Normally, when one wants to do to run (a + b) * c, you get a single output. However, in order to make this reversible, a 6 different outputs are returned. However, with these outputs one is able to completely undo the (a + b) * c operation, even in the presence of zeros, to get back the original a, b and c. 
+
+The taps, are all the tubes from all the tanks that were not connected to some other slot. Hence, 'add_tubes\["target"\]', does not appear as a tap since it was connected to the mul_slots\['a'\]. 
+
+Taking these tap values and feeding them to pump, you can get back a, b and c:
+```python
+funnels = ww.pump(taps, key_type='str')
+```
+```
+{'Add_0/slots/a': array([1., 2., 3.]),
+ 'Add_0/slots/b': array([3., 4., 5.]),
+ 'Mul_0/slots/b': array([2., 2., 2.])}
+ ```
+ ### Example 2
+In the previous example, all funnels were given values at the start, so there were no additional values needed to supply to the pour method. In fact, when all the values are filled at the start, the waterwork is actually eagerly executed:
+ ```python
+from waterworks import Waterwork, add, mul
+import pprint
+
+with Waterwork() as ww:
+  add_tubes, add_slots = add([1.0, 2.0, 3.0], [3.0, 4.0, 5.0])
+  print add_tubes['target'].get_val()
+```
+```
+[4. 6. 8.]
+```
+However, similar to tensorflow, this system was not really principally designed to run eargerly, but instead to run the same set of computations over and over again with different inputs. So, when defining the waterwork it's not really necessary to supply all values for all the slots at definition. The 'empty' object can be passed to the tank instead, then the values of the funnels can be passed when the actual pour method is run:
+```python
+from waterworks import Waterwork, add, mul, empty
+import pprint
+
+with Waterwork() as ww:
+  add_tubes, add_slots = add([1.0, 2.0, 3.0], b=empty)
+  div_tubes, div_slots = mul(add_tubes['target'], [2.0, 2.0, 2.0])
+
+taps = ww.pour({'Add_0/slots/b': [3., 4., 5.]}, key_type='str')
+pprint.pprint(taps)
+taps = ww.pour({'Add_0/slots/b': [5., 6., 7.]}, key_type='str')
+pprint.pprint(taps)
+```
+```
+{'Add_0/tubes/a_is_smaller': False,
+ 'Add_0/tubes/smaller_size_array': array([3., 4., 5.]),
+ 'Mul_0/tubes/a_is_smaller': False,
+ 'Mul_0/tubes/missing_vals': array([], dtype=float64),
+ 'Mul_0/tubes/smaller_size_array': array([2., 2., 2.]),
+ 'Mul_0/tubes/target': array([ 8., 12., 16.])}
+ 
+ {'Add_0/tubes/a_is_smaller': False,
+ 'Add_0/tubes/smaller_size_array': array([5., 6., 7.]),
+ 'Mul_0/tubes/a_is_smaller': False,
+ 'Mul_0/tubes/missing_vals': array([], dtype=float64),
+ 'Mul_0/tubes/smaller_size_array': array([2., 2., 2.]),
+ 'Mul_0/tubes/target': array([12., 16., 20.])}
+```
+# ML Transforms
