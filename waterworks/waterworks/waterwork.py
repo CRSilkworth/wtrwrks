@@ -251,7 +251,7 @@ class Waterwork(object):
 
     return self.tanks[tank.name].tubes[key]
 
-  def pour(self, funnel_dict, key_type='tube'):
+  def pour(self, funnel_dict=None, key_type='tube'):
     """Run all the operations of the waterwork in the pour (or forward) direction.
 
     Parameters
@@ -272,6 +272,8 @@ class Waterwork(object):
         The outputs of the waterwork's full pour function
 
     """
+    if funnel_dict is None:
+      funnel_dict = {}
     # Set all the values of the funnels from the inputted arguments.
     for ph, val in funnel_dict.iteritems():
       sl_obj = self.maybe_get_slot(ph)
@@ -315,7 +317,7 @@ class Waterwork(object):
 
     return r_dict
 
-  def pump(self, tap_dict, key_type='slot'):
+  def pump(self, tap_dict=None, key_type='slot'):
     """Run all the operations of the waterwork in the pump (or backward) direction.
 
     Parameters
@@ -336,6 +338,8 @@ class Waterwork(object):
         The outputs to the waterwork's full pump function.
 
     """
+    if tap_dict is None:
+      tap_dict = {}
     # Set all the values of the taps from the inputted arguments.
     for tap, val in tap_dict.iteritems():
       tu_obj = self.maybe_get_tube(tap)

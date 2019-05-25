@@ -345,3 +345,25 @@ class Transform(object):
     """Save the transform object to disk."""
     save_dict = self._save_dict()
     d.save_to_file(save_dict, path)
+
+  def write_examples(self, array, file_name):
+    """Pours the array then writes the examples to tfrecords.
+
+    Parameters
+    ----------
+    array : np.ndarray
+      The array to transform to examples, then write to disk.
+    file_name : str
+      The name of the tfrecord file to write to.
+
+    """
+    example_dicts = self.pour_examples(array)
+    writer = tf.python_io.TFRecordWriter(file_name)
+
+    for feature_dict in example_dicts:
+      example = tf.train.Example(
+        features=tf.train.Features(feature=feature_dict)
+      )
+      writer.write(example.SerializeToString())
+
+    writer.close()
