@@ -181,3 +181,13 @@ pprint.pprint(taps)
  'Mul_0/tubes/target': array([12., 16., 20.])}
 ```
 # ML Transforms
+Building transforms to prepare data to be feed into an ML pipeline was the original impetus for creating a system such as waterworks. Generally, nearly identical steps are taken every time one sets up a pipeline that transforms raw data into some vector or tensor representation. The main factor that controls what tranformations need to be done to the data to prepare it, has less to do with the ML algorithm is being used for and more to do with what the data type of the input. Currently there are four primitive transformations:
+
+| Transform | Example Input | Description |
+| --------- | ------------- | ---------- | 
+| NumTransform | \[1.0, 2.0\] | Converts one or more numberical inputs into a normalized vector |
+| CatTransform | \['a', 1, None\] | Converts some categorical variable into normalized one-hot vectors | 
+| DatetimeTransform | \[datetime(2000, 1, 1), datetime(1900, 5, 6, 12, 30, 5)\] | Converts datetime inputs into normalized vectors |
+| StringTransform | \['They ended up sleeping in a doorway.'] | Converts string into a set of indices which represent some set of tokens |
+
+Obviously, the description only mentions the principal output of the transform. There are others that are required in order to make the Transform reversible.
