@@ -1,8 +1,8 @@
 # wtrwrks
-+ [TLDR](*tldr)
-+ [Waterworks and Transforms](*waterworks-and-transforms)
-+ [Waterworks](*waterworks)
-+ [ML Reversible Transforms](*ml-reversible-transforms)
++ [TLDR](#tldr)
++ [Waterworks and Transforms](#waterworks-and-transforms)
++ [Waterworks](#waterworks)
++ [ML Reversible Transforms](#ml-reversible-transforms)
 ## TLDR
 Install:
 ```
@@ -96,7 +96,7 @@ with tf.Session() as sess:
 ## Waterworks and Transforms
 When starting a new project, a data scientist or machine learning engineer spends a large portion, if not a majority of their time preparing the data for input into some ML algorithm. This involves cleaning, transforming and normalizing a variety of different data types so that they can all be represented as some set of well behaved vectors (or more generally some higher dimensional tensor). These transformations are usually quite lossy since much of the information contained in the raw data is unhelpful for prediction. This, however, has the unfortunate side effect that it makes it impossible to reconstruct the original raw data from its transformed counterpart, which is a helpful if not necessary ability in many situations.
 
-Being able to look at the data in it's original form rather than a large block of numbers makes debugging process smoother and the model diagnosing more intuitive. That was the original motivation for creating this package but this system can be used in a wide variety of situations outsie of ML pipelines and was set up in as general purpose of a way as possible. That being said, there is submodule called 'Transforms' which is build on top of the waterworks system that is specifically for ML pipelines. These transforms convert categorical, numerical, datetime and string datatype into vectorized inputs for ML pipelines. This is discussed further [below](#ml-transforms)
+Being able to look at the data in it's original form rather than a large block of numbers makes debugging process smoother and the model diagnosing more intuitive. That was the original motivation for creating this package but this system can be used in a wide variety of situations outsie of ML pipelines and was set up in as general purpose of a way as possible. That being said, there is submodule called 'Transforms' which is build on top of the waterworks system that is specifically for ML pipelines. These transforms convert categorical, numerical, datetime and string datatype into vectorized inputs for ML pipelines. This is discussed further [below](#ml-reversible-transforms)
 
 ## Waterworks
 ### 'Theory' of Waterworks
