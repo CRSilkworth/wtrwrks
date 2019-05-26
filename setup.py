@@ -40,7 +40,7 @@ class CustomDependencyInstallCommand(install):
 
 
 setup(
-  name='reversible_transforms',
+  name='waterworks',
   description='',
   version='0.0.0',
   author='Christopher Silkworth',
