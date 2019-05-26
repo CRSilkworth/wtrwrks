@@ -1,11 +1,8 @@
 # wtrwrks
-[TLDR](*tldr)
-
-[Waterworks and Transforms](*waterworks-and-transforms)
-
-[Waterworks](*waterworks)
-
-[ML Reversible Transforms](*ml-reversible-transforms)
++ [TLDR](*tldr)
++ [Waterworks and Transforms](*waterworks-and-transforms)
++ [Waterworks](*waterworks)
++ [ML Reversible Transforms](*ml-reversible-transforms)
 ## TLDR
 Install:
 ```
