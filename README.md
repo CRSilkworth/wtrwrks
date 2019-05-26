@@ -208,7 +208,7 @@ These transforms are called 'primitive' because they do not require the definiti
 
 #### NumTransform
 Numerical transforms are the simplest transforms since they usually only require scaling/shifting of the raw values. However it does handle things like nans in a reversible way:
-```
+```python
 from wtrwrks import NumTransform
 import numpy as np
 array = np.array(
@@ -245,7 +245,7 @@ print remade_array
 ```
 #### CatTransform
 Categorical transformations always one hot their inputs. This means that passes an array of rank k with result in a one hot tensor of rank k+1. The categories can either be explicitly set using valid_cats or infered from the whole dataset when calc global values is called.
-```
+```python
 from wtrwrks import CatTransform
 import numpy as np
 array = np.array([
@@ -281,7 +281,7 @@ print remade_array
 ```
 #### DateTimeTransform
 DatetimeTransfom's are very similar to NumTransforms except that the datetimes are first changed into some unit of time. The zero datetime, i.e. the datetime that corresponds to the value of zero defaults to datetime(1970, 1, 1). The unit of time can be set when defining the transform by choosing 'time_unit' and 'num_units'. E.g. by choosing time_unit='D' and num_units=2 the datetime would be shown in increments of 2 days. Note that by doing this you are essentially setting the resolution, so you won't be able to get the hours of the day if you use 'time_unit' = 2.
-```
+```python
 from wtrwrks import DateTimeTransform
 import numpy as np
 import datetime
@@ -321,7 +321,7 @@ print remade_array
 ```
 #### StringTransform
 The string transform breaks up an array of raw strings into tokens and converts them to indices according to some index_to_word map. Various string normalization transformations can also be optionally selected like: lowercase, half width (for chinese characters) or lemmatize. The user must supply a tokenizer, and optionally supply a detokenizer. The detokenzer does not have to be exact, but the closer the detokenizer is to the inverse of the tokenizer the less of a diff_string (a string which stores the difference between the raw input and the normalized input) has to be carried around.
-```
+```python
 from wtrwrks import StringTransform
 import numpy as np
 import datetime
@@ -368,15 +368,15 @@ There are two transforms that are built from other transforms: DatasetTransform 
 
 #### Document Transform
 In additino to the StringTransfrom's word_tokenize the document transform has a sentence_toeknizer/detokenizer function. So the full document transform first breaks a document into sentences then words. There are separate way the sentences are arranged, and they are selected by the 'keep_dims' variable. When keep_dims is set to true then shape of the array of documents inputted into the document transform is preserved. Thus a max_doc_len (maximum document length) must be set, to decide the size of the created dimension. If, on the other hand, the keep_dims variable is set to False, then structure of the inputted array is not preserved and each sentence is given it's own line. As an example take:
-```
-array = array = np.array([
+```python
+array = np.array([
   ["It is what it is."],
   ["Here lies one whose name was writ in water. John Keats, 5 feet high."],
   ["The sun is not yellow, it's chicken. Look out kid, it's something you did. Holds no currency"]
 ])
 ```
 When keep_dims is set to True, and max_doc_len=2 this array will first be broken down into:
-```
+```python
 array = array = np.array([
   [["It is what it is."], ['']],
   [["Here lies one whose name was writ in water."],  ["John Keats, 5 feet high."]],
@@ -384,7 +384,7 @@ array = array = np.array([
 ])
 ```
 On the otherhand, when keep_dims is set to False you'd get:
-```
+```python
 array = array = np.array([
   ["It is what it is."],
   ["Here lies one whose name was writ in water."],
@@ -397,8 +397,8 @@ array = array = np.array([
 When keep_dims is set to false you'll always be left with a rank 2 array after the sentence tokenize.
 
 Here's an example of the full flow:
-```
-om waterworks import StringTransform, DocumentTransform
+```python
+from waterworks import StringTransform, DocumentTransform
 import numpy as np
 import datetime
 array = np.array([
