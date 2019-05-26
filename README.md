@@ -6,7 +6,7 @@
 ## TLDR
 Install:
 ```
-pip install git+https://github.com/CRSilkworth/waterworks.git@v1.0.0
+pip install wtrwrks
 
 ```
 Build waterwork:
