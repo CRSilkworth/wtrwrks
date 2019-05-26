@@ -41,7 +41,7 @@ class CustomDependencyInstallCommand(install):
 
 setup(
   name='wtrwrks',
-  description='',
+  description='A system for creating reversible data transformations',
   version='1.0.0',
   author='Christopher Silkworth',
   author_email='crsilkworth@gmail.com',
