@@ -42,7 +42,7 @@ class CustomDependencyInstallCommand(install):
 setup(
   name='waterworks',
   description='',
-  version='0.0.0',
+  version='1.0.0',
   author='Christopher Silkworth',
   author_email='crsilkworth@gmail.com',
   packages=find_packages(exclude=['unit_test', 'unitTest', '*.unitTest',

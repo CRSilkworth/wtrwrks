@@ -1,7 +1,7 @@
 # TLDR
 Install:
 ```
-pip install git+https://github.com/CRSilkworth/waterworks.git
+pip install git+https://github.com/CRSilkworth/waterworks.git@v1.0.0
 
 ```
 Build waterwork:
@@ -89,18 +89,18 @@ with tf.Session() as sess:
 
 ```
 # Waterworks and Transforms
-When starting a new project, a data scientist or machine learning engineer spends a large portion, if not a majority of their time preparing the data for input into some ML algorithm. This involves cleaning, transforming and normalizing a variety of different data types so that they can all be represented as some set of well behaved vectors (or more generally some higher dimensional tensor). These transformations are usually quite lossy since much of the information contained in the raw data is unhelpful for prediction. This, however, has the unfortunate side effect that it makes it impossible to reconstruct the original raw data from its transformed counterpart, which is a helpful if not necessary ability in many situations. 
+When starting a new project, a data scientist or machine learning engineer spends a large portion, if not a majority of their time preparing the data for input into some ML algorithm. This involves cleaning, transforming and normalizing a variety of different data types so that they can all be represented as some set of well behaved vectors (or more generally some higher dimensional tensor). These transformations are usually quite lossy since much of the information contained in the raw data is unhelpful for prediction. This, however, has the unfortunate side effect that it makes it impossible to reconstruct the original raw data from its transformed counterpart, which is a helpful if not necessary ability in many situations.
 
 Being able to look at the data in it's original form rather than a large block of numbers makes debugging process smoother and the model diagnosing more intuitive. That was the original motivation for creating this package but this system can be used in a wide variety of situations outsie of ML pipelines and was set up in as general purpose of a way as possible. That being said, there is submodule called 'Transforms' which is build on top of the waterworks system that is specifically for ML pipelines. These transforms convert categorical, numerical, datetime and string datatype into vectorized inputs for ML pipelines. This is discussed further [below](#ml-transforms)
 
 # Waterworks
 ## 'Theory' of Waterworks
-Creating a 'waterwork' amounts to creating a reversible function, i.e. a function f such that for any a &in; dom(f) you have an f<sup>-1</sup> such that f<sup>-1</sup>(f(a)) = a. Note that this does not imply that this same function f will satisfy f(f<sup>-1</sup>(b)) = b, for any b since f need only be injective not isomorphic. Waterworks are built from smaller reversible operations (called tanks) and are attached together to get more complex operations. Anyone who has built anything using [tensorflow](https://www.tensorflow.org/) will quickly see where the idea for this method of defining waterworks came from. A waterwork is a directed acyclic graph describing a series of operations to perform. The nodes of this graph are the tanks (i.e. operations) and the edges are the tubes/slots. The tanks are themselves reversible, and thus the entire waterwork is reversible. 
+Creating a 'waterwork' amounts to creating a reversible function, i.e. a function f such that for any a &in; dom(f) you have an f<sup>-1</sup> such that f<sup>-1</sup>(f(a)) = a. Note that this does not imply that this same function f will satisfy f(f<sup>-1</sup>(b)) = b, for any b since f need only be injective not isomorphic. Waterworks are built from smaller reversible operations (called tanks) and are attached together to get more complex operations. Anyone who has built anything using [tensorflow](https://www.tensorflow.org/) will quickly see where the idea for this method of defining waterworks came from. A waterwork is a directed acyclic graph describing a series of operations to perform. The nodes of this graph are the tanks (i.e. operations) and the edges are the tubes/slots. The tanks are themselves reversible, and thus the entire waterwork is reversible.
 
 As the reader is quickly finding out, there is a fair amount of made up jargon that the author found difficult to avoid. But hopefully the metaphor makes it a little bit easier to digest. Reference this diagram for a more intuitive picture of what is going on.
 <img src="https://raw.githubusercontent.com/CRSilkworth/waterworks/master/images/waterwork.png" alt="drawing" width="600"/>)
 
-Basically, you build a waterwork by connecting tanks together by fitting tubes into slots. The end result it a collection of connected tanks with some slots and tubes left unconnected. These are the inputs and outputs of the function (waterwork) and are known as funnels and taps respectively. 
+Basically, you build a waterwork by connecting tanks together by fitting tubes into slots. The end result it a collection of connected tanks with some slots and tubes left unconnected. These are the inputs and outputs of the function (waterwork) and are known as funnels and taps respectively.
 
 ## Examples
 ### Example 1
@@ -125,9 +125,9 @@ pprint.pprint(taps)
  'Mul_0/tubes/target': array([ 8., 12., 16.])}
 ```
 
-Normally, when one wants to do to run (a + b) * c, you get a single output. However, in order to make this reversible, a 6 different outputs are returned. However, with these outputs one is able to completely undo the (a + b) * c operation, even in the presence of zeros, to get back the original a, b and c. 
+Normally, when one wants to do to run (a + b) * c, you get a single output. However, in order to make this reversible, a 6 different outputs are returned. However, with these outputs one is able to completely undo the (a + b) * c operation, even in the presence of zeros, to get back the original a, b and c.
 
-The taps, are all the tubes from all the tanks that were not connected to some other slot. Hence, 'add_tubes\["target"\]', does not appear as a tap since it was connected to the mul_slots\['a'\]. 
+The taps, are all the tubes from all the tanks that were not connected to some other slot. Hence, 'add_tubes\["target"\]', does not appear as a tap since it was connected to the mul_slots\['a'\].
 
 Taking these tap values and feeding them to pump, you can get back a, b and c:
 ```python
@@ -172,7 +172,7 @@ pprint.pprint(taps)
  'Mul_0/tubes/missing_vals': array([], dtype=float64),
  'Mul_0/tubes/smaller_size_array': array([2., 2., 2.]),
  'Mul_0/tubes/target': array([ 8., 12., 16.])}
- 
+
  {'Add_0/tubes/a_is_smaller': False,
  'Add_0/tubes/smaller_size_array': array([5., 6., 7.]),
  'Mul_0/tubes/a_is_smaller': False,
@@ -184,9 +184,9 @@ pprint.pprint(taps)
 Building transforms to prepare data to be feed into an ML pipeline was the original impetus for creating a system such as waterworks. Generally, nearly identical steps are taken every time one sets up a pipeline that transforms raw data into some vector or tensor representation. The main factor that controls what tranformations need to be done to the data to prepare it, has less to do with the ML algorithm is being used for and more to do with what the data type of the input. Currently there are four primitive transformations:
 
 | Transform | Example Input | Description |
-| --------- | ------------- | ---------- | 
+| --------- | ------------- | ---------- |
 | NumTransform | \[1.0, 2.0\] | Converts one or more numberical inputs into a normalized vector |
-| CatTransform | \['a', 1, None\] | Converts some categorical variable into normalized one-hot vectors | 
+| CatTransform | \['a', 1, None\] | Converts some categorical variable into normalized one-hot vectors |
 | DatetimeTransform | \[datetime(2000, 1, 1), datetime(1900, 5, 6, 12, 30, 5)\] | Converts datetime inputs into normalized vectors |
 | StringTransform | \['They ended up sleeping in a doorway.'] | Converts string into a set of indices which represent some set of tokens |
 
@@ -196,8 +196,8 @@ The description only mentions the principal output of the transform. There are o
 These transforms are called 'primitive' because they do not require the definition of an sub tranforms. The user interacts with all of them in a very similar manner. The general flow is:
 1. Define the transform - set any attributes: normalization modes, normalization axes, any functions which handle nans, etc.
 2. Calculate any global values - find the values that depend on the entire dataset: e.g. means, stds, mins, max, complete list of categories, etc.
-3. Pour the raw data into a dictionary of normalized, vectorized data. 
-4. Write them to tfrecords. 
+3. Pour the raw data into a dictionary of normalized, vectorized data.
+4. Write them to tfrecords.
 5. Do any training, interference, what have you.
 6. Pump back any filtered, analyzed data to raw format for human interpretation.
 
@@ -384,7 +384,7 @@ array = array = np.array([
   ["It is what it is."],
   ["Here lies one whose name was writ in water."],
   ["John Keats, 5 feet high."],
-  ["The sun is not yellow, it's chicken."], 
+  ["The sun is not yellow, it's chicken."],
   [" Look out kid, it's something you did."],
   ["Holds no currency"]
 ])
