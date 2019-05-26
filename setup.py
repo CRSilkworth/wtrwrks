@@ -40,7 +40,7 @@ class CustomDependencyInstallCommand(install):
 
 
 setup(
-  name='waterworks',
+  name='wtrwrks',
   description='',
   version='1.0.0',
   author='Christopher Silkworth',
