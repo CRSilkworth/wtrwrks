@@ -1,4 +1,4 @@
-# TLDR;
+# TLDR
 Install:
 ```
 pip install git+https://github.com/CRSilkworth/waterworks.git
@@ -359,7 +359,7 @@ remade_array = trans.pump(outputs)
 print remade_array
 ```
 ## Compound transforms
-There are two transforms that are built from other transforms: DatasetTransform and DocumentTransform. Dataset transform is a general purpose transform that takes in a large array of multiple input types and assigns slices of the array to the various sub transformations. An example of using this can be seen in the [TLDR](#tldr;). The document transform pulls apart an array of individual documents, then uses a StringTransformation to futher break them down.
+There are two transforms that are built from other transforms: DatasetTransform and DocumentTransform. Dataset transform is a general purpose transform that takes in a large array of multiple input types and assigns slices of the array to the various sub transformations. An example of using this can be seen in the [TLDR](#tldr). The document transform pulls apart an array of individual documents, then uses a StringTransformation to futher break them down.
 
 ### Document Transform
 In additino to the StringTransfrom's word_tokenize the document transform has a sentence_toeknizer/detokenizer function. So the full document transform first breaks a document into sentences then words. There are separate way the sentences are arranged, and they are selected by the 'keep_dims' variable. When keep_dims is set to true then shape of the array of documents inputted into the document transform is preserved. Thus a max_doc_len (maximum document length) must be set, to decide the size of the created dimension. If, on the other hand, the keep_dims variable is set to False, then structure of the inputted array is not preserved and each sentence is given it's own line. As an example take:
