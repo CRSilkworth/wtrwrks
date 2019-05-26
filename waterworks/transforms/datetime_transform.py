@@ -312,14 +312,15 @@ class DateTimeTransform(n.Transform):
 
     if self.norm_mode == 'mean_std':
       # Find the means and standard deviations of each column
+      array[np.isnat(array)] = self.fill_nat_func(array)
       temp_array = (array - self.zero_datetime)/np.timedelta64(self.num_units, self.time_unit)
       temp_array = temp_array.astype(self.dtype)
 
       if not len(temp_array):
         raise ValueError("Inputted col_array has no non nan values.")
 
-      self.mean = np.nanmean(temp_array, axis=self.norm_axis)
-      self.std = np.nanstd(temp_array, axis=self.norm_axis)
+      self.mean = np.mean(temp_array, axis=self.norm_axis)
+      self.std = np.std(temp_array, axis=self.norm_axis)
 
       # If any of the standard deviations are 0, replace them with 1's and
       # print out a warning
@@ -331,19 +332,23 @@ class DateTimeTransform(n.Transform):
     elif self.norm_mode == 'min_max':
       # Find the means and standard deviations of each column
       # temp_col_array = col_array[~np.isnat(col_array)]
+      array[np.isnat(array)] = self.fill_nat_func(array)
       temp_array = (array - self.zero_datetime)/np.timedelta64(self.num_units, self.time_unit)
       temp_array = temp_array.astype(self.dtype)
 
       if not len(temp_array):
         raise ValueError("Inputted col_array has no non nan values.")
 
-      self.min = np.nanmin(temp_array, axis=self.norm_axis)
-      self.max = np.nanmax(temp_array, axis=self.norm_axis)
+      self.min = np.min(temp_array, axis=self.norm_axis)
+      self.max = np.max(temp_array, axis=self.norm_axis)
 
       # Test to make sure that min and max are not equal. If they are replace
       # with default values.
       if (self.min == self.max).any():
-        self.max[self.max == self.min] = self.max[self.max == self.min] + 1
+        if self.max.shape:
+          self.max[self.max == self.min] = self.max[self.max == self.min] + 1
+        else:
+          self.max = self.max + 1
 
         if verbose:
           warnings.warn("DatetimeTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")

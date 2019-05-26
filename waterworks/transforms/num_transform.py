@@ -294,8 +294,9 @@ class NumTransform(n.Transform):
 
     if self.norm_mode == 'mean_std':
       # Find the means and standard deviations of each column
-      self.mean = np.nanmean(array, axis=self.norm_axis)
-      self.std = np.nanstd(array, axis=self.norm_axis)
+      array[np.isnan(array)] = self.fill_nan_func(array)
+      self.mean = np.mean(array, axis=self.norm_axis)
+      self.std = np.std(array, axis=self.norm_axis)
 
       # If any of the standard deviations are 0, replace them with 1's and
       # print out a warning
@@ -306,13 +307,17 @@ class NumTransform(n.Transform):
 
     elif self.norm_mode == 'min_max':
       # Find the means and standard deviations of each column
-      self.min = np.nanmin(array, axis=self.norm_axis)
-      self.max = np.nanmax(array, axis=self.norm_axis)
+      array[np.isnan(array)] = self.fill_nan_func(array)
+      self.min = np.min(array, axis=self.norm_axis)
+      self.max = np.max(array, axis=self.norm_axis)
 
       # Test to make sure that min and max are not equal. If they are replace
       # with default values.
       if (self.min == self.max).any():
-        self.max[self.max == self.min] = self.max[self.max == self.min] + 1
+        if self.max.shape:
+          self.max[self.max == self.min] = self.max[self.max == self.min] + 1
+        else:
+          self.max = self.max + 1
 
         if verbose:
           warnings.warn("NumTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")

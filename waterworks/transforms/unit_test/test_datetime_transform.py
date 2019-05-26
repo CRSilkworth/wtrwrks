@@ -83,8 +83,9 @@ class TestDateTimeTransform(th.TestTransform):
       )
       trans.calc_global_values(self.array[:, 1: 2])
       target = np.array((self.array[:, 1: 2] - trans.zero_datetime) / np.timedelta64(1, 'D'), copy=True)
-      target = (target - trans.mean)/trans.std
-      target[1, 0] = -1.24496691
+      target = np.array([[-0.9153226063677012], [-0.9153226063677012], [0.34578854018335375], [1.4848566725520487]])
+      # target[1, 0] = -1.24496691
+      print target
       for i in xrange(2):
         self.pour_pump(
           trans,
@@ -113,8 +114,8 @@ class TestDateTimeTransform(th.TestTransform):
       )
       trans.calc_global_values(self.array[:, 1: 2])
       target = np.array((self.array[:, 1: 2] - trans.zero_datetime) / np.timedelta64(1, 'D'), copy=True)
-      target = (target - trans.mean)/trans.std
-      target[1, 0] = -1.24496691
+      target = np.array([[-0.9153226063677012], [-0.9153226063677012], [0.34578854018335375], [1.4848566725520487]])
+      # target[1, 0] = -1.24496691
       for i in xrange(2):
         self.pour_pump(
           trans,

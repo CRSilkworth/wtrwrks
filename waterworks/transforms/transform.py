@@ -97,7 +97,6 @@ class Transform(object):
     elif dtype in (np.int64, np.int32, np.float64, np.float32):
       full_missing_vals = np.zeros(mask.shape, dtype=dtype)
     else:
-      print dtype, dtype.type, dtype.type in (np.string_, np.unicode_)
       raise TypeError("Only string and number types are supported. Got " + str(dtype))
 
     full_missing_vals[mask] = missing_vals
