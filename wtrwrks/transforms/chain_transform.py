@@ -11,7 +11,7 @@ from wtrwrks.waterworks.empty import empty
 import os
 import numpy as np
 
-class DatasetTransform(tr.Transform):
+class SequenceTransform(tr.Transform):
   """A Transform that is built out of other transform. Used to handle entire dataset which may have varied input types. Transforms an array normalized vectors and any information needed to fully reconstruct the original array.
 
   Parameters
