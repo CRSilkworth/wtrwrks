@@ -1,7 +1,13 @@
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 import subprocess
+import os
 
+this_directory = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(this_directory, 'README.md')) as f:
+  long_description = f.read()
+
+print long_description
 
 class CustomDependencyInstallCommand(install):
   """Customized setuptools install command - install all dependencies."""
@@ -42,7 +48,9 @@ class CustomDependencyInstallCommand(install):
 setup(
   name='wtrwrks',
   description='A system for creating reversible data transformations',
-  version='1.0.0',
+  long_description=long_description,
+  long_description_content_type='text/markdown',
+  version='1.0.1',
   author='Christopher Silkworth',
   author_email='crsilkworth@gmail.com',
   packages=find_packages(exclude=['unit_test', 'unitTest', '*.unitTest',
