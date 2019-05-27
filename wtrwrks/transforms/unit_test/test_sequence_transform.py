@@ -58,7 +58,7 @@ def basic_lemmatizer(string):
   return lemma
 
 
-class TestDocumentTransform(th.TestTransform):
+class TestStringTransform(th.TestTransform):
   def setUp(self):
     self.temp_dir = tempfile.mkdtemp()
 
