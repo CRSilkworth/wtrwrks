@@ -11,7 +11,7 @@ import tensorflow as tf
 import pprint
 import hashlib
 
-class DocumentTransform(n.Transform):
+class DocumentToSentenceTransform(n.Transform):
   """Class used to transform entire documents into standardized vectors along with any supplemental data needed in order to reconstruct the original documents.
 
   Parameters
@@ -38,7 +38,7 @@ class DocumentTransform(n.Transform):
     The shape of the original inputted array.
 
   """
-  attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'sent_tokenizer': None, 'sent_detokenizer': lambda a: ''.join(a), 'string_transform': None, 'max_doc_len': None, 'keep_dims': True}
+  attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'sent_tokenizer': None, 'sent_detokenizer': lambda a: ''.join(a), 'max_doc_len': None, 'keep_dims': True}
 
   def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""
@@ -60,11 +60,11 @@ class DocumentTransform(n.Transform):
       Dictionay of only those tap dict values which are can't be inferred from the Transform itself.
 
     """
-    r_dict = self.string_transform._extract_pour_outputs(tap_dict, os.path.join(prefix, self.name))
-
     # Unique document ids are needed for the case that all the sentences are
     # put on the same axis (i.e. keep_dims=False) because there is no way to
     # distinguish which sentences came from which documents.
+    r_dict = {}
+    r_dict[self._pre('sentences', prefix)] = tap_dict[self._pre('sentences', prefix)]
     if not self.keep_dims:
       r_dict[self._pre('ids', prefix)] = tap_dict[self._pre('ids', prefix)]
 
@@ -88,51 +88,6 @@ class DocumentTransform(n.Transform):
     """
     return funnel_dict[self._pre('input', prefix)]
 
-  def _alter_pour_outputs(self, pour_outputs, prefix=''):
-    """Create a list of dictionaries for each example from the outputs of the pour method.
-
-    Parameters
-    ----------
-    pour_outputs : dict
-      The outputs of the _extract_pour_outputs method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    list of dicts of features
-      The example dictionaries which contain tf.train.Features.
-
-    """
-    s_pour_outputs = {k: v for k, v in pour_outputs.iteritems() if k.startswith(os.path.join(prefix, self.name, self.string_transform.name))}
-    s_pour_outputs = self.string_transform._alter_pour_outputs(s_pour_outputs, os.path.join(prefix, self.name))
-
-    pour_outputs.update(s_pour_outputs)
-
-    return pour_outputs
-
-  def _from_save_dict(self, save_dict):
-    """Reconstruct the transform object from the dictionary of attributes."""
-    for key in self.attribute_dict:
-      if key == 'string_transform':
-        continue
-      setattr(self, key, save_dict[key])
-
-    trans_save_dict = save_dict['string_transform']
-    trans = st.StringTransform(save_dict=trans_save_dict)
-    setattr(self, 'string_transform', trans)
-
-  def _save_dict(self):
-    """Create the dictionary of values needed in order to reconstruct the transform."""
-    save_dict = {}
-    for key in self.attribute_dict:
-      if key == 'string_transform':
-        continue
-      save_dict[key] = getattr(self, key)
-
-    save_dict['string_transform'] = self.string_transform._save_dict()
-    return save_dict
-
   def _get_funnel_dict(self, array=None, prefix=''):
     """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
 
@@ -149,7 +104,7 @@ class DocumentTransform(n.Transform):
       The dictionary with all funnels filled with values necessary in order to run the pour method.
 
     """
-    funnel_dict = self.string_transform._get_funnel_dict()
+    funnel_dict = {}
     if array is not None:
       funnel_dict['input'] = array
 
@@ -179,7 +134,8 @@ class DocumentTransform(n.Transform):
     The dictionary with all taps filled with values necessary in order to run the pump method.
 
     """
-    tap_dict = self.string_transform._get_tap_dict(pour_outputs, os.path.join(prefix, self.name))
+    tap_dict = {}
+    tap_dict[self._pre('sentences', prefix)] = pour_outputs[self._pre('sentences', prefix)]
     if not self.keep_dims:
       tap_dict[self._pre('FlatTokenize_0/tubes/shape', prefix)] = self.input_shape
       tap_dict[self._pre('ids', prefix)] = pour_outputs[self._pre('ids', prefix)]
@@ -202,17 +158,11 @@ class DocumentTransform(n.Transform):
       The dictionary of all the values outputted by the pour method.
 
     """
-    s_pour_outputs = {k: v for k, v in arrays_dict.iteritems() if k.startswith(os.path.join(prefix, self.name, self.string_transform.name))}
-
-    pour_outputs = self.string_transform._parse_examples(s_pour_outputs, os.path.join(prefix, self.name))
+    pour_outputs = {}
+    pour_outputs.update(arrays_dict)
 
     if not self.keep_dims:
       pour_outputs[self._pre('ids', prefix)] = arrays_dict[self._pre('ids', prefix)].reshape([-1])
-      # ids = []
-      # for example_dict in example_dicts:
-      #   r_id = example_dict[self._pre('ids', prefix)]
-      #   ids.append(r_id)
-      # pour_outputs[self._pre('ids', prefix)] = np.concatenate(ids)
 
     return pour_outputs
 
@@ -225,13 +175,7 @@ class DocumentTransform(n.Transform):
       The keyword arguments that set the values of the attributes defined in the attribute_dict.
 
     """
-    super(DocumentTransform, self)._setattributes(**kwargs)
-
-    if not isinstance(self.string_transform, st.StringTransform):
-      raise ValueError("Must supply a StringTransform to string_transform. Got " + type(self.string_transform))
-
-    if not self.string_transform.name:
-      raise ValueError("string_transform must have name. Got " + str(self.string_transform.name))
+    super(DocumentToSentenceTransform, self)._setattributes(**kwargs)
 
     if self.sent_tokenizer is None:
       raise ValueError("Must specify a sentence tokenizer (sent_tokenizer). Got " + str(self.sent_tokenizer))
@@ -250,16 +194,24 @@ class DocumentTransform(n.Transform):
       The dictionary with keys equal to those that are found in the Transform's example dicts and values are the shapes of the arrays of a single example.
 
     """
-    att_dict = self.string_transform._get_array_attributes(os.path.join(prefix, self.name))
+    att_dict = {}
+    shape = list(self.input_shape[1:]) + [self.max_doc_len]
+    att_dict['sentences'] = {
+      'shape': shape if self.keep_dims else [1],
+      'tf_type': tf.string,
+      'size': feat.size_from_shape(shape) if self.keep_dims else 1,
+      'feature_func': feat._bytes_feat,
+      'np_type': np.unicode
+    }
     if not self.keep_dims:
-      att_dict[self._pre('ids', prefix)] = {
+      att_dict['ids'] = {
         'shape': [],
         'tf_type': tf.string,
         'size': 1,
         'feature_func': feat._bytes_feat,
         'np_type': np.unicode
       }
-
+    att_dict = self._pre(att_dict, prefix)
     return att_dict
 
   def calc_global_values(self, documents, verbose=True):
@@ -277,7 +229,6 @@ class DocumentTransform(n.Transform):
     self.input_shape = documents.shape
     self.num_pours = 0
 
-    array = []
     all_sentences = []
     max_len = None
     # Tokenize each document into sentences and get the max document length.
@@ -290,29 +241,6 @@ class DocumentTransform(n.Transform):
 
     if self.max_doc_len is None:
       self.max_doc_len = max_len
-
-    # If the original structure of the array is going to be kept then either pad
-    # each document's sentences with empty strings or truncate them so that
-    # all documents are of size max doc length.
-    if self.keep_dims:
-      stand_sentences = []
-      for document, sentences in zip(documents.flatten(), all_sentences):
-        doc_diff = self.max_doc_len - len(sentences)
-        if doc_diff >= 0:
-          sentences = np.pad(sentences, (0, doc_diff), 'constant', constant_values=('', '')).astype(self.input_dtype)
-        else:
-          sentences = np.array(sentences[:doc_diff]).astype(self.input_dtype)
-        stand_sentences.append(sentences)
-
-      array = np.concatenate(stand_sentences)
-      array = array.reshape(list(self.input_shape) + [self.max_doc_len])
-
-    # Otherwise just concatenate all the sentences into one long array.
-    else:
-      array = np.concatenate(all_sentences).astype(self.input_dtype)
-
-    # Pass the array of sentences to the string_transform's calc_global_values
-    self.string_transform.calc_global_values(array)
 
   def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.
@@ -335,14 +263,11 @@ class DocumentTransform(n.Transform):
       sents_slots['ids'].set_name('doc_ids')
       sents['ids'].set_name('ids')
 
-    # Otherwise call tokenize which keeps the structure of array and adds a dim.
     else:
       sents, sents_slots = td.tokenize(strings=array, tokenizer=self.sent_tokenizer, detokenizer=self.sent_detokenizer, max_len=self.max_doc_len)
 
     sents_slots['strings'].set_name('input')
-
-    with ns.NameSpace(self.string_transform.name):
-      self.string_transform.define_waterwork(array=sents['target'])
+    sents['target'].set_name('sentences')
 
     if return_tubes is not None:
       ww = sents['target'].waterwork

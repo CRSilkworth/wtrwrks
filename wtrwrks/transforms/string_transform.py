@@ -51,7 +51,7 @@ class StringTransform(n.Transform):
   def __len__(self):
     return self.max_sent_len
 
-  def _extract_pour_outputs(self, tap_dict, prefix=''):
+  def _extract_pour_outputs(self, tap_dict, prefix='', **kwargs):
     """Pull out all the values from tap_dict that cannot be explicitly reconstructed from the transform itself. These are the values that will need to be fed back to the transform into run the tranform in the pump direction.
 
     Parameters
@@ -109,13 +109,7 @@ class StringTransform(n.Transform):
       The dictionary with keys equal to those that are found in the Transform's example dicts and values equal the FixedLenFeature defintion of the example key.
 
     """
-    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
-    if self.lower_case:
-      array_keys.append('lower_case_diff')
-    if self.half_width:
-      array_keys.append('half_width_diff')
-    if self.lemmatize:
-      array_keys.append('lemmatize_diff')
+    array_keys = self._get_array_keys()
 
     size = np.prod(self.input_shape[1:])
 
@@ -135,7 +129,55 @@ class StringTransform(n.Transform):
     feature_dict = self._pre(feature_dict, prefix)
     return feature_dict
 
-  def _get_example_dicts(self, pour_outputs, prefix=''):
+  def _get_array_attributes(self, prefix=''):
+    """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
+
+    Parameters
+    ----------
+    prefix : str
+      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
+
+    Returns
+    -------
+    dict
+      The dictionary with keys equal to those that are found in the Transform's example dicts and values are the shapes of the arrays of a single example.
+
+    """
+    # Create the list of all the keys expected from the example_dicts
+    array_keys = self._get_array_keys()
+
+    # Get the original array's shape, except for the batch dim.
+    shape = list(self.input_shape[1:])
+
+    att_dict = {}
+    for key in array_keys:
+
+      # Add a max_sent_len dim to the tokenize_diff array since it has a
+      # diff for each token, otherwise give it input array's shape.
+      cur_shape = shape if key == 'tokenize_diff' else shape + [self.max_sent_len]
+
+      att_dict[key] = {
+        'shape': list(cur_shape),
+        'tf_type': tf.int64 if key == 'indices' else tf.string,
+        'size': feat.size_from_shape(cur_shape),
+        'feature_func': feat._int_feat if key == 'indices' else feat._bytes_feat,
+        'np_type': np.int64 if key == 'indices' else np.unicode
+      }
+    att_dict = self._pre(att_dict, prefix)
+    return att_dict
+
+  def _get_array_keys(self):
+    """Get the relevant list of keys for this instance of the string transform"""
+    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
+    if self.lower_case:
+      array_keys.append('lower_case_diff')
+    if self.half_width:
+      array_keys.append('half_width_diff')
+    if self.lemmatize:
+      array_keys.append('lemmatize_diff')
+    return array_keys
+
+  def _alter_pour_outputs(self, pour_outputs, prefix=''):
     """Create a list of dictionaries for each example from the outputs of the pour method.
 
     Parameters
@@ -162,33 +204,8 @@ class StringTransform(n.Transform):
     # the indices array. This is so it can be easily separated into individual
     # rows that be put into separate examples.
     pour_outputs['missing_vals'] = self._full_missing_vals(mask, missing_vals)
-
-    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
-    if self.lower_case:
-      array_keys.append('lower_case_diff')
-    if self.half_width:
-      array_keys.append('half_width_diff')
-    if self.lemmatize:
-      array_keys.append('lemmatize_diff')
-
-    # Create an example dict for each row of indices.
-    num_examples = pour_outputs['indices'].shape[0]
-    example_dicts = []
-    for row_num in xrange(num_examples):
-      example_dict = {}
-      for key in array_keys:
-
-        # Flatten the arrays since tfrecords can only have one dimension.
-        # Convert to the appropriate feature type.
-        serial = pour_outputs[key][row_num].flatten()
-        if key == 'indices':
-          example_dict[key] = feat._int_feat(serial)
-        else:
-          example_dict[key] = feat._bytes_feat(serial)
-
-      example_dict = self._pre(example_dict, prefix)
-      example_dicts.append(example_dict)
-    return example_dicts
+    pour_outputs = self._pre(pour_outputs, prefix)
+    return pour_outputs
 
   def _get_funnel_dict(self, array=None, prefix=''):
     """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
@@ -238,7 +255,6 @@ class StringTransform(n.Transform):
 
     """
     pour_outputs = self._nopre(pour_outputs, prefix)
-
     # Set all the tap values that are common across all string transforms.
     tap_dict = {
       'indices': pour_outputs['indices'],
@@ -280,7 +296,7 @@ class StringTransform(n.Transform):
 
     return self._pre(tap_dict, prefix)
 
-  def _parse_example_dicts(self, example_dicts, prefix=''):
+  def _parse_examples(self, arrays_dict, prefix=''):
     """Convert the list of example_dicts into the original outputs that came from the pour method.
 
     Parameters
@@ -296,38 +312,8 @@ class StringTransform(n.Transform):
       The dictionary of all the values outputted by the pour method.
 
     """
-    # Create the list of all the keys expected from the example_dicts
-    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
-    if self.lower_case:
-      array_keys.append('lower_case_diff')
-    if self.half_width:
-      array_keys.append('half_width_diff')
-    if self.lemmatize:
-      array_keys.append('lemmatize_diff')
+    pour_outputs = self._nopre(arrays_dict, prefix)
 
-    # Go through each example dict, pull out the arrays associated with each
-    # key of pour outputs, reshape them to their proper shape and add them
-    # to individual lists so that they can be stacked together.
-    pour_outputs = {k: list() for k in array_keys}
-    for example_dict in example_dicts:
-      for key in array_keys:
-        fixed_array = example_dict[self._pre(key, prefix)]
-
-        if key != 'tokenize_diff':
-          fixed_array = fixed_array.reshape(list(self.input_shape[1:]) + [self.max_sent_len])
-        else:
-          fixed_array = fixed_array.reshape(self.input_shape[1:])
-
-        pour_outputs[key].append(fixed_array)
-
-    # Stack the lists of arrays into arrays with a batch dimension
-    for key in array_keys:
-      pour_outputs[key] = np.stack(pour_outputs[key])
-
-    # Reconstruct the missing values by flattening the stacked array and
-    # pulling out only those values which correspond to an unknown value.
-    # This gives you the original 1D array of dense missing values for the
-    # original array.
     mask = pour_outputs['indices'] == self.unk_index
     pour_outputs['missing_vals'] = pour_outputs['missing_vals'][mask].flatten()
 
@@ -351,41 +337,6 @@ class StringTransform(n.Transform):
       raise ValueError("Must specify an unk_index. The index to assign the unknown words.")
     if self.word_tokenizer is None:
       raise ValueError("No tokenizer set for this Transform. Must supply one as input into pour.")
-
-  def _shape_def(self, prefix=''):
-    """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
-
-    Parameters
-    ----------
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary with keys equal to those that are found in the Transform's example dicts and values are the shapes of the arrays of a single example.
-
-    """
-    # Create the list of all the keys expected from the example_dicts
-    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
-    if self.lower_case:
-      array_keys.append('lower_case_diff')
-    if self.half_width:
-      array_keys.append('half_width_diff')
-    if self.lemmatize:
-      array_keys.append('lemmatize_diff')
-
-    # Get the original array's shape, except for the batch dim.
-    shape = list(self.input_shape[1:])
-
-    shape_dict = {}
-    for key in array_keys:
-      # Add a max_sent_len dim to the tokenize_diff array since it has a
-      # diff for each token, otherwise give it input array's shape.
-      shape_dict[key] = shape if key == 'tokenize_diff' else shape + [self.max_sent_len]
-
-    shape_dict = self._pre(shape_dict, prefix)
-    return shape_dict
 
   def calc_global_values(self, array, verbose=True):
     """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
@@ -411,7 +362,7 @@ class StringTransform(n.Transform):
           max_len = cur_len
       self.max_sent_len = max_len
 
-  def define_waterwork(self, array=empty):
+  def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.
 
     Parameters
@@ -471,3 +422,10 @@ class StringTransform(n.Transform):
     # Set the names of the slots and tubes of this tank for easier referencing
     indices['target'].set_name('indices')
     indices_slots['cat_to_index_map'].set_name('word_to_index')
+
+    if return_tubes is not None:
+      ww = indices['target'].waterwork
+      r_tubes = []
+      for r_tube_key in return_tubes:
+        r_tubes.append(ww.maybe_get_tube(r_tube_key))
+      return r_tubes

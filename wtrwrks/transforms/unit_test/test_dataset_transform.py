@@ -70,7 +70,7 @@ class TestDatasetTransform(th.TestDataset):
           'DT/CAT/missing_vals': np.array([]),
           'DT/CAT/one_hots':  [[[1.0, -0.5773502691896258, -0.5773502691896258]], [[-1.0, 1.7320508075688774, -0.5773502691896258]], [[-1.0, -0.5773502691896258, 1.7320508075688774]], [[1.0, -0.5773502691896258, -0.5773502691896258]]],
           'DT/DATE/nats':  [[False, False, True], [False, True, True], [False, False, True], [False, False, True]],
-          'DT/DATE/diff': np.array([], dtype='timedelta64[us]'),
+          'DT/DATE/diff': np.array([[datetime.timedelta(0), datetime.timedelta(0), datetime.timedelta(0)], [datetime.timedelta(0), datetime.timedelta(0), datetime.timedelta(0)], [datetime.timedelta(0), datetime.timedelta(0), datetime.timedelta(0)], [datetime.timedelta(0), datetime.timedelta(0), datetime.timedelta(0)]], dtype='timedelta64[us]'),
           'DT/DATE/nums': np.array([[0.9976643838327857, 0.9976643838327857, 0.0], [0.9977039705474843, 0.0, 0.0], [0.9977435572621828, 0.9988915719884407, 0.0], [0.9976643838327857, 1.0, 0.0]]),
           'DT/NUM/nans': [[False, False, True], [False, True, True], [False, False, True], [False, False, True]],
           'DT/NUM/nums': [[0.09090909090909091, 0.18181818181818182, 0.0], [0.36363636363636365, 0.0, 0.0], [0.6363636363636364, 0.7272727272727273, 0.0], [0.9090909090909091, 1.0, 0.0]],

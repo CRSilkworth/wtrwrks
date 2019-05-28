@@ -134,6 +134,7 @@ class Tokenize(ta.Tank):
       string = detokenizer(tokens)
       string = di.reconstruct(string, diff_string)
       all_strings.append(string)
+    all_strings = np.array(all_strings)
 
     # Reshape to the original shape.
     strings = np.reshape(all_strings, target.shape[:-1])

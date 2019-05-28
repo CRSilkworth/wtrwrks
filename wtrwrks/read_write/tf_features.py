@@ -32,3 +32,35 @@ def _bytes_feat(value):
       value = value.encode('utf-8')
     value = [value]
   return tf.train.Feature(bytes_list=tf.train.BytesList(value=value))
+
+
+def select_feature_func(dtype):
+  """Choose a feature function based on the inputted datatype."""
+  if dtype in (np.int32, np.int64, np.bool):
+    return _int_feat
+  elif dtype in (np.float32, np.float64):
+    return _float_feat
+  elif dtype.type in (np.string_, np.unicode_):
+    return _bytes_feat
+  else:
+    raise TypeError("Only string and number types are supported. Got " + str(dtype))
+
+
+def select_tf_dtype(dtype):
+  """Choose a tensorflow type based on the inputted numpy datatype."""
+  if dtype in (np.int32, np.int64, np.bool):
+    return tf.int64
+  elif dtype in (np.float32, np.float64):
+    return tf.float32
+  elif dtype.type in (np.string_, np.unicode_):
+    return tf.string
+  else:
+    raise TypeError("Only string and number types are supported. Got " + str(dtype))
+
+
+def size_from_shape(shape):
+  """Calculate the size of the array from it's shape."""
+  if not shape:
+    return 1
+
+  return np.prod(shape)

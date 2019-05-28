@@ -41,7 +41,7 @@ class CatTransform(n.Transform):
     assert self.input_dtype is not None, ("Run calc_global_values before attempting to get the length.")
     return len(self.index_to_cat_val)
 
-  def _extract_pour_outputs(self, tap_dict, prefix=''):
+  def _extract_pour_outputs(self, tap_dict, prefix='', **kwargs):
     """Pull out all the values from tap_dict that cannot be explicitly reconstructed from the transform itself. These are the values that will need to be fed back to the transform into run the tranform in the pump direction.
 
     Parameters
@@ -79,101 +79,7 @@ class CatTransform(n.Transform):
     array_key = self._pre('CatToIndex_0/slots/cats', prefix)
     return funnel_dict[array_key]
 
-  def _feature_def(self, num_cols=1, prefix=''):
-    """Get the dictionary that contain the FixedLenFeature information for each key found in the example_dicts. Needed in order to build ML input pipelines that read tfrecords.
-
-    Parameters
-    ----------
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary with keys equal to those that are found in the Transform's example dicts and values equal the FixedLenFeature defintion of the example key.
-
-    """
-    # Decide the dtype of the missing values based on the type of the original
-    # array.
-    dtype = self.input_dtype
-    if dtype.type in (np.string_, np.unicode_):
-      tf_dtype = tf.string
-    elif dtype in (np.int32, np.int64):
-      tf_dtype = tf.int64
-    elif dtype in (np.float32, np.float64):
-      tf_dtype = tf.float32
-    else:
-      raise TypeError("Only string and number types are supported. Got " + str(dtype))
-
-    size = np.prod(self.input_shape[1:])
-
-    feature_dict = {}
-    feature_dict['missing_vals'] = tf.FixedLenFeature([size], tf_dtype)
-    feature_dict['one_hots'] = tf.FixedLenFeature([size*len(self)], tf.float32)
-    feature_dict['indices'] = tf.FixedLenFeature([size], tf.int64)
-
-    feature_dict = self._pre(feature_dict, prefix)
-    return feature_dict
-
-    def _get_example_dicts(self, pour_outputs, prefix=''):
-      """Create a list of dictionaries for each example from the outputs of the pour method.
-
-      Parameters
-      ----------
-      pour_outputs : dict
-        The outputs of the _extract_pour_outputs method.
-      prefix : str
-        Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-      Returns
-      -------
-      list of dicts of features
-        The example dictionaries which contain tf.train.Features.
-
-      """
-      pour_outputs = self._nopre(pour_outputs, prefix)
-
-      # Find the locations of all the missing values. i.e. those that have been
-      # replace by the -1.
-      mask = pour_outputs['indices'] == -1
-      missing_vals = pour_outputs['missing_vals']
-
-      # Convert the 1D missing vals array into a full array of the same size as
-      # the indices array. This is so it can be easily separated into individual
-      # rows that be put into separate examples.
-      full_missing_vals = self._full_missing_vals(mask, missing_vals)
-
-      num_examples = pour_outputs['indices'].shape[0]
-      example_dicts = []
-      for row_num in xrange(num_examples):
-        example_dict = {}
-
-        # Flatten the array and convert them into features.
-        one_hots = pour_outputs['one_hots'][row_num].flatten()
-        example_dict['one_hots'] = feat._float_feat(one_hots)
-        indices = pour_outputs['indices'][row_num].flatten()
-        example_dict['indices'] = feat._int_feat(indices)
-
-        missing_val = full_missing_vals[row_num]
-
-        # Decide the type of the missing vals depending on the original array.
-        dtype = self.input_dtype
-        if dtype.type in (np.string_, np.unicode_):
-          example_dict['missing_vals'] = feat._bytes_feat(missing_val)
-        elif dtype in (np.int32, np.int64):
-          example_dict['missing_vals'] = feat._int_feat(missing_val)
-        elif dtype in (np.float32, np.float64):
-          example_dict['missing_vals'] = feat._float_feat(missing_val)
-        else:
-          raise TypeError("Only string and number types are supported. Got " + str(dtype))
-
-        example_dict = self._pre(example_dict, prefix)
-        example_dicts.append(example_dict)
-
-      return example_dicts
-
-
-  def _get_example_dicts(self, pour_outputs, prefix=''):
+  def _alter_pour_outputs(self, pour_outputs, prefix=''):
     """Create a list of dictionaries for each example from the outputs of the pour method.
 
     Parameters
@@ -199,38 +105,24 @@ class CatTransform(n.Transform):
     # rows that be put into separate examples.
     missing_vals = pour_outputs['missing_vals']
     full_missing_vals = self._full_missing_vals(mask, missing_vals)
+    pour_outputs['missing_vals'] = full_missing_vals
 
-    # Create an example dict for each row of indices.
-    num_examples = pour_outputs['indices'].shape[0]
-    example_dicts = []
-    for row_num in xrange(num_examples):
-      example_dict = {}
+    # att_dict = self._nopre(self._get_array_attributes(prefix), prefix)
+    #
+    # # Create an example dict for each row of indices.
+    # num_examples = pour_outputs['indices'].shape[0]
+    # example_dicts = []
+    # for row_num in xrange(num_examples):
+    #   example_dict = {}
+    #   for key in pour_outputs:
+    #     flat = pour_outputs[key][row_num].flatten()
+    #     example_dict[key] = att_dict[key]['feature_func'](flat)
+    #
+    #   example_dict = self._pre(example_dict, prefix)
+    #   example_dicts.append(example_dict)
+    pour_outputs = self._pre(pour_outputs, prefix)
+    return pour_outputs
 
-      # Flatten the arrays since tfrecords can only have one dimension.
-      # Convert to the appropriate feature type.
-      one_hots = pour_outputs['one_hots'][row_num].flatten()
-      example_dict['one_hots'] = feat._float_feat(one_hots)
-
-      indices = pour_outputs['indices'][row_num].flatten()
-      example_dict['indices'] = feat._int_feat(indices)
-
-      missing_val = full_missing_vals[row_num]
-      dtype = self.input_dtype
-
-      # Decide the missin_vals type based off the type of the input array.
-      if dtype.type in (np.string_, np.unicode_):
-        example_dict['missing_vals'] = feat._bytes_feat(missing_val)
-      elif dtype in (np.int32, np.int64):
-        example_dict['missing_vals'] = feat._int_feat(missing_val)
-      elif dtype in (np.float32, np.float64):
-        example_dict['missing_vals'] = feat._float_feat(missing_val)
-      else:
-        raise TypeError("Only string and number types are supported. Got " + str(dtype))
-
-      example_dict = self._pre(example_dict, prefix)
-      example_dicts.append(example_dict)
-
-    return example_dicts
   def _get_funnel_dict(self, array=None, prefix=''):
     """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
 
@@ -296,7 +188,7 @@ class CatTransform(n.Transform):
       }
     return self._pre(tap_dict, prefix)
 
-  def _parse_example_dicts(self, example_dicts, prefix=''):
+  def _parse_examples(self, arrays_dict, prefix=''):
     """Convert the list of example_dicts into the original outputs that came from the pour method.
 
     Parameters
@@ -312,36 +204,10 @@ class CatTransform(n.Transform):
       The dictionary of all the values outputted by the pour method.
 
     """
-    pour_outputs = {'one_hots': [], 'indices': []}
-
-    shape = list(self.input_shape[1:])
-
-    # Go through each example, divide up the pour outputs to stack them into
-    # separate arrays.
-    missing_vals = []
-    for example_dict in example_dicts:
-      one_hots = example_dict[self._pre('one_hots', prefix)]
-      pour_outputs['one_hots'].append(
-        one_hots.reshape(shape + [len(self)])
-      )
-
-      indices = example_dict[self._pre('indices', prefix)]
-      pour_outputs['indices'].append(indices.reshape(shape))
-
-      mvs = example_dict[self._pre('missing_vals', prefix)]
-      missing_vals.append(mvs.reshape(shape))
-
-    pour_outputs = {
-      'one_hots': np.stack(pour_outputs['one_hots']),
-      'indices': np.stack(pour_outputs['indices']),
-    }
-
-    # Reconstruct the missing values by flattening the stacked array and
-    # pulling out only those values which correspond to an unknown value.
-    # This gives you the original 1D array of dense missing values for the
-    # original array.
-    missing_vals = np.stack(missing_vals)
-    missing_vals = missing_vals[pour_outputs['indices'] == -1]
+    pour_outputs = {}
+    pour_outputs = self._nopre(arrays_dict, prefix)
+    
+    missing_vals = pour_outputs['missing_vals'][pour_outputs['indices'] == -1]
     pour_outputs['missing_vals'] = missing_vals.tolist()
 
     pour_outputs = self._pre(pour_outputs, prefix)
@@ -361,7 +227,7 @@ class CatTransform(n.Transform):
     if self.norm_mode not in (None, 'mean_std'):
       raise ValueError(self.norm_mode + " not a valid norm mode.")
 
-  def _shape_def(self, prefix=''):
+  def _get_array_attributes(self, prefix=''):
     """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
 
     Parameters
@@ -375,13 +241,32 @@ class CatTransform(n.Transform):
       The dictionary with keys equal to those that are found in the Transform's example dicts and values are the shapes of the arrays of a single example.
 
     """
-    shape_dict = {}
-    shape_dict['missing_vals'] = self.input_shape[1:]
-    shape_dict['one_hots'] = list(self.input_shape[1:]) + [len(self)]
-    shape_dict['indices'] = self.input_shape[1:]
+    att_dict = {}
+    att_dict['missing_vals'] = {
+      'shape': list(self.input_shape[1:]),
+      'tf_type': feat.select_tf_dtype(self.input_dtype),
+      'size': feat.size_from_shape(self.input_shape[1:]),
+      'feature_func': feat.select_feature_func(self.input_dtype),
+      'np_type': self.input_dtype
+    }
+    one_hots_shape = list(self.input_shape[1:]) + [len(self.index_to_cat_val)]
+    att_dict['one_hots'] = {
+      'shape': one_hots_shape,
+      'tf_type': feat.select_tf_dtype(self.dtype),
+      'size': feat.size_from_shape(one_hots_shape),
+      'feature_func': feat.select_feature_func(self.dtype),
+      'np_type': self.dtype
+    }
+    att_dict['indices'] = {
+      'shape': list(self.input_shape[1:]),
+      'tf_type': tf.int64,
+      'size': feat.size_from_shape(self.input_shape[1:]),
+      'feature_func': feat._int_feat,
+      'np_type': np.int64
+    }
 
-    shape_dict = self._pre(shape_dict, prefix)
-    return shape_dict
+    att_dict = self._pre(att_dict, prefix)
+    return att_dict
 
   def calc_global_values(self, array, verbose=True):
     """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
@@ -469,7 +354,7 @@ class CatTransform(n.Transform):
 
         self.std[self.std == 0] = 1.0
 
-  def define_waterwork(self, array=empty):
+  def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.
 
     Parameters
@@ -503,3 +388,10 @@ class CatTransform(n.Transform):
       one_hots, _ = one_hots['target'] / self.std
 
     one_hots['target'].set_name('one_hots')
+
+    if return_tubes is not None:
+      ww = one_hots['target'].waterwork
+      r_tubes = []
+      for r_tube_key in return_tubes:
+        r_tubes.append(ww.maybe_get_tube(r_tube_key))
+      return r_tubes

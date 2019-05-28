@@ -1,7 +1,9 @@
 """Definition of the base Transform class"""
 import pandas as pd
 import wtrwrks.utils.dir_functions as d
+import wtrwrks.tanks.utils as ut
 import wtrwrks.waterworks.waterwork as wa
+import wtrwrks.read_write.tf_features as feat
 import os
 import numpy as np
 import tensorflow as tf
@@ -57,13 +59,39 @@ class Transform(object):
     """Return the stringified values for each of the attributes in attribute list."""
     return str({a: str(getattr(self, a)) for a in self.attribute_dict})
 
+  def _alter_pour_outputs(self, pour_outputs, prefix=''):
+    """Optionally set by subclass if some further alterations need to be done."""
+    return pour_outputs
+
+  def _array_dicts_to_array_dict(self, array_dicts):
+    """Convert the list of array dictionaries into a dictionary of arrays, by stacking across all dictionaries in the list.
+
+    Parameters
+    ----------
+    array_dicts : list of dicts
+      The list of array dictionaries to convert into a single array dictionary.
+
+    Returns
+    -------
+    dict of numpy array
+      All the arrays from the lists stacked along the 0th dimension.
+
+    """
+
+    r_dict = {}
+    for array_dict in array_dicts:
+      for key in array_dict:
+        r_dict.setdefault(key, [])
+        r_dict[key].append(array_dict[key])
+
+    for key in r_dict:
+      r_dict[key] = np.stack(r_dict[key])
+    return r_dict
+
   def _extract_pour_outputs(self, tap_dict, prefix=''):
     raise NotImplementedError()
 
   def _extract_pump_outputs(self, funnel_dict, prefix=''):
-    raise NotImplementedError()
-
-  def _feature_def(self, num_cols=1, prefix=''):
     raise NotImplementedError()
 
   def _from_save_dict(self, save_dict):
@@ -101,9 +129,6 @@ class Transform(object):
 
     full_missing_vals[mask] = missing_vals
     return full_missing_vals
-
-  def _get_example_dicts(self, pour_outputs, prefix=''):
-    raise NotImplementedError()
 
   def _get_funnel_dict(self, array=None, prefix=''):
     raise NotImplementedError()
@@ -143,11 +168,11 @@ class Transform(object):
         r_d[key] = d[key]
     return r_d
 
-  def _parse_example_dicts(self, example_dicts, prefix=''):
+  def _parse_examples(self, example_dicts, prefix=''):
     raise NotImplementedError()
 
   def _pre(self, d, prefix=''):
-    """Add the name and some additional prefix to the keys in a dictionary or to a string directly
+    """Add the name and some additional prefix to the keys in a dictionary or to a string directly.
 
     Parameters
     ----------
@@ -180,6 +205,7 @@ class Transform(object):
     save_dict = {}
     for key in self.attribute_dict:
       save_dict[key] = getattr(self, key)
+    save_dict['__class__'] = str(self.__class__.__name__)
     return save_dict
 
   def _setattributes(self, **kwargs):
@@ -209,7 +235,7 @@ class Transform(object):
   def _shape_def(self, prefix=''):
     raise NotImplementedError()
 
-  def define_waterwork(self):
+  def define_waterwork(self, array=None, return_tubes=None):
     raise NotImplementedError()
 
   def get_waterwork(self, recreate=False):
@@ -238,7 +264,7 @@ class Transform(object):
     self.waterwork = ww
     return ww
 
-  def pour(self, array):
+  def pour(self, array, **kwargs):
     """Execute the transformation in the pour (forward) direction.
 
     Parameters
@@ -255,9 +281,9 @@ class Transform(object):
     ww = self.get_waterwork()
     funnel_dict = self._get_funnel_dict(array)
     tap_dict = ww.pour(funnel_dict, key_type='str')
-    return self._extract_pour_outputs(tap_dict)
+    return self._extract_pour_outputs(tap_dict, **kwargs)
 
-  def pour_examples(self, array):
+  def pour_examples(self, array, prefix=''):
     """Run the pour transformation on an array to transform it into a form best for ML pipelines. This list of example dictionaries can be easily converted into tf records, but also have all the information needed in order to reconstruct the original array.
 
     Parameters
@@ -271,8 +297,31 @@ class Transform(object):
       The example dictionaries which contain tf.train.Features.
 
     """
+
     pour_outputs = self.pour(array)
-    example_dicts = self._get_example_dicts(pour_outputs)
+    pour_outputs = self._alter_pour_outputs(pour_outputs, prefix)
+
+    num_examples = pour_outputs[pour_outputs.keys()[0]].shape[0]
+
+    # Get the dictionary of attributes (shape, dtype, etc.) of the arrays in
+    # pour_outputs.
+    att_dict = self._get_array_attributes(prefix)
+    # print pour_outputs.keys(), att_dict.keys()
+    # Go through each row and each key of pour_outputs. Flatten the array and
+    # convert it into it's proper feature. Return as list of dicts.
+
+    example_dicts = []
+
+    for row_num in xrange(num_examples):
+      example_dict = {}
+
+      for key in pour_outputs:
+        dtype = att_dict[key]['np_type']
+        flat = pour_outputs[key][row_num].flatten().astype(dtype)
+        example_dict[key] = att_dict[key]['feature_func'](flat)
+
+      example_dicts.append(example_dict)
+
     return example_dicts
 
   def pump(self, kwargs):
@@ -294,12 +343,12 @@ class Transform(object):
     funnel_dict = ww.pump(tap_dict, key_type='str')
     return self._extract_pump_outputs(funnel_dict)
 
-  def pump_examples(self, example_dicts):
+  def pump_examples(self, example_dicts, prefix=''):
     """Run the pump transformation on a list of example dictionaries to reconstruct the original array.
 
     Parameters
     ----------
-    example_dicts: list of dicts of arrays
+    example_dicts: list of dicts of arrays or dict of arrays
       The example dictionaries which the arrays associated with a single example.
 
     Returns
@@ -308,7 +357,19 @@ class Transform(object):
       The numpy array to transform into examples.
 
     """
-    pour_outputs = self._parse_example_dicts(example_dicts)
+
+    if type(example_dicts) is not dict:
+      arrays_dict = self._array_dicts_to_array_dict(example_dicts)
+    else:
+      arrays_dict = {}
+      arrays_dict.update(example_dicts)
+    att_dict = self._get_array_attributes(prefix)
+
+    for key in arrays_dict:
+      arrays_dict[key] = arrays_dict[key].reshape([-1] + att_dict[key]['shape'])
+      arrays_dict[key] = arrays_dict[key].astype(att_dict[key]['np_type'])
+    pour_outputs = self._parse_examples(arrays_dict)
+
     return self.pump(pour_outputs)
 
   def read_and_decode(self, serialized_example, prefix=''):
@@ -327,8 +388,15 @@ class Transform(object):
       The tensors created by decoding the serialized example
 
     """
-    feature_dict = self._feature_def(prefix)
-    shape_dict = self._shape_def(prefix)
+    att_dict = self._get_array_attributes(prefix)
+    feature_dict = {}
+    shape_dict = {}
+    for key in att_dict:
+      feature_dict[key] = tf.FixedLenFeature(
+        att_dict[key]['size'],
+        att_dict[key]['tf_type']
+      )
+      shape_dict[key] = att_dict[key]['shape']
 
     features = tf.parse_single_example(
       serialized_example,

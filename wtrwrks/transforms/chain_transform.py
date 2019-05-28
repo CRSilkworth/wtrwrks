@@ -1,18 +1,13 @@
-"""DatasetTransform definition."""
+"""ChainTransform definition."""
 import wtrwrks.tanks.tank_defs as td
 import wtrwrks.waterworks.name_space as ns
 import wtrwrks.waterworks.waterwork as wa
 import wtrwrks.transforms.transform as tr
-import wtrwrks.transforms.cat_transform as ct
-import wtrwrks.transforms.datetime_transform as dt
-import wtrwrks.transforms.num_transform as nt
-import wtrwrks.transforms.string_transform as st
 from wtrwrks.waterworks.empty import empty
 import os
-import numpy as np
 
-class SequenceTransform(tr.Transform):
-  """A Transform that is built out of other transform. Used to handle entire dataset which may have varied input types. Transforms an array normalized vectors and any information needed to fully reconstruct the original array.
+class ChainTransform(tr.Transform):
+  """A transform that is built out of other transforms. The transforms are stitched together in a chain such that one of the pour outputs from the preceding transform is fed as an argument into the next.
 
   Parameters
   ----------
@@ -31,11 +26,13 @@ class SequenceTransform(tr.Transform):
     The shape of the original inputted array.
   transforms : dict
     The dictionary which holds all the Transforms that the DatasetTransform is built from.
-  transform_col_ranges : list of 2-tuples
-    The slice defintions that split up an full dataset array into subarrays which are fed to the sub transforms found in the 'transforms' dictionary.
+  transform_order : list of str
+    The list that stores the order in which the transforms operate on the data.
+  tap_keys : list of str and None
+    A list that stores which of the preceding transforms' outputs will be fed as an input into the next transform. The first value is always 'None'.
 
   """
-  attribute_dict = {'name': '', 'transforms': None, 'transform_col_ranges': None}
+  attribute_dict = {'name': '', 'transforms': None, 'transform_order': None, 'tap_keys': None}
 
   def __getitem__(self, key):
     """Return the transform corresponding to key"""
@@ -45,28 +42,129 @@ class SequenceTransform(tr.Transform):
     """Iterator of the transform set is just the iterator of the transforms dictionary"""
     return iter(self.transforms)
 
-  def _feature_def(self, num_cols=None):
-    """Get the dictionary that contain the FixedLenFeature information for each key found in the example_dicts. Needed in order to build ML input pipelines that read tfrecords.
+  def _extract_pour_outputs(self, tap_dict, prefix='', keep_connected=False, **kwargs):
+    """Pull out all the values from tap_dict that cannot be explicitly reconstructed from the transform itself. These are the values that will need to be fed back to the transform into run the tranform in the pump direction.
 
     Parameters
     ----------
+    tap_dict : dict
+      The dictionary outputted by the pour (forward) transform.
     prefix : str
       Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
 
     Returns
     -------
     dict
-      The dictionary with keys equal to those that are found in the Transform's example dicts and values equal the FixedLenFeature defintion of the example key.
+      Dictionay of only those tap dict values which are can't be inferred from the Transform itself.
 
     """
-    feature_dict = {}
-    for key in self.transforms:
-      trans = self.transforms[key]
-      trans_feature_dict = trans._feature_def(prefix=self.name)
-      feature_dict.update(trans_feature_dict)
-    return feature_dict
+    pour_outputs = {}
+    for trans_num, trans_key in enumerate(self.transform_order):
+      trans = self.transforms[trans_key]
+      pour_outputs.update(trans._extract_pour_outputs(tap_dict, prefix=os.path.join(prefix, self.name)))
 
-  def _get_example_dicts(self, pour_outputs):
+      if trans_num >= len(self.transform_order) - 1:
+        continue
+
+      tap_key = self._pre(self.tap_keys[trans_num + 1], prefix)
+
+      if tap_key in pour_outputs and not keep_connected:
+        del pour_outputs[tap_key]
+
+    return pour_outputs
+
+  def _extract_pump_outputs(self, funnel_dict, prefix=''):
+    """Pull out the original array from the funnel_dict which was produced by running pump.
+
+    Parameters
+    ----------
+    funnel_dict : dict
+      The dictionary outputted by running the transform's pump method. The keys are the names of the funnels and the values are the values of the tubes.
+    prefix : str
+      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
+
+    Returns
+    -------
+    np.ndarray
+      The array reconstructed from the pump method.
+
+    """
+
+    trans = self.transforms[self.transform_order[0]]
+    return trans._extract_pump_outputs(funnel_dict, prefix=os.path.join(prefix, self.name))
+
+  def _from_save_dict(self, save_dict):
+    """Reconstruct the transform object from the dictionary of attributes."""
+    import wtrwrks.transforms.transform_defs as trd
+    for key in self.attribute_dict:
+      if key == 'transforms':
+        continue
+      setattr(self, key, save_dict[key])
+
+    transforms = {}
+    for key in save_dict['transforms']:
+      trans_save_dict = save_dict['transforms'][key]
+      trans = eval('trd.' + trans_save_dict['__class__'])(save_dict=trans_save_dict)
+      transforms[key] = trans
+    setattr(self, 'transforms', transforms)
+
+  def _save_dict(self):
+    """Create the dictionary of values needed in order to reconstruct the transform."""
+    save_dict = {}
+    for key in self.attribute_dict:
+      if key == 'transforms':
+        continue
+      save_dict[key] = getattr(self, key)
+
+    save_dict['transforms'] = {}
+    for key in self.transforms:
+      save_dict['transforms'][key] = self.transforms[key]._save_dict()
+    return save_dict
+
+  def pump_examples(self, example_dicts, prefix=''):
+    """Run the pump transformation on a list of example dictionaries to reconstruct the original array.
+
+    Parameters
+    ----------
+    example_dicts: list of dicts of arrays
+      The example dictionaries which the arrays associated with a single example.
+
+    Returns
+    -------
+    np.ndarray
+      The numpy array to transform into examples.
+
+    """
+    if type(example_dicts) is not dict:
+      pour_outputs = self._array_dicts_to_array_dict(example_dicts)
+    att_dict = self._get_array_attributes(prefix)
+    array = None
+
+    for trans_num, trans_key in enumerate(self.transform_order[::-1]):
+      trans = self.transforms[trans_key]
+
+      prefix = os.path.join(self.name, trans_key) + '/'
+
+      # Build the pour outputs for this transform from the previous transform
+      # array and any other relevant values in pour_outputs.
+      kwargs = {}
+      if trans_num != 0:
+        tap_key = self._pre(self.tap_keys[-trans_num])
+        kwargs[tap_key] = array
+        # print tap_key, array.shape
+      for output_name in pour_outputs:
+        if not output_name.startswith(prefix):
+          continue
+        kwargs[output_name] = pour_outputs[output_name]
+        kwargs[output_name] = kwargs[output_name].reshape([-1] + att_dict[output_name]['shape'])
+        kwargs[output_name] = kwargs[output_name].astype(att_dict[output_name]['np_type'])
+        # print output_name, kwargs[output_name].shape
+      kwargs = self._nopre(kwargs)
+      array = trans.pump_examples(kwargs)
+
+    return array
+
+  def _alter_pour_outputs(self, pour_outputs, prefix=''):
     """Create a list of dictionaries for each example from the outputs of the pour method.
 
     Parameters
@@ -82,23 +180,18 @@ class SequenceTransform(tr.Transform):
       The example dictionaries which contain tf.train.Features.
 
     """
-    # Pull out the example dicts from each of the transforms.
-    all_example_dicts = {}
+    r_pour_outputs = {}
     for key in self.transforms:
       trans = self.transforms[key]
-      all_example_dicts[key] = trans._get_example_dicts(pour_outputs, prefix=self.name)
 
-    # Merge the dictionaries together so that there is one example_dict for
-    # each example.
-    example_dicts = []
-    for row_num, trans_dicts in enumerate(zip(*[all_example_dicts[k] for k in self.transforms])):
-      example_dict = {}
-      for trans_dict in trans_dicts:
-        example_dict.update(trans_dict)
-      example_dicts.append(example_dict)
-    return example_dicts
+      trans_pour_outputs = {k: v for k, v in pour_outputs.iteritems() if k.startswith(os.path.join(prefix, self.name, trans.name))}
 
-  def _parse_example_dicts(self, example_dicts, prefix=''):
+      trans_pour_outputs = trans._alter_pour_outputs(trans_pour_outputs, prefix=os.path.join(prefix, self.name))
+      r_pour_outputs.update(trans_pour_outputs)
+
+    return r_pour_outputs
+
+  def _parse_examples(self, arrays_dict, prefix=''):
     """Convert the list of example_dicts into the original outputs that came from the pour method.
 
     Parameters
@@ -115,9 +208,12 @@ class SequenceTransform(tr.Transform):
 
     """
     pour_outputs = {}
-    for key in self.transforms:
+    for trans_num, trans_key in enumerate(self.transform_order.reverse()):
       trans = self.transforms[key]
-      trans_pour_outputs = trans._parse_example_dicts(example_dicts, prefix=self.name)
+      # if array is not None:
+      #   tap_key = self.tap_keys[-(trans_num + 1)]
+      #   trans_arrays_dict[tap_key] = array
+      trans_pour_outputs = trans._parse_examples(arrays_dict, prefix=os.path.join(prefix, self.name))
       pour_outputs.update(trans_pour_outputs)
     return pour_outputs
 
@@ -130,12 +226,13 @@ class SequenceTransform(tr.Transform):
       The keyword arguments that set the values of the attributes defined in the attribute_dict.
 
     """
-    super(DatasetTransform, self)._setattributes(**kwargs)
+    super(ChainTransform, self)._setattributes(**kwargs)
     if self.transforms is None:
       self.transforms = {}
-      self.transform_col_ranges = {}
+      self.transform_order = []
+      self.tap_keys = []
 
-  def _shape_def(self, num_cols=None):
+  def _get_array_attributes(self, prefix=''):
     """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
 
     Parameters
@@ -149,23 +246,94 @@ class SequenceTransform(tr.Transform):
       The dictionary with keys equal to those that are found in the Transform's example dicts and values are the shapes of the arrays of a single example.
 
     """
-    shape_dict = {}
-    for key in self.transforms:
+    att_dict = {}
+    for key_num, key in enumerate(self.transform_order):
       trans = self.transforms[key]
-      trans_shape_dict = trans._shape_def(prefix=self.name)
-      shape_dict.update(trans_shape_dict)
-    return shape_dict
+      trans_att_dict = trans._get_array_attributes(prefix=os.path.join(prefix, self.name))
 
-  def add_transform(self, col_ranges, transform):
+      if key_num != len(self.transform_order) - 1:
+        tap_key = self._pre(self.tap_keys[key_num + 1], prefix='')
+        del trans_att_dict[tap_key]
+
+      att_dict.update(trans_att_dict)
+
+    return att_dict
+
+  def _get_funnel_dict(self, array=None, prefix=''):
+    """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
+
+    Parameters
+    ----------
+    array : np.ndarray
+      The inputted array of raw information that is to be fed through the pour method.
+    prefix : str
+      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
+
+    Returns
+    -------
+    dict
+      The dictionary with all funnels filled with values necessary in order to run the pour method.
+
+    """
+    funnel_dict = {}
+    # Get the funnel dicts from each of the transforms.
+    for trans_num, name in enumerate(self.transform_order):
+      trans = self.transforms[name]
+      if trans_num != 0:
+        array = None
+
+      funnel_dict.update(
+        trans._get_funnel_dict(array, prefix=self.name)
+      )
+    return funnel_dict
+
+  def pump(self, pour_outputs):
+    """Execute the transformation in the pump (backward) direction.
+
+    Parameters
+    ----------
+    kwargs: dict
+      The dictionary all information needed to completely reconstruct the original rate.
+
+    Returns
+    -------
+    array : np.ndarray
+      The original numpy array that was poured.
+
+    """
+    array = None
+
+    for trans_num, trans_key in enumerate(self.transform_order[::-1]):
+      trans = self.transforms[trans_key]
+
+      prefix = os.path.join(self.name, trans_key) + '/'
+
+      # Build the pour outputs for this transform from the previous transform
+      # array and any other relevant values in pour_outputs.
+      kwargs = {}
+      if trans_num != 0:
+        tap_key = self._pre(self.tap_keys[-trans_num])
+        kwargs[tap_key] = array
+        # print tap_key, array.shape
+      for output_name in pour_outputs:
+        if not output_name.startswith(prefix):
+          continue
+        kwargs[output_name] = pour_outputs[output_name]
+        # print output_name, kwargs[output_name].shape
+      kwargs = self._nopre(kwargs)
+      array = trans.pump(kwargs)
+
+    return array
+
+  def add_transform(self, transform, tap_key=None):
     """Add another transform to the dataset transform. The added transform must have a unique name.
 
     Parameters
     ----------
-    col_ranges : 2-tuple of ints
-      The slice of the array that this transformation will operate on.
     transform : Transform
       The transform object that will operate on the subarray described by col_ranges.
-
+    tap_key : str
+      The key of the previous transform's tap that will be inputted as an array into
     """
     name = transform.name
     if name is None or name == '':
@@ -173,8 +341,12 @@ class SequenceTransform(tr.Transform):
     elif name in self.transforms:
       raise ValueError(str(name) + " already the name of a transform.")
 
+    if self.transform_order and tap_key is None:
+      raise ValueError(str(name) + " is not the first transform of the chain. Must specify a tap_key from the previous tranform as input into this transform.")
+
     self.transforms[name] = transform
-    self.transform_col_ranges[name] = col_ranges
+    self.transform_order.append(name)
+    self.tap_keys.append(tap_key)
 
   def calc_global_values(self, array):
     """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
@@ -189,42 +361,20 @@ class SequenceTransform(tr.Transform):
     """
     self.input_dtype = array.dtype
     self.input_shape = array.shape
-    all_ranges = []
-    for key in self:
-      trans = self.transforms[key]
-
-      # Get the slice definition of the transform.
-      col_range = self.transform_col_ranges[key]
-      all_ranges.append(col_range[0])
-      all_ranges.append(col_range[1])
-
-      # Get the subarrays and cast them to valid dtypes.
-      subarray = array[:, col_range[0]: col_range[1]]
-      if isinstance(trans, nt.NumTransform):
-        subarray = subarray.astype(np.float64)
-      elif isinstance(trans, dt.DateTimeTransform):
-        subarray = subarray.astype(np.datetime64)
-      elif isinstance(trans, st.StringTransform):
-        subarray = subarray.astype(np.unicode)
-      elif isinstance(trans, ct.CatTransform):
-        subarray = subarray.astype(np.unicode)
+    for trans_num, trans_key in enumerate(self.transform_order):
+      trans = self.transforms[trans_key]
 
       # Calculate the global values for this transform.
-      self.transforms[key].calc_global_values(subarray)
+      trans.calc_global_values(array)
+      if trans_num >= len(self.transform_order) - 1:
+        continue
 
-    # Verify that all the columns were used from the array, otherwise throw
-    # an error.
-    all_ranges = set(range(array.shape[1]))
-    for key in self:
-      col_range = self.transform_col_ranges[key]
-      for index in xrange(col_range[0], col_range[1]):
-        if index in all_ranges:
-          all_ranges.remove(index)
+      trans_outputs = trans.pour(array)
 
-    if all_ranges:
-      raise ValueError("Must use all columns in array. Columns " + str(sorted(all_ranges)) + " are unused. Either remove them from the array or all additional transforms which use them.")
+      tap_key = self.tap_keys[trans_num + 1]
+      array = trans_outputs[tap_key]
 
-  def define_waterwork(self, array=empty):
+  def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.
 
     Parameters
@@ -241,46 +391,28 @@ class SequenceTransform(tr.Transform):
     assert self.input_dtype is not None, ("Run calc_global_values before running the transform")
 
     with ns.NameSpace(self.name):
-      indices = [self.transform_col_ranges[k] for k in sorted(self.transforms)]
+      for trans_num, trans_key in enumerate(self.transform_order):
+        trans = self.transforms[trans_key]
 
-      # Can only partition along the 0th axis so transpose it so that the
-      # 'column' dimension is the first
-      perm = [1, 0] + list(self.input_shape[2:])
-      transp, transp_slots = td.transpose(a=array, axes=perm)
+        with ns.NameSpace(trans.name):
+          if trans_num < len(self.transform_order) - 1:
+            tap_key = self.tap_keys[trans_num + 1]
+            return_tubes = [self._pre(tap_key)]
+          else:
+            return_tubes = None
 
-      # Parition the full dataset array into subarrays so that the individual
-      # transforms can handle them.
-      parts, _ = td.partition(a=transp['target'], indices=indices)
-      parts['missing_cols'].set_name('missing_cols')
-      parts['missing_array'].set_name('missing_array')
-      transp_slots['a'].set_name('input')
+          tubes = trans.define_waterwork(array, return_tubes)
 
-      # Split up the Tube object into a list of Tubes so they can each be fed
-      # into individual transforms.
-      parts_list, _ = td.iter_list(parts['target'], num_entries=len(self.transforms))
-      for part, name in zip(parts_list, sorted(self.transforms)):
-        trans = self.transforms[name]
+          if tubes is None:
+            continue
 
-        # Transpose it back to it's original orientation
-        trans_back, _ = td.transpose(a=part, axes=perm)
-        part = trans_back['target']
+          old_name = tubes[0].name
+          tubes[0].set_name("to_be_cloned")
 
-        # Depending on the type of transform, cast the subarray to its valid
-        # type.
-        if isinstance(trans, nt.NumTransform):
-          cast, _ = td.cast(part, np.float64, name='-'.join([name, 'cast']))
-          part = cast['target']
-        elif isinstance(trans, dt.DateTimeTransform):
-          cast, _ = td.cast(part, np.datetime64, name='-'.join([name, 'cast']))
-          part = cast['target']
-        elif isinstance(trans, st.StringTransform):
-          cast, _ = td.cast(part, np.unicode, name='-'.join([name, 'cast']))
-          part = cast['target']
-        elif isinstance(trans, ct.CatTransform):
-          cast, _ = td.cast(part, np.unicode, name='-'.join([name, 'cast']))
-          part = cast['target']
-        with ns.NameSpace(name):
-          trans.define_waterwork(array=part)
+          tube_dict, _ = td.clone(tubes[0])
+          array = tube_dict['a']
+
+          tube_dict['b'].set_name(old_name)
 
   def get_waterwork(self, array=empty, recreate=False):
     """Create the Transform's waterwork or return the one that was already created.
@@ -302,112 +434,3 @@ class SequenceTransform(tr.Transform):
       self.define_waterwork(array)
     self.waterwork = ww
     return ww
-
-  def pour(self, array):
-    """Execute the transformation in the pour (forward) direction.
-
-    Parameters
-    ----------
-    array : np.ndarray
-      The numpy array to transform.
-
-    Returns
-    -------
-    dict
-      The dictionary of transformed outputs as well as any additional information needed to completely reconstruct the original rate.
-
-    """
-    # Retrieve the waterwork and initate the funnel_dict
-    ww = self.get_waterwork()
-    funnel_dict = {'input': array}
-    funnel_dict = self._pre(funnel_dict)
-
-    # Get the funnel dicts from each of the transforms.
-    for name in self.transforms:
-      trans = self.transforms[name]
-      funnel_dict.update(
-        trans._get_funnel_dict(prefix=self.name)
-      )
-
-    # Run the waterwork in the pour direction
-    tap_dict = ww.pour(funnel_dict, key_type='str')
-
-    # Extract out the relevant pour outputs from each of the transforms.
-    pour_outputs = {}
-    for name in self.transforms:
-      trans = self.transforms[name]
-
-      temp_outputs = trans._extract_pour_outputs(tap_dict, prefix=self.name)
-      pour_outputs.update(temp_outputs)
-    return pour_outputs
-
-  def pump(self, pour_outputs):
-    """Execute the transformation in the pump (backward) direction.
-
-    Parameters
-    ----------
-    kwargs: dict
-      The dictionary all information needed to completely reconstruct the original rate.
-
-    Returns
-    -------
-    array : np.ndarray
-      The original numpy array that was poured.
-
-    """
-    ww = self.get_waterwork()
-
-    # Define the parts of the tap dict that are not dependent on the transforms
-    shape = (0, 1)
-    tap_dict = {
-      self._pre('missing_cols'): np.zeros(shape, dtype=np.object),
-      self._pre('missing_array'): np.zeros(shape, dtype=np.object),
-    }
-    tap_dict[self._pre('Partition_0/tubes/indices')] = np.array([self.transform_col_ranges[k] for k in sorted(self.transform_col_ranges)])
-    tap_dict[self._pre('Transpose_0/tubes/axes')] = [1, 0]
-    for num, _ in enumerate(self):
-      num += 1
-      transp_key = 'Transpose_' + str(num) + '/tubes/axes'
-      tap_dict[self._pre(transp_key)] = [1, 0]
-
-    for name in sorted(self.transforms):
-      trans = self.transforms[name]
-
-      # Depending on the type of Transform, create a default empty array of
-      # the inputted dtype. This is needed for cast tank.
-      if isinstance(trans, nt.NumTransform):
-        input_dtype = trans.input_dtype
-        tank_name = os.path.join(self.name, '-'.join([name, 'cast']))
-        tap_dict[os.path.join(tank_name, 'tubes', 'diff')] = np.zeros((), input_dtype)
-        tap_dict[os.path.join(tank_name, 'tubes', 'input_dtype')] = input_dtype
-      elif isinstance(trans, dt.DateTimeTransform):
-        input_dtype = trans.input_dtype
-        tank_name = os.path.join(self.name, '-'.join([name, 'cast']))
-        tap_dict[os.path.join(tank_name, 'tubes', 'diff')] = np.zeros((), dtype='timedelta64')
-        tap_dict[os.path.join(tank_name, 'tubes', 'input_dtype')] = input_dtype
-      elif isinstance(trans, st.StringTransform):
-        input_dtype = trans.input_dtype
-        tank_name = os.path.join(self.name, '-'.join([name, 'cast']))
-        tap_dict[os.path.join(tank_name, 'tubes', 'diff')] = np.array([], dtype=np.unicode)
-        tap_dict[os.path.join(tank_name, 'tubes', 'input_dtype')] = input_dtype
-      elif isinstance(trans, ct.CatTransform):
-        input_dtype = trans.input_dtype
-        tank_name = os.path.join(self.name, '-'.join([name, 'cast']))
-        tap_dict[os.path.join(tank_name, 'tubes', 'diff')] = np.array([], dtype=np.unicode)
-        tap_dict[os.path.join(tank_name, 'tubes', 'input_dtype')] = input_dtype
-      kwargs = {}
-      prefix = os.path.join(self.name, name) + '/'
-
-      # Add in the tap dicts from each of transforms
-      for output_name in pour_outputs:
-        if not output_name.startswith(prefix):
-          continue
-        kwargs[output_name] = pour_outputs[output_name]
-      tap_dict.update(
-        trans._get_tap_dict(kwargs, prefix=self.name)
-      )
-
-    # Run the waterwork in the pump direction.
-    funnel_dict = ww.pump(tap_dict, key_type='str')
-
-    return funnel_dict[os.path.join(self.name, 'input')]

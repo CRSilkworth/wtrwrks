@@ -59,8 +59,8 @@ class DatetimeToNum(ta.Tank):
     diff = a - undone
 
     # If there is no diff then don't bother saving any information.
-    if np.array(diff == np.array(0, dtype='timedelta64[us]')).all():
-      diff = np.array([], dtype='timedelta64[us]')
+    # if np.array(diff == np.array(0, dtype='timedelta64[us]')).all():
+    #   diff = np.array([], dtype='timedelta64[us]')
 
     return {'target': target, 'zero_datetime': zero_datetime, 'num_units': num_units, 'time_unit': time_unit, 'diff': diff}
 

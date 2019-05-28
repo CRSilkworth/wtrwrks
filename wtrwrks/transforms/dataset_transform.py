@@ -45,28 +45,22 @@ class DatasetTransform(tr.Transform):
     """Iterator of the transform set is just the iterator of the transforms dictionary"""
     return iter(self.transforms)
 
-  def _feature_def(self, num_cols=None):
-    """Get the dictionary that contain the FixedLenFeature information for each key found in the example_dicts. Needed in order to build ML input pipelines that read tfrecords.
+  def _from_save_dict(self, save_dict):
+    """Reconstruct the transform object from the dictionary of attributes."""
+    import wtrwrks.transforms.transform_defs as trd
+    for key in self.attribute_dict:
+      if key == 'transforms':
+        continue
+      setattr(self, key, save_dict[key])
 
-    Parameters
-    ----------
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
+    transforms = {}
+    for key in save_dict['transforms']:
+      trans_save_dict = save_dict['transforms'][key]
+      trans = eval('trd.' + trans_save_dict['__class__'])(save_dict=trans_save_dict)
+      transforms[key] = trans
+    setattr(self, 'transforms', transforms)
 
-    Returns
-    -------
-    dict
-      The dictionary with keys equal to those that are found in the Transform's example dicts and values equal the FixedLenFeature defintion of the example key.
-
-    """
-    feature_dict = {}
-    for key in self.transforms:
-      trans = self.transforms[key]
-      trans_feature_dict = trans._feature_def(prefix=self.name)
-      feature_dict.update(trans_feature_dict)
-    return feature_dict
-
-  def _get_example_dicts(self, pour_outputs):
+  def _alter_pour_outputs(self, pour_outputs, prefix=''):
     """Create a list of dictionaries for each example from the outputs of the pour method.
 
     Parameters
@@ -82,23 +76,17 @@ class DatasetTransform(tr.Transform):
       The example dictionaries which contain tf.train.Features.
 
     """
-    # Pull out the example dicts from each of the transforms.
-    all_example_dicts = {}
+    r_pour_outputs = {}
     for key in self.transforms:
       trans = self.transforms[key]
-      all_example_dicts[key] = trans._get_example_dicts(pour_outputs, prefix=self.name)
 
-    # Merge the dictionaries together so that there is one example_dict for
-    # each example.
-    example_dicts = []
-    for row_num, trans_dicts in enumerate(zip(*[all_example_dicts[k] for k in self.transforms])):
-      example_dict = {}
-      for trans_dict in trans_dicts:
-        example_dict.update(trans_dict)
-      example_dicts.append(example_dict)
-    return example_dicts
+      trans_pour_outputs = {k: v for k, v in pour_outputs.iteritems() if k.startswith(os.path.join(prefix, self.name, trans.name))}
 
-  def _parse_example_dicts(self, example_dicts, prefix=''):
+      trans_pour_outputs = trans._alter_pour_outputs(trans_pour_outputs, prefix=os.path.join(prefix, self.name))
+      r_pour_outputs.update(trans_pour_outputs)
+    return r_pour_outputs
+
+  def _parse_examples(self, arrays_dict, prefix=''):
     """Convert the list of example_dicts into the original outputs that came from the pour method.
 
     Parameters
@@ -117,9 +105,22 @@ class DatasetTransform(tr.Transform):
     pour_outputs = {}
     for key in self.transforms:
       trans = self.transforms[key]
-      trans_pour_outputs = trans._parse_example_dicts(example_dicts, prefix=self.name)
+      trans_pour_outputs = trans._parse_examples(arrays_dict, prefix=os.path.join(prefix, self.name))
       pour_outputs.update(trans_pour_outputs)
     return pour_outputs
+
+  def _save_dict(self):
+    """Create the dictionary of values needed in order to reconstruct the transform."""
+    save_dict = {}
+    for key in self.attribute_dict:
+      if key == 'transforms':
+        continue
+      save_dict[key] = getattr(self, key)
+
+    save_dict['transforms'] = {}
+    for key in self.transforms:
+      save_dict['transforms'][key] = self.transforms[key]._save_dict()
+    return save_dict
 
   def _setattributes(self, **kwargs):
     """Set the actual attributes of the Transform and do some value checks to make sure they valid inputs.
@@ -135,7 +136,7 @@ class DatasetTransform(tr.Transform):
       self.transforms = {}
       self.transform_col_ranges = {}
 
-  def _shape_def(self, num_cols=None):
+  def _get_array_attributes(self, prefix=''):
     """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
 
     Parameters
@@ -152,7 +153,7 @@ class DatasetTransform(tr.Transform):
     shape_dict = {}
     for key in self.transforms:
       trans = self.transforms[key]
-      trans_shape_dict = trans._shape_def(prefix=self.name)
+      trans_shape_dict = trans._get_array_attributes(prefix=os.path.join(prefix, self.name))
       shape_dict.update(trans_shape_dict)
     return shape_dict
 
@@ -224,7 +225,7 @@ class DatasetTransform(tr.Transform):
     if all_ranges:
       raise ValueError("Must use all columns in array. Columns " + str(sorted(all_ranges)) + " are unused. Either remove them from the array or all additional transforms which use them.")
 
-  def define_waterwork(self, array=empty):
+  def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.
 
     Parameters
@@ -281,6 +282,13 @@ class DatasetTransform(tr.Transform):
           part = cast['target']
         with ns.NameSpace(name):
           trans.define_waterwork(array=part)
+
+    if return_tubes is not None:
+      ww = parts['missing_array'].waterwork
+      r_tubes = []
+      for r_tube_key in return_tubes:
+        r_tubes.append(ww.maybe_get_tube(r_tube_key))
+      return r_tubes
 
   def get_waterwork(self, array=empty, recreate=False):
     """Create the Transform's waterwork or return the one that was already created.

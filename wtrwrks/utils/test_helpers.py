@@ -55,6 +55,9 @@ class WWTest(unittest.TestCase):
       print 'SHAPES', first.shape, np.array(second).shape
       print "FIRST ", first.tolist(), first.dtype
       print "SECOND", second, np.array(second).dtype
+      if first.shape == np.array(second).shape:
+        mask = first == second
+        print 'DIFF', first[~mask], second[~mask]
       raise e
 
 
@@ -214,6 +217,10 @@ def arrays_equal(first, second, threshold=0.001, test_type=True):
 
     return (first == second).all()
   elif not np.issubdtype(first.dtype, np.number) and not np.issubdtype(second.dtype, np.number):
+    # print '-'*20
+    # mask = first.astype(np.unicode) != second.astype(np.unicode)
+    # print first[mask], second[mask]
+    # print '-'*20
     return (first.astype(np.unicode) == second.astype(np.unicode)).all()
   try:
     if not (np.isnan(first.astype(np.float64)) == np.isnan(second.astype(np.float64))).all():

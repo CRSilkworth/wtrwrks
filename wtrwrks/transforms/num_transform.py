@@ -43,9 +43,9 @@ class NumTransform(n.Transform):
 
   """
 
-  attribute_dict = {'norm_mode': None, 'norm_axis': None, 'fill_nan_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': np.float64, 'input_dtype': None}
+  attribute_dict = {'norm_mode': None, 'norm_axis': None, 'fill_nan_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': None, 'input_dtype': None}
 
-  def _extract_pour_outputs(self, tap_dict, prefix=''):
+  def _extract_pour_outputs(self, tap_dict, prefix='', **kwargs):
     """Pull out all the values from tap_dict that cannot be explicitly reconstructed from the transform itself. These are the values that will need to be fed back to the transform into run the tranform in the pump direction.
 
     Parameters
@@ -80,60 +80,6 @@ class NumTransform(n.Transform):
 
     """
     return funnel_dict[self._pre('IsNan_0/slots/a', prefix)]
-
-  def _feature_def(self, num_cols=1, prefix=''):
-    """Get the dictionary that contain the FixedLenFeature information for each key found in the example_dicts. Needed in order to build ML input pipelines that read tfrecords.
-
-    Parameters
-    ----------
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary with keys equal to those that are found in the Transform's example dicts and values equal the FixedLenFeature defintion of the example key.
-
-    """
-    feature_dict = {}
-    size = np.prod(self.input_shape[1:])
-    feature_dict['nums'] = tf.FixedLenFeature([size], tf.float32)
-    feature_dict['nans'] = tf.FixedLenFeature([size], tf.int64)
-
-    feature_dict = self._pre(feature_dict, prefix)
-    return feature_dict
-
-  def _get_example_dicts(self, pour_outputs, prefix=''):
-    """Create a list of dictionaries for each example from the outputs of the pour method.
-
-    Parameters
-    ----------
-    pour_outputs : dict
-      The outputs of the _extract_pour_outputs method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    list of dicts of features
-      The example dictionaries which contain tf.train.Features.
-
-    """
-    pour_outputs = self._nopre(pour_outputs, prefix)
-    num_examples = pour_outputs['nums'].shape[0]
-    example_dicts = []
-    for row_num in xrange(num_examples):
-      example_dict = {}
-
-      # Flatten the arrays and convert them into features.
-      nums = pour_outputs['nums'][row_num].flatten()
-      example_dict['nums'] = feat._float_feat(nums)
-      nans = pour_outputs['nans'][row_num].astype(int).flatten()
-      example_dict['nans'] = feat._int_feat(nans)
-      example_dict = self._pre(example_dict, prefix)
-      example_dicts.append(example_dict)
-
-    return example_dicts
 
   def _get_funnel_dict(self, array=None, prefix=''):
     """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
@@ -201,13 +147,13 @@ class NumTransform(n.Transform):
       tap_dict.update(norm_mode_dict)
     return self._pre(tap_dict, prefix)
 
-  def _parse_example_dicts(self, example_dicts, prefix=''):
+  def _parse_examples(self, arrays_dict, prefix=''):
     """Convert the list of example_dicts into the original outputs that came from the pour method.
 
     Parameters
     ----------
-    example_dicts: list of dicts of arrays
-      The example dictionaries which the arrays associated with a single example.
+    arrays_dict: dict of numpy arrays
+      The stacked arrays of the all the data written to examples.
     prefix : str
       Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
 
@@ -217,25 +163,9 @@ class NumTransform(n.Transform):
       The dictionary of all the values outputted by the pour method.
 
     """
-    pour_outputs = {'nums': [], 'nans': []}
-    shape = self.input_shape[1:]
-
-    # Go through each example dict, pull out the arrays associated with each
-    # key of pour outputs, reshape them to their proper shape and add them
-    # to individual lists so that they can be stacked together.
-    for example_dict in example_dicts:
-      nums = example_dict[self._pre('nums', prefix)].reshape(shape)
-      pour_outputs['nums'].append(nums)
-
-      nans = example_dict[self._pre('nans', prefix)].reshape(shape)
-      pour_outputs['nans'].append(nans)
-
-    # Stack the lists of arrays into arrays with a batch dimension
-    pour_outputs = {
-      'nums': np.stack(pour_outputs['nums']),
-      'nans': np.stack(pour_outputs['nans']).astype(bool),
-    }
-    pour_outputs = self._pre(pour_outputs, prefix)
+    pour_outputs = {}
+    pour_outputs.update(arrays_dict)
+    pour_outputs[self._pre('nans', prefix)] = pour_outputs[self._pre('nans', prefix)].astype(bool)
     return pour_outputs
 
   def _setattributes(self, **kwargs):
@@ -255,7 +185,7 @@ class NumTransform(n.Transform):
     if self.fill_nan_func is None:
       self.fill_nan_func = lambda array: np.full(array[np.isnan(array)].shape, np.array(0))
 
-  def _shape_def(self, prefix=''):
+  def _get_array_attributes(self, prefix=''):
     """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
 
     Parameters
@@ -269,12 +199,25 @@ class NumTransform(n.Transform):
       The dictionary with keys equal to those that are found in the Transform's example dicts and values are the shapes of the arrays of a single example.
 
     """
-    shape_dict = {}
-    shape_dict['nums'] = self.input_shape[1:]
-    shape_dict['nans'] = self.input_shape[1:]
+    att_dict = {}
+    att_dict['nums'] = {
+      'shape': list(self.input_shape[1:]),
+      'tf_type': feat.select_tf_dtype(self.dtype),
+      'size': feat.size_from_shape(self.input_shape[1:]),
+      'feature_func': feat.select_feature_func(self.dtype),
+      'np_type': np.int64 if self.input_dtype in (int, np.int32, np.int64) else np.float32
+      # 'np_type': self.dtype
+    }
+    att_dict['nans'] = {
+      'shape': list(self.input_shape[1:]),
+      'tf_type': tf.int64,
+      'size': feat.size_from_shape(self.input_shape[1:]),
+      'feature_func': feat._int_feat,
+      'np_type': np.bool
+    }
 
-    shape_dict = self._pre(shape_dict, prefix)
-    return shape_dict
+    att_dict = self._pre(att_dict, prefix)
+    return att_dict
 
   def calc_global_values(self, array, verbose=True):
     """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
@@ -289,7 +232,10 @@ class NumTransform(n.Transform):
     """
     # Set the input dtype
     self.input_dtype = array.dtype
+    if self.dtype is None:
+      self.dtype = array.dtype
     self.input_shape = array.shape
+
     array = array.astype(self.dtype)
 
     if self.norm_mode == 'mean_std':
@@ -322,7 +268,7 @@ class NumTransform(n.Transform):
         if verbose:
           warnings.warn("NumTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")
 
-  def define_waterwork(self, array=empty):
+  def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.
 
     Parameters
@@ -352,3 +298,10 @@ class NumTransform(n.Transform):
       nums, _ = nums['target'] / (self.max - self.min)
 
     nums['target'].set_name('nums')
+
+    if return_tubes is not None:
+      ww = nums['target'].waterwork
+      r_tubes = []
+      for r_tube_key in return_tubes:
+        r_tubes.append(ww.maybe_get_tube(r_tube_key))
+      return r_tubes

@@ -38,7 +38,7 @@ class DateTimeTransform(n.Transform):
     assert self.input_dtype is not None, ("Run calc_global_values before attempting to get the length.")
     return len(self.index_to_cat_val)
 
-  def _extract_pour_outputs(self, tap_dict, prefix=''):
+  def _extract_pour_outputs(self, tap_dict, prefix='', **kwargs):
     """Pull out all the values from tap_dict that cannot be explicitly reconstructed from the transform itself. These are the values that will need to be fed back to the transform into run the tranform in the pump direction.
 
     Parameters
@@ -96,46 +96,6 @@ class DateTimeTransform(n.Transform):
 
     feature_dict = self._pre(feature_dict, prefix)
     return feature_dict
-
-  def _get_example_dicts(self, pour_outputs, prefix=''):
-    """Create a list of dictionaries for each example from the outputs of the pour method.
-
-    Parameters
-    ----------
-    pour_outputs : dict
-      The outputs of the _extract_pour_outputs method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    list of dicts of features
-      The example dictionaries which contain tf.train.Features.
-
-    """
-    pour_outputs = self._nopre(pour_outputs, prefix)
-    num_examples = pour_outputs['nums'].shape[0]
-    example_dicts = []
-    for row_num in xrange(num_examples):
-      example_dict = {}
-      # Flatten the arrays and convert them into features.
-      nums = pour_outputs['nums'][row_num].flatten()
-      example_dict['nums'] = feat._float_feat(nums)
-      nats = pour_outputs['nats'][row_num].astype(int).flatten()
-      example_dict['nats'] = feat._int_feat(nats)
-
-      # handle the case where the diff is empty by just encoding as a bunch of
-      # zeros
-      if pour_outputs['diff'].size:
-        diff = pour_outputs['diff'][row_num].astype(np.int64)
-      else:
-        diff = np.zeros(nums.shape, dtype=np.int64)
-      example_dict['diff'] = feat._int_feat(diff)
-
-      example_dict = self._pre(example_dict, prefix)
-      example_dicts.append(example_dict)
-
-    return example_dicts
 
   def _get_funnel_dict(self, array=None, prefix=''):
     """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
@@ -213,7 +173,7 @@ class DateTimeTransform(n.Transform):
 
     return self._pre(tap_dict, prefix)
 
-  def _parse_example_dicts(self, example_dicts, prefix=''):
+  def _parse_examples(self, arrays_dict, prefix=''):
     """Convert the list of example_dicts into the original outputs that came from the pour method.
 
     Parameters
@@ -229,31 +189,12 @@ class DateTimeTransform(n.Transform):
       The dictionary of all the values outputted by the pour method.
 
     """
+    pour_outputs = {}
+    pour_outputs.update(arrays_dict)
+    pour_outputs[self._pre('nats', prefix)] = pour_outputs[self._pre('nats', prefix)].astype(bool)
+    return pour_outputs
     pour_outputs = {'nums': [], 'nats': [], 'diff': []}
     shape = self.input_shape[1:]
-
-    # Go through each example dict, pull out the arrays associated with each
-    # key of pour outputs, reshape them to their proper shape and add them
-    # to individual lists so that they can be stacked together.
-    for example_dict in example_dicts:
-      nums = example_dict[self._pre('nums', prefix)].reshape(shape)
-      pour_outputs['nums'].append(nums)
-
-      nats = example_dict[self._pre('nats', prefix)].reshape(shape)
-      pour_outputs['nats'].append(nats)
-
-      diff = example_dict[self._pre('diff', prefix)].reshape(shape)
-      pour_outputs['diff'].append(diff)
-
-    # Stack the lists of arrays into arrays with a batch dimension
-    pour_outputs = {
-      'nums': np.stack(pour_outputs['nums']),
-      'nats': np.stack(pour_outputs['nats']).astype(bool),
-      'diff': np.stack(pour_outputs['diff']).astype(np.timedelta64),
-    }
-
-    pour_outputs = self._pre(pour_outputs, prefix)
-    return pour_outputs
 
   def _setattributes(self, **kwargs):
     """Set the actual attributes of the Transform and do some value checks to make sure they valid inputs.
@@ -272,7 +213,7 @@ class DateTimeTransform(n.Transform):
     if type(self.zero_datetime) is datetime.datetime:
       self.zero_datetime = np.datetime64(self.zero_datetime)
 
-  def _shape_def(self, prefix=''):
+  def _get_array_attributes(self, prefix=''):
     """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
 
     Parameters
@@ -286,13 +227,31 @@ class DateTimeTransform(n.Transform):
       The dictionary with keys equal to those that are found in the Transform's example dicts and values are the shapes of the arrays of a single example.
 
     """
-    shape_dict = {}
-    shape_dict['nums'] = self.input_shape[1:]
-    shape_dict['nats'] = self.input_shape[1:]
-    shape_dict['diff'] = self.input_shape[1:]
+    att_dict = {}
+    att_dict['nums'] = {
+      'shape': list(self.input_shape[1:]),
+      'tf_type': tf.float32,
+      'size': feat.size_from_shape(self.input_shape[1:]),
+      'feature_func': feat._float_feat,
+      'np_type': np.float32
+    }
+    att_dict['nats'] = {
+      'shape': list(self.input_shape[1:]),
+      'tf_type': tf.int64,
+      'size': feat.size_from_shape(self.input_shape[1:]),
+      'feature_func': feat._int_feat,
+      'np_type': np.bool
+    }
+    att_dict['diff'] = {
+      'shape': list(self.input_shape[1:]),
+      'tf_type': tf.int64,
+      'size': feat.size_from_shape(self.input_shape[1:]),
+      'feature_func': feat._int_feat,
+      'np_type': np.int64
+    }
 
-    shape_dict = self._pre(shape_dict, prefix)
-    return shape_dict
+    att_dict = self._pre(att_dict, prefix)
+    return att_dict
 
   def calc_global_values(self, array, verbose=True):
     """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
@@ -353,7 +312,7 @@ class DateTimeTransform(n.Transform):
         if verbose:
           warnings.warn("DatetimeTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")
 
-  def define_waterwork(self, array=empty):
+  def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.
 
     Parameters
@@ -387,3 +346,10 @@ class DateTimeTransform(n.Transform):
       nums, _ = nums['target'] / (self.max - self.min)
 
     nums['target'].set_name('nums')
+
+    if return_tubes is not None:
+      ww = nums['target'].waterwork
+      r_tubes = []
+      for r_tube_key in return_tubes:
+        r_tubes.append(ww.maybe_get_tube(r_tube_key))
+      return r_tubes

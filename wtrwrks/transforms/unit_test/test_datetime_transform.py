@@ -38,7 +38,7 @@ class TestDateTimeTransform(th.TestTransform):
           {
             'datetime/nums': target,
             'datetime/nats': [[False], [False], [False], [False]],
-            'datetime/diff': np.array([], dtype='timedelta64[us]')
+            'datetime/diff': np.array([[datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)]], dtype='timedelta64[us]')
           },
           test_type=False
         )
@@ -93,7 +93,7 @@ class TestDateTimeTransform(th.TestTransform):
           {
             'nums': target,
             'nats': [[False], [True], [False], [False]],
-            'diff': np.array([], dtype='timedelta64[us]')
+            'diff': np.array([[datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)]], dtype='timedelta64[us]')
           },
           test_type=False
         )
@@ -123,7 +123,7 @@ class TestDateTimeTransform(th.TestTransform):
           {
             'datetime/nums': target,
             'datetime/nats': [[False], [True], [False], [False]],
-            'datetime/diff': np.array([], dtype='timedelta64[us]')
+            'datetime/diff': np.array([[datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)]], dtype='timedelta64[us]')
           },
           test_type=False
         )
@@ -151,7 +151,7 @@ class TestDateTimeTransform(th.TestTransform):
           {
             'datetime/nums': target,
             'datetime/nats': [[False], [False], [False], [False]],
-            'datetime/diff': np.array([], dtype='timedelta64[us]')
+            'datetime/diff': np.array([[datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)]], dtype='timedelta64[us]')
           },
           test_type=False
 
@@ -180,7 +180,7 @@ class TestDateTimeTransform(th.TestTransform):
           {
             'datetime/nums': target,
             'datetime/nats': [[False], [False], [False], [False]],
-            'datetime/diff': np.array([], dtype='timedelta64[us]')
+            'datetime/diff': np.array([[datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)]], dtype='timedelta64[us]')
           },
           test_type=False
         )

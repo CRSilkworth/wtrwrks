@@ -20,7 +20,7 @@ class TestDatetimeToNum(th.TestTank):
         'zero_datetime': np.array(datetime(1970, 1, 1), dtype=np.datetime64),
         'time_unit': 'D',
         'num_units': 1,
-        'diff': np.array([], dtype='timedelta64[us]')
+        'diff': np.array(timedelta(0), dtype='timedelta64[us]')
       },
       test_type=False
     )
@@ -44,7 +44,7 @@ class TestDatetimeToNum(th.TestTank):
     )
 
     zero_datetime = np.array(datetime(2000, 1, 1), dtype=np.datetime64)
-    diff = np.array([], dtype=np.timedelta64)
+    diff = np.array([timedelta(0), timedelta(0), timedelta(0)], dtype=np.timedelta64)
     self.pour_pump(
       td.datetime_to_num,
       {'a': a, 'num_units': 100, 'time_unit': 's', 'zero_datetime': zero_datetime},

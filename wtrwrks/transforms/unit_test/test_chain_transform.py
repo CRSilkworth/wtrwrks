@@ -3,8 +3,9 @@ import shutil
 import tempfile
 import unittest
 import wtrwrks.utils.test_helpers as th
-import wtrwrks.transforms.document_transform as dct
+import wtrwrks.transforms.doc_to_sentence_transform as dct
 import wtrwrks.transforms.string_transform as st
+import wtrwrks.transforms.chain_transform as cht
 from chop.mmseg import Tokenizer as MMSEGTokenizer
 from chop.hmm import Tokenizer as HMMTokenizer
 from nltk.stem.wordnet import WordNetLemmatizer
@@ -58,7 +59,7 @@ def basic_lemmatizer(string):
   return lemma
 
 
-class TestStringTransform(th.TestTransform):
+class TestChainTransform(th.TestTransform):
   def setUp(self):
     self.temp_dir = tempfile.mkdtemp()
 
@@ -105,26 +106,31 @@ class TestStringTransform(th.TestTransform):
       max_sent_len=10,
       name='ST'
     )
-    trans = dct.DocumentTransform(
-      sent_tokenizer=lambda s: s.split('.'),
-      string_transform=string_trans,
+    dts_trans = dct.DocumentToSentenceTransform(
+      name='DTS',
+      sent_tokenizer=lambda s: s.split('.')
     )
-    # for i in xrange(2):
-    self.pour_pump(
-      trans,
-      strings,
-      {
-        'ST/indices': indices,
-        'ST/missing_vals': missing_vals,
-        'ST/tokenize_diff': tokenize_diff,
-        'ST/lower_case_diff': lower_case_diff
+    trans = cht.ChainTransform(name='CT')
 
-      },
-      test_type=False
-    )
+    trans.add_transform(dts_trans)
+    trans.add_transform(string_trans, 'DTS/sentences')
 
-    self.write_read_example(trans, strings, self.temp_dir)
-    trans = self.write_read(trans, self.temp_dir)
+    for i in xrange(2):
+      self.pour_pump(
+        trans,
+        strings,
+        {
+          'CT/ST/indices': indices,
+          'CT/ST/missing_vals': missing_vals,
+          'CT/ST/tokenize_diff': tokenize_diff,
+          'CT/ST/lower_case_diff': lower_case_diff
+
+        },
+        test_type=False
+      )
+
+      self.write_read_example(trans, strings, self.temp_dir)
+      trans = self.write_read(trans, self.temp_dir)
 
   def test_remove_dims(self):
     indices = np.array([
@@ -167,30 +173,32 @@ class TestStringTransform(th.TestTransform):
       max_sent_len=10,
       name='ST'
     )
-    trans = dct.DocumentTransform(
+    dts_trans = dct.DocumentToSentenceTransform(
+      name='DTS',
       sent_tokenizer=lambda s: s.split('.'),
       sent_detokenizer=lambda s: '.'.join(s),
-      string_transform=string_trans,
-      keep_dims=False,
-      name='DT'
+      keep_dims=False
     )
+    trans = cht.ChainTransform(name='CT')
+    trans.add_transform(dts_trans)
+    trans.add_transform(string_trans, 'DTS/sentences')
     # for i in xrange(2):
     self.pour_pump(
       trans,
       strings,
       {
-        'DT/ST/indices': indices,
-        'DT/ST/missing_vals': missing_vals,
-        'DT/ST/tokenize_diff': tokenize_diff,
-        'DT/ST/lower_case_diff': lower_case_diff,
-        'DT/ids': ids
+        'CT/ST/indices': indices,
+        'CT/ST/missing_vals': missing_vals,
+        'CT/ST/tokenize_diff': tokenize_diff,
+        'CT/ST/lower_case_diff': lower_case_diff,
+        'CT/DTS/ids': ids
 
       },
       test_type=False
     )
 
     self.write_read_example(trans, strings, self.temp_dir, num_cols=1)
-    trans = self.write_read(trans, self.temp_dir)
+    # trans = self.write_read(trans, self.temp_dir)
 
   def _get_index_to_word(self, strings, tokenizer, lemmatizer=None, half_width=False):
     index_to_word = set()

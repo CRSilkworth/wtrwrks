@@ -138,7 +138,7 @@ class FlatTokenize(ta.Tank):
       # Pull out all the tokens belonging to a particular id.
       string_id = ids[index]
       mask = (ids == string_id)
-      tokens = target[mask]
+      tokens = target[mask].flatten()
 
       # Pull out the corresponding diff_string. Since it was duplicated many
       # times we only need to pull out the first one.
@@ -146,6 +146,7 @@ class FlatTokenize(ta.Tank):
 
       # Detokenize the tokens and reconstruct the orignal string from the
       # diff_string
+
       string = detokenizer(tokens)
       string = di.reconstruct(string, diff_string)
 
