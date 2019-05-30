@@ -24,7 +24,7 @@ class TestCatTransform(th.TestTransform):
     trans = n.CatTransform(
       name='cat'
     )
-    trans.calc_global_values(self.array[:, 0: 1])
+    trans.calc_global_values(self.array[:, 0: 1].astype(np.str))
     target = np.array([
       [[1., 0., 0.]],
       [[0., 1., 0.]],
@@ -35,9 +35,9 @@ class TestCatTransform(th.TestTransform):
     for i in xrange(2):
       self.pour_pump(
         trans,
-        self.array[:, 0: 1],
+        self.array[:, 0: 1].astype(np.str),
         {
-          'cat/missing_vals': [],
+          'cat/missing_vals': [[''], [''], [''], ['']],
           'cat/one_hots': target,
           'cat/indices': indices
         }
@@ -48,7 +48,7 @@ class TestCatTransform(th.TestTransform):
     trans = n.CatTransform(
       name='cat'
     )
-    trans.calc_global_values(self.array[:, 0: 2])
+    trans.calc_global_values(self.array[:, 0: 2].astype(np.str))
     target = np.array([
       [[0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]],
       [[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0]],
@@ -59,9 +59,9 @@ class TestCatTransform(th.TestTransform):
     for i in xrange(2):
       self.pour_pump(
         trans,
-        self.array[:, 0: 2],
+        self.array[:, 0: 2].astype(np.str),
         {
-          'cat/missing_vals': [],
+          'cat/missing_vals': np.array([['', ''], ['', ''], ['', ''], ['', '']], dtype='|S4'),
           'cat/one_hots': target,
           'cat/indices': indices
         }
@@ -73,15 +73,15 @@ class TestCatTransform(th.TestTransform):
       name='cat',
       valid_cats=['a', 'b']
     )
-    trans.calc_global_values(self.array[:, 0: 1])
+    trans.calc_global_values(self.array[:, 0: 1].astype(np.str))
     target = np.array([[[1.0, 0.0]], [[0.0, 1.0]], [[0.0, 0.0]], [[1.0, 0.0]]]).astype(float)
     indices = np.array([[0], [1], [-1], [0]])
     for i in xrange(2):
       self.pour_pump(
         trans,
-        self.array[:, 0: 1],
+        self.array[:, 0: 1].astype(np.str),
         {
-          'cat/missing_vals': ['c'],
+          'cat/missing_vals': [[''], [''], ['c'], ['']],
           'cat/one_hots': target,
           'cat/indices': indices
         }
@@ -92,7 +92,7 @@ class TestCatTransform(th.TestTransform):
     trans = n.CatTransform(
       name='cat',
     )
-    trans.calc_global_values(self.array[:, 2: 3])
+    trans.calc_global_values(self.array[:, 2: 3].astype(np.float64))
     target = np.array([
           [[0, 1, 0]],
           [[0, 0, 1]],
@@ -103,47 +103,22 @@ class TestCatTransform(th.TestTransform):
     for i in xrange(2):
       self.pour_pump(
         trans,
-        self.array[:, 2: 3],
+        self.array[:, 2: 3].astype(np.float64),
         {
-          'cat/missing_vals': np.array([], dtype=int),
+          'cat/missing_vals': np.array([[0.0], [0.0], [0.0], [0.0]], dtype=float),
           'cat/one_hots': target,
           'cat/indices': indices
         }
       )
       trans = self.write_read(trans, self.temp_dir)
 
-  def test_ignore_null(self):
-    trans = n.CatTransform(
-      name='cat',
-      ignore_null=True
-    )
-    trans.calc_global_values(self.array[:, 2: 3])
-    indices = np.array([[0], [1], [-1], [0]])
-    target = np.array([
-      [[1, 0]],
-      [[0, 1]],
-      [[0, 0]],
-      [[1, 0]]
-    ]).astype(float)
-
-    for i in xrange(2):
-      self.pour_pump(
-        trans,
-        self.array[:, 2: 3],
-        {
-          'cat/missing_vals': [np.nan],
-          'cat/one_hots': target,
-          'cat/indices': indices
-        }
-      )
-      trans = self.write_read(trans, self.temp_dir)
 
   def test_mean_std(self):
     trans = n.CatTransform(
       name='cat',
       norm_mode='mean_std'
     )
-    trans.calc_global_values(self.array[:, 1: 2])
+    trans.calc_global_values(self.array[:, 1: 2].astype(np.str))
     target = np.array([
           [[0., 1, 0]],
           [[1, 0, 0]],
@@ -155,9 +130,9 @@ class TestCatTransform(th.TestTransform):
     for i in xrange(2):
       self.pour_pump(
         trans,
-        self.array[:, 1: 2],
+        self.array[:, 1: 2].astype(np.str),
         {
-          'cat/missing_vals': np.array([], dtype=int),
+          'cat/missing_vals': np.array([[''], [''], [''], ['']], dtype='|S4'),
           'cat/one_hots': target,
           'cat/indices': indices
         }

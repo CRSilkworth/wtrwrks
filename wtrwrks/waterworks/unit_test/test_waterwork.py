@@ -7,7 +7,7 @@ import wtrwrks.waterworks.waterwork as wa
 from wtrwrks.waterworks.empty import empty
 import numpy as np
 import pprint
-
+import os
 
 class TestWaterwork(unittest.TestCase):
   def setUp(self):
@@ -29,56 +29,47 @@ class TestWaterwork(unittest.TestCase):
       cl0_tubes['b'].set_name('output_1')
 
     true_funnel_dict = {
-      add0_slots['a']: np.array([1, 2]),
-      add0_slots['b']: np.array([3, 4]),
+      ('Add_0', 'a'): np.array([1, 2]),
+      ('Add_0', 'b'): np.array([3, 4]),
       ('Add_1', 'b'): np.array([1, 2])
     }
-    # print [str(t) for t in ww._pour_tank_order()]
-    self.assertEqual(ww._pour_tank_order(), [ww.tanks[k] for k in ['Add_0', 'Add_1', 'Clone_0', 'Add_2']])
-    # self.assertEqual(ww._pour_tank_order(), [ww.tanks["Clone_0"], add0, cl1, add1, add2])
-    tap_dict = ww.pour(true_funnel_dict)
+    for _ in xrange(2):
+      self.assertEqual([str(t) for t in ww._pour_tank_order()], ['Add_0', 'Add_1', 'Clone_0', 'Add_2'])
 
-    true_tap_dict = {
-        "output_1": np.array([3, 4]),
-        add0_tubes['a_is_smaller']: False,
-        add1_tubes['target']: np.array([5, 8]),
-        add1_tubes['a_is_smaller']: False,
-        add2_tubes['smaller_size_array']: np.array([1, 2]),
-        add2_tubes['a_is_smaller']: False,
-        add2_tubes['target']: np.array([4, 6]),
-    }
-    temp_tap_dict = {}
-    temp_tap_dict.update(true_tap_dict)
-    temp_tap_dict[cl0_tubes['b']] = temp_tap_dict['output_1']
-    del temp_tap_dict['output_1']
+      tap_dict = ww.pour(true_funnel_dict, key_type='str')
 
-    # print [str(k) for k in sorted(tap_dict.keys())]
-    # print [str(k) for k in sorted(temp_tap_dict.keys())]
-    self.assertEqual(sorted(tap_dict.keys()), sorted(temp_tap_dict.keys()))
-    for tap in tap_dict:
-      th.assert_arrays_equal(self, tap_dict[tap], temp_tap_dict[tap])
+      true_tap_dict = {
+          "output_1": np.array([3, 4]),
+          'Add_0/tubes/a_is_smaller': False,
+          'Add_1/tubes/a_is_smaller': False,
+          'Add_1/tubes/target': np.array([5, 8]),
+          'Add_2/tubes/a_is_smaller': False,
+          'Add_2/tubes/smaller_size_array': np.array([1, 2]),
+          'Add_2/tubes/a_is_smaller': False,
+          'Add_2/tubes/target': np.array([4, 6]),
+      }
 
-    # print [str(t) for t in ww._pump_tank_order()]
-    self.assertEqual(ww._pump_tank_order(), [ww.tanks[k] for k in ['Add_2', 'Add_1', 'Clone_0', 'Add_0']])
-    # self.assertEqual(ww._pump_tank_order(), [add2, cl1, add1, add0, ww.tanks["Clone_0"]])
+      self.assertEqual(set(tap_dict.keys()), set(true_tap_dict.keys()))
+      for tap in tap_dict:
+        th.assert_arrays_equal(self, tap_dict[tap], true_tap_dict[tap])
 
-    funnel_dict = ww.pump(true_tap_dict)
-    # funnel_dict = {s.get_tuple(): v for s, v in funnel_dict.iteritems()}
+      self.assertEqual(ww._pump_tank_order(), [ww.tanks[k] for k in ['Add_2', 'Add_1', 'Clone_0', 'Add_0']])
 
-    temp_val = true_funnel_dict[('Add_1', 'b')]
-    del true_funnel_dict[('Add_1', 'b')]
-    true_funnel_dict[add1_slots['b']] = temp_val
+      funnel_dict = ww.pump(true_tap_dict, key_type='tuple')
 
-    # print [str(k) for k in sorted(funnel_dict.keys())]
-    # print [str(k) for k in sorted(true_funnel_dict.keys())]
-    self.assertEqual(sorted(funnel_dict.keys()), sorted(true_funnel_dict.keys()))
-    for funnel in funnel_dict:
-      th.assert_arrays_equal(self, funnel_dict[funnel], true_funnel_dict[funnel])
+      self.assertEqual(sorted(funnel_dict.keys()), sorted(true_funnel_dict.keys()))
+      for funnel in funnel_dict:
+        th.assert_arrays_equal(self, funnel_dict[funnel], true_funnel_dict[funnel])
 
-    ww.clear_vals()
-    for d in [ww.slots, ww.tubes]:
-      for key in d:
-        self.assertEqual(d[key].get_val(), None)
+      ww.clear_vals()
+      for d in [ww.slots, ww.tubes]:
+        for key in d:
+          self.assertEqual(d[key].get_val(), None)
+      pickle_name = os.path.join(self.temp_dir, 'ww.pickle')
+
+      ww.save_to_file(pickle_name)
+      ww = wa.Waterwork(from_file=pickle_name)
+
 
   def test_pour_pump_eager(self):
     with wa.Waterwork() as ww:
@@ -157,50 +148,70 @@ class TestWaterwork(unittest.TestCase):
       for key in d:
         self.assertEqual(d[key].get_val(), None)
 
-  # def test_merge(self):
-  #   with wa.Waterwork(name='ww1') as ww1:
-  #     cl0 = td.clone(a=np.array([1, 2]))
-  #     add0 = td.add(a=cl0['a'], b=np.array([3, 4]))
-  #     add1 = td.add(a=add0['target'], b=cl0['b'])
-  #
-  #   with wa.Waterwork(name='ww2') as ww2:
-  #     cl1 = td.clone(a=None, type_dict={'a': (np.ndarray, int)}, name='ww2/Clone_1')
-  #     add2 = td.add(a=cl1['a'], b=None, type_dict={'b': (np.ndarray, int)}, name='ww2/Add_2')
-  #
-  #   join_dict = {
-  #     cl1.get_slot('a'): add0['smaller_size_array'],
-  #     add2.get_slot('b'): add1['smaller_size_array']
-  #   }
-  #
-  #   ww3 = ww1.merge(ww2, join_dict, name='ww3')
-  #
-  #   # print [str(t) for t in ww3.funnels]
-  #   true_funnel_dict = {
-  #     cl0.get_slot('a'): np.array([1, 2]),
-  #     add0.get_slot('b'): np.array([3, 4])
-  #   }
-  #
-  #   tap_dict = ww3.pour(true_funnel_dict)
-  #
-  #   true_tap_dict = {
-  #       cl1['b']: np.array([3, 4]),
-  #       add0['a_is_smaller']: False,
-  #       add1['target']: np.array([5, 8]),
-  #       add1['a_is_smaller']: False,
-  #       add2['smaller_size_array']: np.array([1, 2]),
-  #       add2['target']: np.array([4, 6]),
-  #       add2['a_is_smaller']: False,
-  #   }
-  #
-  #   self.assertEqual(sorted(tap_dict.keys()), sorted(true_tap_dict.keys()))
-  #   for tap in tap_dict:
-  #     th.assert_arrays_equal(self, tap_dict[tap], true_tap_dict[tap])
-  #
-  #   funnel_dict = ww3.pump(true_tap_dict)
-  #
-  #   self.assertEqual(sorted(funnel_dict.keys()), sorted(true_funnel_dict.keys()))
-  #   for funnel in funnel_dict:
-  #     th.assert_arrays_equal(self, funnel_dict[funnel], true_funnel_dict[funnel])
+  def test_plug(self):
+    with wa.Waterwork() as ww:
+      add0_tubes, add0_slots = empty + empty
+
+      add0_slots['b'].set_plug(np.array([3, 4]))
+      add0_tubes['a_is_smaller'].set_plug(False)
+
+      add1_tubes, add1_slots = add0_tubes['target'] + empty
+
+      add1_slots['b'].set_plug(
+        lambda d: 0.5 * d['Add_0/slots/a'] + np.array([0.5, 1.0])
+      )
+      add1_tubes['a_is_smaller'].set_plug(
+        lambda d: not d['output_1'].any()
+      )
+
+      cl0_tubes, _ = td.clone(a=add0_tubes['smaller_size_array'])
+
+      add2_tubes, _ = td.add(a=cl0_tubes['a'], b=add1_tubes['smaller_size_array'])
+
+      add2_tubes['target'].set_plug(
+        lambda d: d['output_1'] + np.array([1, 2])
+      )
+
+      cl0_tubes['b'].set_name('output_1')
+
+    true_funnel_dict = {
+      ('Add_0', 'a'): np.array([1, 2])
+    }
+    for _ in xrange(2):
+      self.assertEqual([str(t) for t in ww._pour_tank_order()], ['Add_0', 'Add_1', 'Clone_0', 'Add_2'])
+
+      tap_dict = ww.pour(true_funnel_dict, key_type='str')
+
+      true_tap_dict = {
+          "output_1": np.array([3, 4]),
+          'Add_1/tubes/target': np.array([5, 8]),
+          'Add_2/tubes/a_is_smaller': False,
+          'Add_2/tubes/smaller_size_array': np.array([1, 2]),
+          'Add_2/tubes/a_is_smaller': False,
+          # 'Add_2/tubes/target': np.array([4, 6]),
+      }
+
+      self.assertEqual(set(tap_dict.keys()), set(true_tap_dict.keys()))
+      for tap in tap_dict:
+        th.assert_arrays_equal(self, tap_dict[tap], true_tap_dict[tap])
+
+      self.assertEqual(ww._pump_tank_order(), [ww.tanks[k] for k in ['Add_2', 'Add_1', 'Clone_0', 'Add_0']])
+
+      funnel_dict = ww.pump(true_tap_dict, key_type='tuple')
+
+      self.assertEqual(sorted(funnel_dict.keys()), sorted(true_funnel_dict.keys()))
+      for funnel in funnel_dict:
+        th.assert_arrays_equal(self, funnel_dict[funnel], true_funnel_dict[funnel])
+
+      ww.clear_vals()
+      for d in [ww.slots, ww.tubes]:
+        for key in d:
+          self.assertEqual(d[key].get_val(), None)
+      pickle_name = os.path.join(self.temp_dir, 'ww.pickle')
+
+      ww.save_to_file(pickle_name)
+      ww = wa.Waterwork(from_file=pickle_name)
+
 
 if __name__ == "__main__":
     unittest.main()

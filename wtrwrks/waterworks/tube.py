@@ -21,7 +21,7 @@ class Tube(wp.WaterworkPart):
 
   """
 
-  def __init__(self, tank, key, val=None, slot=empty):
+  def __init__(self, tank, key, val=None, slot=empty, plug=None):
     """Initialize the tube.
 
     Parameters
@@ -40,10 +40,13 @@ class Tube(wp.WaterworkPart):
     self.slot = slot
     self.name = None
     self.val = val
+    self.plug = None
 
     super(Tube, self).__init__(tank.waterwork, self.name)
     if self.name in self.waterwork.tubes:
       raise ValueError(self.name + " already defined as tube. Choose a different name.")
+    if plug is not None:
+      self.set_plug(plug)
 
   def __add__(self, other):
     """Define an add tank (operation) between two tubes."""
@@ -102,6 +105,16 @@ class Tube(wp.WaterworkPart):
     """Set a default name. Must be defined by subclass."""
     return os.path.join(self.tank.name, 'tubes', self.key)
 
+  def _save_dict(self):
+    save_dict = {}
+    save_dict['key'] = self.key
+    save_dict['slot'] = None if self.slot is empty else self.slot.name
+    save_dict['name'] = self.name
+    save_dict['tank'] = self.tank.name
+    save_dict['plug'] = self.plug
+
+    return save_dict
+
   def get_tuple(self):
     """Get a tuple that describes the tube."""
     return (self.tank.name, self.key)
@@ -113,6 +126,17 @@ class Tube(wp.WaterworkPart):
   def set_val(self, val):
     """Set the value stored in the tube."""
     self.val = val
+
+  def set_plug(self, plug):
+    """Plug up the tap with a function."""
+    if self.name not in self.waterwork.taps:
+      raise ValueError("Can only plug taps. " + str(self) + " is not a tap.")
+
+    if not callable(plug):
+      func_plug = lambda a: plug
+    else:
+      func_plug = plug
+    self.plug = func_plug
 
   def set_name(self, name):
     """Set the name of the tube within the waterwork."""

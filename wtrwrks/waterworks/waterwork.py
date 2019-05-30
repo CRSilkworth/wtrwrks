@@ -1,10 +1,15 @@
 import wtrwrks.waterworks.globs as gl
 import wtrwrks.waterworks.waterwork_part as wp
 import wtrwrks.waterworks.name_space as ns
+import wtrwrks.utils.dir_functions as d
 from wtrwrks.waterworks.empty import empty
+import wtrwrks.read_write.tf_features as feat
 import os
 import pprint
-
+import importlib
+import dill as pickle
+import tensorflow as tf
+import numpy as np
 
 class Waterwork(object):
   """The full graph of tanks (i.e. operations) on the data, along with all slots and tubes which define the inputs/outputs of operations and hold their values. Can be thought of as a larger reversible operation that are composed of many smaller reversible operations.
@@ -38,7 +43,7 @@ class Waterwork(object):
     All of the tanks (or operations) defined within the waterwork.
   """
 
-  def __init__(self, name=''):
+  def __init__(self, name='', from_file=None):
     """Initialize the waterwork to have empty funnels, slots, tanks, and taps."""
     self.funnels = {}
     self.tubes = {}
@@ -46,6 +51,10 @@ class Waterwork(object):
     self.tanks = {}
     self.taps = {}
     self.name = name
+
+    if from_file is not None:
+      save_dict = d.read_from_file(from_file)
+      self._from_save_dict(save_dict)
 
   def __enter__(self):
     """When entering, set the global _default_waterwork to this waterwork."""
@@ -63,6 +72,61 @@ class Waterwork(object):
     """When exiting, set the global _default_waterwork back to None."""
     gl._default_waterwork = None
     self.name_space.__exit__(exc_type, exc_val, exc_tb)
+
+  def _from_save_dict(self, save_dict):
+    with ns.NameSpace(''):
+      self.name = save_dict['name']
+      for tank_name in save_dict['tanks']:
+        tank_dict = save_dict['tanks'][tank_name]
+        mod = importlib.import_module(tank_dict['__module__'])
+        cls = getattr(mod, tank_dict['__class__'])
+
+        tank = cls(name=tank_name, waterwork=self)
+        self.tanks[tank_name] = tank
+
+      for slot_name in save_dict['slots']:
+        slot_dict = save_dict['slots'][slot_name]
+        tank = self.tanks[slot_dict['tank']]
+
+        slot = tank.get_slot(slot_dict['key'])
+        slot.plug = slot_dict['plug']
+
+        # Set to proper name
+        del self.slots[slot.name]
+        slot.name = slot_name
+        self.slots[slot_name] = slot
+
+      for tube_name in save_dict['tubes']:
+        tube_dict = save_dict['tubes'][tube_name]
+        tank = self.tanks[tube_dict['tank']]
+
+        tube = tank.get_tube(tube_dict['key'])
+        tube.plug = tube_dict['plug']
+
+        # Set to proper name
+        del self.tubes[tube.name]
+        tube.name = tube_name
+        self.tubes[tube_name] = tube
+
+      for slot_name in self.slots:
+        slot_dict = save_dict['slots'][slot_name]
+        slot = self.slots[slot_name]
+
+        if slot_dict['tube'] is not None:
+          tube = self.tubes[slot_dict['tube']]
+          tube.slot = slot
+        else:
+          tube = empty
+
+        slot.tube = tube
+
+      self.funnels = {}
+      for funnel_name in save_dict['funnels']:
+        self.funnels[funnel_name] = self.slots[funnel_name]
+
+      self.taps = {}
+      for tap_name in save_dict['taps']:
+        self.taps[tap_name] = self.tubes[tap_name]
 
   def _pour_tank_order(self):
     """Get the order to calculate the tanks in the pour direction.
@@ -122,6 +186,30 @@ class Waterwork(object):
     # tanks = sorted([self.tanks[t] for t in self.tanks])
     # return sorted(tanks, cmp=lambda a, b: 0 if b in a.get_pump_dependencies() else -1)
     return sorted_tanks
+
+  def _save_dict(self):
+    save_dict = {}
+    save_dict['name'] = self.name
+    save_dict['funnels'] = sorted(self.funnels.keys())
+    save_dict['taps'] = sorted(self.taps.keys())
+
+    save_dict['tanks'] = {}
+    save_dict['slots'] = {}
+    save_dict['tubes'] = {}
+
+    for key in self.tanks:
+      tank = self.tanks[key]
+      save_dict['tanks'][key] = tank._save_dict()
+
+    for key in self.slots:
+      slot = self.slots[key]
+      save_dict['slots'][key] = slot._save_dict()
+
+    for key in self.tubes:
+      tube = self.tubes[key]
+      save_dict['tubes'][key] = tube._save_dict()
+
+    return save_dict
 
   def maybe_get_slot(self, *args):
     """Get a particular tank's if it exists, otherwise return None. Can take a variety input types.
@@ -251,7 +339,7 @@ class Waterwork(object):
 
     return self.tanks[tank.name].tubes[key]
 
-  def pour(self, funnel_dict=None, key_type='tube'):
+  def pour(self, funnel_dict=None, key_type='tube', return_plugged=False):
     """Run all the operations of the waterwork in the pour (or forward) direction.
 
     Parameters
@@ -274,10 +362,16 @@ class Waterwork(object):
     """
     if funnel_dict is None:
       funnel_dict = {}
+
     # Set all the values of the funnels from the inputted arguments.
+    stand_funnel_dict = {}
     for ph, val in funnel_dict.iteritems():
       sl_obj = self.maybe_get_slot(ph)
       if sl_obj is not None:
+        if sl_obj.plug is not None:
+          raise ValueError(str(sl_obj) + ' has a plug. Cannot set the value of a funnel with a plug.')
+
+        stand_funnel_dict[sl_obj.name] = val
         sl_obj.set_val(val)
         if sl_obj.tube is not empty:
           sl_obj.tube.set_val(val)
@@ -285,8 +379,11 @@ class Waterwork(object):
         raise ValueError(str(ph) + ' is not a supported input into pour function')
 
     # Check that all funnels have a value
-    for funnel in self.funnels:
-      if self.funnels[funnel].get_val() is None:
+    for funnel_key in self.funnels:
+      funnel = self.funnels[funnel_key]
+      if funnel.plug is not None:
+        funnel.set_val(funnel.plug(stand_funnel_dict))
+      elif funnel.get_val() is None:
         raise ValueError("All funnels must have a set value. " + str(funnel) + " is not set.")
 
     # Run all the tanks (operations) in the pour direction, filling all slots'
@@ -306,6 +403,10 @@ class Waterwork(object):
     r_dict = {}
     for tap_name in self.taps:
       tap = self.taps[tap_name]
+
+      if tap.plug is not None and not return_plugged:
+        continue
+
       if key_type == 'tube':
         r_dict[tap] = tap.get_val()
       elif key_type == 'tuple':
@@ -317,7 +418,7 @@ class Waterwork(object):
 
     return r_dict
 
-  def pump(self, tap_dict=None, key_type='slot'):
+  def pump(self, tap_dict=None, key_type='slot', return_plugged=False):
     """Run all the operations of the waterwork in the pump (or backward) direction.
 
     Parameters
@@ -340,17 +441,26 @@ class Waterwork(object):
     """
     if tap_dict is None:
       tap_dict = {}
+
+    stand_tap_dict = {}
     # Set all the values of the taps from the inputted arguments.
     for tap, val in tap_dict.iteritems():
       tu_obj = self.maybe_get_tube(tap)
       if tu_obj is not None:
+        if tu_obj.plug is not None:
+          raise ValueError(str(tu_obj) + ' has a plug. Cannot set the value of a funnel with a plug.')
+
+        stand_tap_dict[tu_obj.name] = val
         tu_obj.set_val(val)
       else:
         raise ValueError(str(tap) + ' is not a supported form of input into pump function')
 
     # Check that all funnels have a value
-    for tap in self.taps:
-      if self.taps[tap].get_val() is None:
+    for tap_key in self.taps:
+      tap = self.taps[tap_key]
+      if tap.plug is not None:
+        tap.set_val(tap.plug(stand_tap_dict))
+      elif tap.get_val() is None:
         raise ValueError("All taps must have a set value. " + str(tap) + " is not set.")
 
     # Run all the tanks (operations) in the pump direction, filling all slots'
@@ -370,6 +480,10 @@ class Waterwork(object):
     r_dict = {}
     for funnel_name in self.funnels:
       funnel = self.funnels[funnel_name]
+
+      if funnel.plug is not None and not return_plugged:
+        continue
+
       if key_type == 'slot':
         r_dict[funnel] = funnel.get_val()
       elif key_type == 'tuple':
@@ -386,3 +500,106 @@ class Waterwork(object):
     for d in [self.slots, self.tubes]:
       for key in d:
         d[key].set_val(None)
+
+  def save_to_file(self, file_name):
+    if not file_name.endswith('pickle') and not file_name.endswith('pkl') and not file_name.endswith('dill'):
+      raise ValueError("Waterwork can only be saved as a pickle.")
+    save_dict = self._save_dict()
+    d.save_to_file(save_dict, file_name)
+
+  def write_examples(self, array, file_name):
+    """Pours the array then writes the examples to tfrecords. It creates one example per 'row', i.e. axis=0 of the arrays. All arrays must have the same axis=0 dimension and must be of a type that can be written to a tfrecord
+
+    Parameters
+    ----------
+    array : np.ndarray
+      The array to transform to examples, then write to disk.
+    file_name : str
+      The name of the tfrecord file to write to.
+
+    """
+    writer = tf.python_io.TFRecordWriter(file_name)
+    tap_dict = self.pour(array)
+
+    att_dict = {}
+
+    num_examples = None
+    for key in tap_dict:
+      array = tap_dict[key]
+
+      if num_examples is None:
+        num_examples = array.shape[0]
+
+      if array.shape[0] != num_examples:
+        raise ValueError("All arrays must have the same size first dimesion in order to split them up into individual examples")
+
+      if array.dtype not in (np.int32, np.int64, np.bool, np.float32, np.float64) and array.dtype.type not in (np.string_, np.unicode_):
+        raise TypeError("Only string and number types are supported. Got " + str(array.dtype))
+
+      att_dict[key]['dtype'] = str(array.dtype)
+      att_dict[key]['shape'] = list(array.shape[1:])
+      att_dict[key]['size'] = np.prod(att_dict[key]['shape'])
+      att_dict[key]['feature_func'] = feat.select_feature_func(array.dtype)
+
+    for row_num in xrange(num_examples):
+      example_dict = {}
+      for key in tap_dict:
+        flat = tap_dict[key][row_num].flatten()
+
+        example_dict[os.path.join(key, 'vals')] = att_dict[key]['feature_func'](flat)
+
+        example_dict[os.path.join(key, 'shape')] = feat._int_feat(att_dict[key]['shape'])
+
+      example = tf.train.Example(
+        features=tf.train.Features(feature=example_dict)
+      )
+      writer.write(example.SerializeToString())
+
+    writer.close()
+
+  def read_and_decode(self, serialized_example, feature_dict, prefix=''):
+    """Convert a serialized example created from an example dictionary from this transform into a dictionary of shaped tensors for a tensorflow pipeline.
+
+    Parameters
+    ----------
+    serialized_example : tfrecord serialized example
+      The serialized example to read and convert to a dictionary of tensors.
+    feature_dict :
+      A dictionary with the keys being the keys of the tap dict (and their shapes) and the values being the FixedLenFeature's with the proper values all filled in
+
+    Returns
+    -------
+    dict of tensors
+      The tensors created by decoding the serialized example and reshaping them.
+
+    """
+    features = tf.parse_single_example(
+      serialized_example,
+      features=feature_dict
+    )
+
+    for key in features:
+      if key.endswith('/shape'):
+        continue
+      features[key] = tf.reshape(features[key], features[os.path.join(key, 'shape')])
+
+    return features
+
+  def parse_examples(self, tap_dict, dtype_dict=None, key_type='slot'):
+    """Run the pump transformation on a list of example dictionaries to reconstruct the original array.
+
+    Parameters
+    ----------
+    batched_arrays: dict of arrays
+      The keys
+
+    Returns
+    -------
+    np.ndarray
+      The numpy array to transform into examples.
+
+    """
+    for key in dtype_dict:
+      tap_dict[key] = tap_dict[key].astype(dtype_dict[key])
+
+    return self.pump(tap_dict, key_type=key_type)

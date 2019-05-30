@@ -6,15 +6,15 @@ import numpy as np
 
 class TestOneHot(th.TestTank):
   def test_int(self):
-    self.pour_pump(td.one_hot, {'indices': 1, 'depth': 2}, {'target': np.array([0., 1.]), 'missing_vals': np.array([])}, type_dict={'indices': int, 'depth': int}, test_type=False)
+    self.pour_pump(td.one_hot, {'indices': 1, 'depth': 2}, {'target': np.array([0., 1.]), 'missing_vals': -2}, type_dict={'indices': int, 'depth': int}, test_type=False)
 
-    self.pour_pump(td.one_hot, {'indices': 3, 'depth': 2}, {'target': np.array([0, 0]), 'missing_vals': np.array([3])}, type_dict={'indices': int, 'depth': int}, test_type=False)
+    self.pour_pump(td.one_hot, {'indices': 3, 'depth': 2}, {'target': np.array([0, 0]), 'missing_vals': 3}, type_dict={'indices': int, 'depth': int}, test_type=False)
 
   def test_scalar(self):
     self.pour_pump(
       td.one_hot,
       {'indices': np.array(3), 'depth': 2},
-      {'target': np.array([0., 0.]), 'missing_vals': np.array([3])},
+      {'target': np.array([0., 0.]), 'missing_vals': 3},
       type_dict={'indices': np.ndarray, 'depth': int},
       test_type=False
     )
@@ -23,7 +23,7 @@ class TestOneHot(th.TestTank):
     self.pour_pump(
       td.one_hot,
       {'indices': np.array([2, 3]), 'depth': 3},
-      {'target': np.array([[0., 0., 1.], [0, 0, 0]]), 'missing_vals': np.array([3])},
+      {'target': np.array([[0., 0., 1.], [0, 0, 0]]), 'missing_vals': np.array([-2, 3])},
       type_dict={'indices': np.ndarray, 'depth': int}
     )
 
@@ -40,7 +40,7 @@ class TestOneHot(th.TestTank):
             [[0, 1, 0], [1, 0, 0]],
           ]
         ),
-        'missing_vals': np.array([3, 4, 5])
+        'missing_vals': np.array([[-2, -2], [-2, 3], [4, 5], [-2, -2]])
       },
       type_dict={'indices': np.ndarray, 'depth': int}
     )

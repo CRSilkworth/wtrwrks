@@ -17,7 +17,7 @@ class TestReplace(th.TestTank):
       {
         'target': np.array([0, 3]),
         'mask': np.array([True, False]),
-        'replaced_vals': np.array([1]),
+        'replaced_vals': np.array([1, 0]),
         'replace_with_shape': ()
       },
       type_dict={'a': np.ndarray, 'mask': np.ndarray, 'replace_with': np.ndarray},
@@ -35,7 +35,7 @@ class TestReplace(th.TestTank):
       {
         'target': np.array([[0, 6], [7, 6], [4, 7], [6, 0]]),
         'mask': np.array([[0, 1], [1, 1], [0, 1], [1, 0]]).astype(bool),
-        'replaced_vals': np.array([1, 2, 3, 5, 1]),
+        'replaced_vals': np.array([[0, 1], [2, 3], [0, 5], [1, 0]]),
         'replace_with_shape': (5,)
       },
       type_dict={'a': np.ndarray, 'mask': np.ndarray, 'replace_with': np.ndarray}
@@ -51,7 +51,7 @@ class TestReplace(th.TestTank):
       {
         'target': np.array([[-1, -1], [2, 3], [4, 5]]),
         'mask': np.array([True, False, False]),
-        'replaced_vals': np.array([0, 1]),
+        'replaced_vals': np.array([[0, 1], [0, 0], [0, 0]]),
         'replace_with_shape': ()
       },
       type_dict={'a': np.ndarray, 'mask': np.ndarray, 'replace_with': np.ndarray},
@@ -70,7 +70,7 @@ class TestReplace(th.TestTank):
       {
         'target': target,
         'mask': np.array([False, False, False, True]),
-        'replaced_vals': np.array([18, 19, 20, 21, 22, 23], dtype=float),
+        'replaced_vals': np.array([[[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]], [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]], [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]], [[18.0, 19.0], [20.0, 21.0], [22.0, 23.0]]], dtype=float),
         'replace_with_shape': (1, 1)
       },
       type_dict={'a': np.ndarray, 'mask': np.ndarray, 'replace_with': np.ndarray},

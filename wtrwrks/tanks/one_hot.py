@@ -41,10 +41,20 @@ class OneHot(ta.Tank):
 
     """
     indices = np.array(indices)
+    if not indices.shape:
+      target = np.zeros([depth], dtype=np.float64)
+      missing_vals = -2
+      if indices < 0 or indices >= depth:
+        missing_vals = indices
+      else:
+        target[indices] = 1.0
+      return {'target': target, 'missing_vals': missing_vals}
     # Pull out all the indices which are not in the range 0 <= index <
     # depth.
-    missing_vals = indices[(indices < 0) | (indices >= depth)]
+    mask = (indices < 0) | (indices >= depth)
 
+    missing_vals = np.ones(indices.shape, dtype=int) * -2
+    missing_vals[mask] = indices[mask]
     # Reshape the indices to give them a new dimension. Compare them to
     # each index between 0 and depth - 1, find the location where they are
     # True, and turn the Trues into 1's
@@ -73,6 +83,10 @@ class OneHot(ta.Tank):
     )
 
     """
+    if len(target.shape) == 1:
+      indices = missing_vals if not np.where(target > 0)[0] else np.where(target > 0)[0][0]
+
+      return {'indices': indices, 'depth': target.shape[0]}
     # Start the indices all as -1.
     indices = -1 * np.ones(target.shape[:-1], missing_vals.dtype)
     depth = int(target.shape[-1])
@@ -80,21 +94,18 @@ class OneHot(ta.Tank):
     # If the target is a one dimensional array, then just set to either the
     # missing val in the case that it's a zero hot or to the index of the
     # non zero value.
-    if len(target.shape) == 1:
-      if missing_vals.size:
-        indices = missing_vals[0]
-      else:
-        indices = np.where(target > 0)[0][0]
+
     # If the target is more than on dimensional, then first find all the
     # locations where there are non-zeros. Use those locations to build an
     # array of shape target.shape[:-1] and use the last dimension of the
     # 'where' array to set the the index. Replace all the -1's with the
     # missing vals.
-    else:
-      unpacked_indices = np.where(target > 0)
-      locs = unpacked_indices[:-1]
-      vals = unpacked_indices[-1]
+    unpacked_indices = np.where(target > 0)
+    locs = unpacked_indices[:-1]
+    vals = unpacked_indices[-1]
 
-      indices[locs] = vals
-      indices[indices == -1] = missing_vals
+    indices[locs] = vals
+    # print indices, missing_vals
+    mask = indices == -1
+    indices[mask] = missing_vals[mask]
     return {'indices': indices, 'depth': depth}

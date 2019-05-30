@@ -197,13 +197,13 @@ class StringTransform(n.Transform):
 
     # Find the locations of all the missing values. i.e. those that have been
     # replace by the unknown token.
-    mask = pour_outputs['indices'] == self.unk_index
-    missing_vals = pour_outputs['missing_vals']
+    # mask = pour_outputs['indices'] == self.unk_index
+    # missing_vals = pour_outputs['missing_vals']
 
     # Convert the 1D missing vals array into a full array of the same size as
     # the indices array. This is so it can be easily separated into individual
     # rows that be put into separate examples.
-    pour_outputs['missing_vals'] = self._full_missing_vals(mask, missing_vals)
+    # pour_outputs['missing_vals'] = self._full_missing_vals(mask, missing_vals)
     pour_outputs = self._pre(pour_outputs, prefix)
     return pour_outputs
 
@@ -287,7 +287,7 @@ class StringTransform(n.Transform):
 
     # Add in the information needed to get back the missing_vals
     u_dict = {
-      ('CatToIndex_0', 'missing_vals'): [''] * empties.size,
+      ('CatToIndex_0', 'missing_vals'): np.full(pour_outputs['indices'].shape, '', dtype=np.unicode),
       ('Replace_0', 'mask'): mask,
       ('Replace_0', 'replace_with_shape'): (1,),
       ('IsIn_0', 'b'): self.index_to_word + ['']
@@ -314,8 +314,8 @@ class StringTransform(n.Transform):
     """
     pour_outputs = self._nopre(arrays_dict, prefix)
 
-    mask = pour_outputs['indices'] == self.unk_index
-    pour_outputs['missing_vals'] = pour_outputs['missing_vals'][mask].flatten()
+    # mask = pour_outputs['indices'] == self.unk_index
+    # pour_outputs['missing_vals'] = pour_outputs['missing_vals'][mask].flatten()
 
     pour_outputs = self._pre(pour_outputs, prefix)
     return pour_outputs

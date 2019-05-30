@@ -146,7 +146,7 @@ class DateTimeTransform(n.Transform):
     tap_dict = {
       'nums': pour_outputs['nums'],
       'nats': pour_outputs['nats'],
-      'replaced_vals': np.full([num_nats], 'NaT', dtype=self.input_dtype),
+      'replaced_vals': np.full(pour_outputs['nums'].shape, 'NaT', dtype=self.input_dtype),
       'diff': pour_outputs['diff'],
       'dtn/tubes/zero_datetime': self.zero_datetime,
       'dtn/tubes/time_unit': self.time_unit,

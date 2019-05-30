@@ -125,7 +125,7 @@ class NumTransform(n.Transform):
     tap_dict = {
       'nums': pour_outputs['nums'],
       'nans': pour_outputs['nans'],
-      'replaced_vals': np.full([num_nans], np.nan, dtype=self.input_dtype),
+      'replaced_vals': np.full(pour_outputs['nums'].shape, np.nan, dtype=self.input_dtype),
       'Replace_0/tubes/replace_with_shape': (num_nans,),
     }
     # If there was a norm mode set then add in all the additional information.

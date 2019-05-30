@@ -2,6 +2,7 @@
 import wtrwrks.waterworks.waterwork_part as wp
 import wtrwrks.waterworks.tank as ta
 import wtrwrks.tanks.utils as ut
+import wtrwrks.utils.array_functions as af
 import numpy as np
 
 
@@ -51,7 +52,8 @@ class Replace(ta.Tank):
     target = ut.maybe_copy(a)
 
     # Save the values that are going to be replaced.
-    replaced_vals = target[mask]
+    replaced_vals = af.empty_array_like(a)
+    replaced_vals[mask] = target[mask]
 
     # Replace the values with the values found in replace_with.
     target[mask] = replace_with
@@ -63,7 +65,7 @@ class Replace(ta.Tank):
     else:
       replace_with_shape = (replace_with,)
 
-    return {'target': target, 'mask': mask, 'replaced_vals': replaced_vals.flatten(), 'replace_with_shape': replace_with_shape}
+    return {'target': target, 'mask': mask, 'replaced_vals': replaced_vals, 'replace_with_shape': replace_with_shape}
 
   def _pump(self, target, mask, replaced_vals, replace_with_shape):
     """Execute the Replace tank (operation) in the pump (backward) direction.
@@ -94,8 +96,7 @@ class Replace(ta.Tank):
     a = ut.maybe_copy(target)
     replace_with = a[mask]
 
-    masked_shape = a[mask].shape
-    a[mask] = replaced_vals.reshape(masked_shape)
+    a[mask] = replaced_vals[mask]
 
     if mask.any():
       # If the replace_with had any shape then find the number of elements.

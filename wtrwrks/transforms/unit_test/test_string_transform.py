@@ -71,7 +71,7 @@ class TestStringTransform(th.TestTransform):
       ["The sun is not yellow, it's chicken. OK."]
     ])
     tokenize_diff = [['[["d", 16, 17, ""], ["d", 18, 22, ""]]'], ['[["d", 8, 9, ""], ["d", 14, 15, ""], ["d", 43, 44, ""]]'], ['[["d", 21, 22, ""], ["d", 26, 27, ""], ["i", 37, 37, "."], ["i", 38, 38, "OK"]]']]
-    missing_vals = np.array([], dtype='|S42')
+    missing_vals = np.array([[['', '', '', '', '', '', '', '', '', '']], [['', '', '', '', '', '', '', '', '', '']], [['', '', '', '', '', '', '', '', '', '']]], dtype='|S42')
     index_to_word = self._get_index_to_word(strings, en_tokenizer) + ['__UNK__']
     trans = n.StringTransform(
       index_to_word=index_to_word,
@@ -105,7 +105,7 @@ class TestStringTransform(th.TestTransform):
     lemmatize_diff = [[['[]', '[["i", 0, 2, "is"]]', '[]', '[]', '[["i", 0, 2, "is"]]', '[]', '[]', '[]', '[]', '[]']], [['[]', '[]', '[]', '[]', '[]', '[["i", 2, 4, "s"]]', '[["i", 3, 3, "n"]]', '[]', '[]', '[]']], [['[]', '[]', '[["i", 0, 2, "is"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']]]
     lower_case_diff = [[['[["i", 0, 1, "I"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']], [['[["i", 0, 1, "W"]]', '[]', '[["i", 0, 1, "B"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']], [['[["i", 0, 1, "T"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']]]
     tokenize_diff = [['[["d", 16, 17, ""], ["d", 18, 22, ""]]'], ['[["d", 8, 9, ""], ["d", 14, 15, ""], ["d", 43, 44, ""]]'], ['[["d", 21, 22, ""], ["d", 26, 27, ""], ["i", 37, 37, "."], ["i", 38, 38, "OK"]]']]
-    missing_vals = np.array([], dtype='|S8')
+    missing_vals = np.array([[['', '', '', '', '', '', '', '', '', '']], [['', '', '', '', '', '', '', '', '', '']], [['', '', '', '', '', '', '', '', '', '']]], dtype='|S8')
     strings = np.array([
       ["It is what it is."],
       ["Whatever, Bob's mother has seen the world."],
@@ -147,7 +147,7 @@ class TestStringTransform(th.TestTransform):
       [u'すみませんが、もう一度どお願いします。']
     ])
     tokenize_diff = [['[]'], ['[]']]
-    missing_vals = np.array([], dtype='|U20')
+    missing_vals = np.array([[[u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'']], [[u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'']]], dtype='|U20')
     index_to_word = self._get_index_to_word(strings, ja_tokenizer) + ['__UNK__']
     trans = n.StringTransform(
       word_tokenizer=ja_tokenizer,
@@ -179,7 +179,7 @@ class TestStringTransform(th.TestTransform):
       [u'すみませんが、もう一度どお願いします。']
     ])
     tokenize_diff = [['[]'], ['[]']]
-    missing_vals = np.array([], dtype='|U20')
+    missing_vals = np.array([[[u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'']], [[u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'']]], dtype='|U20')
     index_to_word = self._get_index_to_word(strings, ja_tokenizer, half_width=True) + ['__UNK__']
     half_width_diff = [[['[["i", 0, 1, "\\uff12"]]', '[["i", 0, 1, "\\uff10"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']], [['[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']]]
     trans = n.StringTransform(
@@ -247,7 +247,7 @@ class TestStringTransform(th.TestTransform):
         '[["d", 14, 21, ""]]'
       ]
     ]
-    missing_vals = np.array(['you'], dtype='|S40')
+    missing_vals = np.array([[[u'', u'', u'', u'', u'', u'', u'', u'', u'', u''], [u'', u'', u'', u'', u'', u'', u'', u'', u'', u'']], [[u'', u'', u'', u'', u'', u'', u'', u'', u'', u''], [u'', u'', u'you', u'', u'', u'', u'', u'', u'', u'']], [[u'', u'', u'', u'', u'', u'', u'', u'', u'', u''], [u'', u'', u'', u'', u'', u'', u'', u'', u'', u'']]], dtype='|S40')
     strings = np.array([
       ["It is what it is.", "I've seen summer and I've seen rain"],
       ["The sun is not yellow, it's chicken. OK.", "Hey, you!"],

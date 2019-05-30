@@ -5,7 +5,7 @@ from wtrwrks.waterworks.empty import empty
 import wtrwrks.waterworks.slot as sl
 import wtrwrks.waterworks.tube as tu
 import os
-
+import sys
 
 class Tank(wp.WaterworkPart):
   """Base class for any tank, i.e. an operation that pulls in information from the 'slots', does some processing and outputs them to the 'tubes'.
@@ -292,8 +292,12 @@ class Tank(wp.WaterworkPart):
         # funnel.
         if slot.name in waterwork.funnels:
           del waterwork.funnels[slot.name]
+          if slot.plug is not None:
+            raise ValueError(str(slot) + ' was plugged but is no longer a funnel. Only funnels can have plugs.')
         if other_slot.name in waterwork.funnels:
           del waterwork.funnels[other_slot.name]
+          if other_slot.plug is not None:
+            raise ValueError(str(other_slot) + ' was plugged but is no longer a funnel. Only funnels can have plugs.')
       else:
         tube.slot = slot
         slot.tube = tube
@@ -301,6 +305,10 @@ class Tank(wp.WaterworkPart):
       if type(tube) is tu.Tube:
         del waterwork.taps[tube.name]
         del waterwork.funnels[slot.name]
+        if slot.plug is not None:
+          raise ValueError(str(slot) + ' was plugged but is no longer a funnel. Only funnels can have plugs.')
+        if tube.plug is not None:
+          raise ValueError(str(tube) + ' was plugged but is no longer a tap. Only taps can have plugs.')
 
   def _pour(self, *args, **kwargs):
     """Make sure pour function is set by subclass. The forward transformation of inputs."""
@@ -309,6 +317,16 @@ class Tank(wp.WaterworkPart):
   def _pump(self, *args, **kwargs):
     """Make sure pump function is set by subclass. The backward transformation of outputs."""
     raise ValueError("'_pump' method not defined for " + str(type(self)))
+
+  def _save_dict(self):
+    save_dict = {}
+    save_dict['__class__'] = str(self.__class__.__name__)
+    save_dict['__module__'] = str(self.__module__)
+    save_dict['name'] = self.name
+    save_dict['slots'] = [s for s in self.get_slots()]
+    save_dict['tubes'] = [t for t in self.get_tubes()]
+
+    return save_dict
 
   def get_slot(self, key):
     """Retrieve a slot object from the tank identified by the key"""

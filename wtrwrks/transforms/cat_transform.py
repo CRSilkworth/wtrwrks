@@ -34,7 +34,7 @@ class CatTransform(n.Transform):
 
   """
 
-  attribute_dict = {'norm_mode': None, 'norm_axis': 0, 'ignore_null': False, 'name': '', 'valid_cats': None, 'mean': None, 'std': None, 'dtype': np.float64, 'input_dtype': None, 'index_to_cat_val': None, 'cat_val_to_index': None}
+  attribute_dict = {'norm_mode': None, 'norm_axis': 0, 'name': '', 'valid_cats': None, 'mean': None, 'std': None, 'dtype': np.float64, 'input_dtype': None, 'index_to_cat_val': None, 'cat_val_to_index': None}
 
   def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""
@@ -98,14 +98,14 @@ class CatTransform(n.Transform):
     pour_outputs = self._nopre(pour_outputs, prefix)
     # Find the locations of all the missing values. i.e. those that have been
     # replace by the unknown token.
-    mask = pour_outputs['indices'] == -1
+    # mask = pour_outputs['indices'] == -1
 
     # Convert the 1D missing vals array into a full array of the same size as
     # the indices array. This is so it can be easily separated into individual
     # rows that be put into separate examples.
-    missing_vals = pour_outputs['missing_vals']
-    full_missing_vals = self._full_missing_vals(mask, missing_vals)
-    pour_outputs['missing_vals'] = full_missing_vals
+    # missing_vals = pour_outputs['missing_vals']
+    # full_missing_vals = self._full_missing_vals(mask, missing_vals)
+    # pour_outputs['missing_vals'] = full_missing_vals
 
     # att_dict = self._nopre(self._get_array_attributes(prefix), prefix)
     #
@@ -160,7 +160,7 @@ class CatTransform(n.Transform):
 
     """
     pour_outputs = self._nopre(pour_outputs, prefix)
-    mvs = -1.0 * np.ones([len(pour_outputs['missing_vals'])])
+    mvs = -1 * np.ones(pour_outputs['indices'].shape)
     dtype = pour_outputs['one_hots'].dtype
     if self.norm_mode == 'mean_std':
       tap_dict = {
@@ -206,9 +206,9 @@ class CatTransform(n.Transform):
     """
     pour_outputs = {}
     pour_outputs = self._nopre(arrays_dict, prefix)
-    
-    missing_vals = pour_outputs['missing_vals'][pour_outputs['indices'] == -1]
-    pour_outputs['missing_vals'] = missing_vals.tolist()
+
+    # missing_vals = pour_outputs['missing_vals'][pour_outputs['indices'] == -1]
+    # pour_outputs['missing_vals'] = missing_vals.tolist()
 
     pour_outputs = self._pre(pour_outputs, prefix)
     return pour_outputs
@@ -290,13 +290,6 @@ class CatTransform(n.Transform):
       uniques = sorted(set(self.valid_cats))
     else:
       uniques = sorted(set(np.unique(array)))
-
-    # If null are to be ignored then remove them.
-    if self.ignore_null:
-      if None in uniques:
-        uniques.remove(None)
-      if np.nan in uniques:
-        uniques.remove(np.nan)
 
     # Create the mapping from category values to index in the vector and
     # vice versa

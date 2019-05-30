@@ -2,6 +2,7 @@
 import wtrwrks.waterworks.waterwork_part as wp
 import wtrwrks.waterworks.tank as ta
 import wtrwrks.tanks.utils as ut
+import wtrwrks.utils.array_functions as af
 import numpy as np
 
 
@@ -46,26 +47,33 @@ class CatToIndex(ta.Tank):
     """
     cats = np.array(cats, copy=True)
     shape = cats.shape
+    is_float = cats.dtype in (np.float64, np.float32)
+    nan_val = -1
+    if is_float:
+      for key, value in cat_to_index_map.iteritems():
+        if np.isnan(key):
+          nan_val = value
+          break
     # Pull out all the cats which are not in the cat_to_index_map.
     # If you have a nan not in a float, you're going to get
     # unexpected results, so here we force nans not to show up in
     # missing vals if they are in the cat_to_index_map.
-    if cats.dtype not in (np.float64, np.float32) and np.nan in cat_to_index_map:
-
-      flat = cats.flatten()
-      isnan = np.array([True if str(v) == 'nan' else False for v in flat])
-      missing_vals = flat[
-        (~np.isin(flat, cat_to_index_map.keys())) &
-        (~isnan)
-      ].tolist()
+    missing_vals = af.empty_array_like(cats)
+    if is_float:
+      isnan = np.array([True if str(v) == 'nan' else False for v in cats.flatten()]).reshape(cats.shape)
+      mask = (~np.isin(cats, cat_to_index_map.keys())) & (~isnan)
+      missing_vals[mask] = cats[mask]
     else:
-      missing_vals = cats[~np.isin(cats, cat_to_index_map.keys())].tolist()
+      mask = ~np.isin(cats, cat_to_index_map.keys())
+      missing_vals[mask] = cats[mask]
 
     # Map all the categorical values to indices, setting an index of -1
     # every time an unsupported category is encoutered.
     def safe_map(cat):
       if cat in cat_to_index_map:
         return cat_to_index_map[cat]
+      elif is_float and np.isnan(cat):
+        return nan_val
       else:
         return -1
     target = np.vectorize(safe_map)(cats)
@@ -96,8 +104,7 @@ class CatToIndex(ta.Tank):
     )
 
     """
-    missing_vals = ut.maybe_copy(missing_vals)
-
+    missing_vals = np.array(missing_vals)
     # Convert the cat_to_index_map into an index_to_cat_map, while making
     # sure it is one-to-one. Otherwise it isn't reversible.
     index_to_cat_map = {}
@@ -106,18 +113,14 @@ class CatToIndex(ta.Tank):
         raise ValueError("cat_to_index_map must be one-to-one. " + str(v) + " appears twice.")
       index_to_cat_map[v] = k
 
-    # Create the function for mapping back to categorical values, filling in
-    # any missing values as it goes.
-    def map_back(index):
-      if index != -1:
-        return index_to_cat_map[index]
-      else:
-        cat = missing_vals.pop(0)
-        return cat
-
     # Need to set the otypes variable for np.vectorize, otherwise it runs
     # it once to figure out the output type of map_back. This screws up
     # missing_vals.pop
     # otype = str if not len(cat_to_index_map) else type(cat_to_index_map.keys()[0])
-    cats = np.vectorize(map_back, otypes=[input_dtype])(target)
+    cats = np.array([index_to_cat_map[i] if i != -1 else index_to_cat_map[0] for i in target.flatten()])
+    cats = cats.reshape(target.shape)
+
+    mask = target == -1
+    cats[mask] = missing_vals[mask]
+
     return {'cats': cats, 'cat_to_index_map': cat_to_index_map}

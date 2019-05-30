@@ -12,6 +12,7 @@ import wtrwrks.tanks.reduce as rd
 import wtrwrks.tanks.replace as rp
 import wtrwrks.tanks.one_hot as oh
 import wtrwrks.tanks.transpose as tr
+import wtrwrks.tanks.pack as pc
 import wtrwrks.tanks.datetime_to_num as dtn
 import wtrwrks.tanks.tokenize as to
 import wtrwrks.tanks.lower_case as lc
@@ -23,6 +24,11 @@ import wtrwrks.tanks.iterate as it
 import wtrwrks.tanks.flatten as fl
 import wtrwrks.tanks.flat_tokenize as ft
 import wtrwrks.tanks.replace_substring as rs
+import wtrwrks.tanks.random_choice as rc
+import wtrwrks.tanks.shape as sh
+import wtrwrks.tanks.reshape as rh
+import wtrwrks.tanks.remove as rm
+import wtrwrks.tanks.bert_random_insert as be
 from wtrwrks.waterworks.empty import empty
 import numpy as np
 
@@ -63,6 +69,51 @@ def add(a=empty, b=empty, waterwork=None, name=None):
 
   """
   tank = ad.Add(a=a, b=b, waterwork=waterwork, name=name)
+  return tank.get_tubes(), tank.get_slots()
+
+
+def bert_random_insert(a=empty, ends=empty, num_tries=empty, random_seed=empty, waterwork=None, name=None):
+  """A specialized tank built specifically for the BERT ML model. Randomly inserts a [SEP] token at the end of some sentence in a row, then with some probability overwrites the latter part of the string with a randomly selected sentence. For more information or motivation look up the bert model.
+
+  Parameters
+  ----------
+  a: np.ndarray
+    The array that will have the [SEP] and [CLS] tags inserted as well as randomly setting half of the rows to having random sentences after the first [SEP] tag.
+  ends: np.ndarray of bools
+    An array of the same shape as 'a' which marks the end of a sentence with a True.
+  num_tries: int
+    The number of times to try and find a random sentences to replace the second part of the 'a' array.
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target: np.ndarray
+      The array a with the [SEP] and [CLS] tags as well a some randomly overwritten second sentences.
+    removed: np.ndarray
+      A array with the same size as target that contains all the substrings that were overwritten.
+    ends: np.ndarray of bools
+      An array of the same shape as 'a' which marks the end of a sentence with a True.
+    num_tries: int
+      The number of times to try and find a random sentences to replace the second part of the 'a' array.
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Add tank.
+  slots: dict(
+      a: np.ndarray
+        The array that will have the [SEP] and [CLS] tags inserted as well as randomly setting half of the rows to having random sentences after the first [SEP] tag.
+      ends: np.ndarray of bools
+        An array of the same shape as 'a' which marks the end of a sentence with a True.
+      num_tries: int
+        The number of times to try and find a random sentences to replace the second part of the 'a' array.
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Add tank.
+
+  """
+  tank = be.BertRandomInsert(a=a, ends=ends, num_tries=num_tries, random_seed=random_seed, waterwork=waterwork, name=name)
   return tank.get_tubes(), tank.get_slots()
 
 
@@ -701,6 +752,64 @@ def one_hot(indices=empty, depth=empty, waterwork=None, name=None):
   return tank.get_tubes(), tank.get_slots()
 
 
+def pack(a=empty, default_val=empty, waterwork=None, name=None):
+  """More efficiently pack in the data of an array by overwriting the default_val's. The array must have rank at least equal to 2 The last dimension will be packed so that fewer default vals appear, and the next to last dimension with be shortened, any other dimensions are left unchanged.
+  e.g.
+
+  default_val = 0
+  a = np.array([
+    [1, 1, 1, 0, 0, 0],
+    [2, 2, 0, 0, 0, 0],
+    [3, 3, 0, 3, 3, 0],
+    [4, 0, 0, 0, 0, 0],
+    [5, 5, 5, 5, 5, 5],
+    [0, 6, 6, 0, 0, 0],
+    [7, 7, 0, 0, 0, 0]
+  ])
+
+  target = np.array([
+    [1, 1, 1, 2, 2, 0],
+    [3, 3, 3, 3, 4, 0],
+    [5, 5, 5, 5, 5, 5],
+    [6, 6, 7, 7, 0, 0]
+  ])
+
+  Parameters
+  ----------
+  a: np.ndarray
+    The array to pack
+  default_val: np.ndarray.dtype
+    The value that will be allowed to be overwritten in the packing process.
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target: np.ndarray
+      The packed version of the 'a' array. Has same dims except for the second to last dimension which is usually shorter.
+    default_val: np.ndarray.dtype
+      The value that will be allowed to be overwritten in the packing process.
+    is_default: np.ndarray of bools
+      An array which specifies which elements of the original 'a' have a value equal to 'defaul_val'
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Transpose tank.
+  slots: dict(
+      a: np.ndarray
+        The array to pack
+      default_val: np.ndarray.dtype
+        The value that will be allowed to be overwritten in the packing process.
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
+
+  """
+  tank = pc.Pack(a=a, default_val=default_val, waterwork=waterwork, name=name)
+  return tank.get_tubes(), tank.get_slots()
+
+
 def partition(a=empty, indices=empty, type_dict=None, waterwork=None, name=None):
   """Create a list of array slices according to the indices. All slices are ranges of the 0th axis of the array.
 
@@ -740,6 +849,50 @@ def partition(a=empty, indices=empty, type_dict=None, waterwork=None, name=None)
   """
   tank = pa.Partition(a=a, indices=indices, waterwork=waterwork, name=name)
 
+  return tank.get_tubes(), tank.get_slots()
+
+
+def random_choice(a=empty, shape=empty, p=None, waterwork=None, name=None):
+  """Randomly select values from a list to fill some array.
+
+  Parameters
+  ----------
+  a: 1D np.ndarray or int
+    The allowed values for to randomly select from
+  shape: list of ints
+    The shape of the outputted array of random values.
+  p: 1D np.ndarray of numbers 0 <= 0 <=1 that sum to one or None
+    The probability with which to select each value from 'a'
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target: np.ndarray
+      The randomly selected values
+    a: 1D np.ndarray or int
+      The allowed values for to randomly select from
+    p: 1D np.ndarray of numbers 0 <= 0 <=1 that sum to one or None
+      The probability with which to select each value from 'a'
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Transpose tank.
+  slots: dict(
+      a: 1D np.ndarray or int
+        The allowed values for to randomly select from
+      shape: list of ints
+        The shape of the outputted array of random values.
+      p: 1D np.ndarray of numbers 0 <= 0 <=1 that sum to one or None
+        The probability with which to select each value from 'a'
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
+
+  """
+  tank = rc.RandomChoice(a=a, shape=shape, p=p, waterwork=waterwork, name=name)
+  # return tank['target'], tank['axes'], tank.get_slots()
   return tank.get_tubes(), tank.get_slots()
 
 
@@ -830,8 +983,115 @@ def replace_substring(strings=empty, old_substring=empty, new_substring=empty, w
     A dictionary where the keys are the slot names and the values are the slot objects of the ReplaceSubstring tank.
 
   """
-  tank = rs.ReplaceSubstring(strings=strings, old_substring=old_substring, new_substring=new_substring)
+  tank = rs.ReplaceSubstring(strings=strings, old_substring=old_substring, new_substring=new_substring, waterwork=None, name=None)
   # return tank['target'], tank['old_substring'], tank['new_substring'], tank['diff'], tank.get_slots()
+  return tank.get_tubes(), tank.get_slots()
+
+
+def remove(a=empty, mask=empty, waterwork=None, name=None):
+  """Remove elements of an array according to a mask.
+
+  Parameters
+  ----------
+  a: np.ndarray
+    The array to execute the remove on
+  mask: np.ndarray
+    An array of Trues and Falses, telling which elements to remove. Either needs to be the same shape as a or broadcastable to a.
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target: np.ndarray
+      The array with elements removed
+    removed: np.ndarray
+      The remove elements of the array
+    mask: np.ndarray
+      An array of Trues and Falses, telling which elements to remove. Either needs to be the same shape as a or broadcastable to a.
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Transpose tank.
+  slots: dict(
+      a: np.ndarray
+        The array to execute the remove on
+      mask: np.ndarray
+        An array of Trues and Falses, telling which elements to remove. Either needs to be the same shape as a or broadcastable to a.
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
+
+  """
+  tank = rm.Remove(a=a, mask=mask, waterwork=None, name=None)
+  return tank.get_tubes(), tank.get_slots()
+
+
+def reshape(a=empty, shape=empty, waterwork=None, name=None):
+  """Get the shape of an array.
+
+  Parameters
+  ----------
+  a: np.ndarray
+    The array to reshape
+  shape : list of ints
+    The new shape of the array.
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target: np.ndarray
+      The reshaped array
+    old_shape: list of ints
+      The old shape of the array
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Transpose tank.
+  slots: dict(
+      a: np.ndarray
+        The array to reshape
+      shape : list of ints
+        The new shape of the array.
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
+
+  """
+  tank = rh.Reshape(a=a, shape=shape, waterwork=None, name=None)
+  return tank.get_tubes(), tank.get_slots()
+
+
+def shape(a=empty, waterwork=None, name=None):
+  """Get the shape of an array.
+
+  Parameters
+  ----------
+  aa: np.ndarray
+    The array to get the shape of
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target: list of ints
+      The shape of the array.
+    a: np.ndarray
+      The array to get the shape of
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Transpose tank.
+  slots: dict(
+      a: np.ndarray
+        The array to get the shape of
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
+
+  """
+  tank = sh.shape(a=a, waterwork=waterwork, name=name)
+  # return tank['target'], tank['axes'], tank.get_slots()
   return tank.get_tubes(), tank.get_slots()
 
 
@@ -914,9 +1174,7 @@ def sub(a=empty, b=empty, waterwork=None, name=None):
     A dictionary where the keys are the slot names and the values are the slot objects of the Sub tank.
 
   """
-
   tank = su.Sub(a=a, b=b, waterwork=waterwork, name=name)
-  # return tank['target'], tank['smaller_size_array'], tank['a_is_smaller'], tank.get_slots()
   return tank.get_tubes(), tank.get_slots()
 
 
@@ -1022,3 +1280,5 @@ min = rd.create_one_arg_reduce_tank(np.min, class_name='Min')
 sum = rd.create_one_arg_reduce_tank(np.sum, class_name='Sum')
 mean = rd.create_one_arg_reduce_tank(np.mean, class_name='Mean')
 std = rd.create_one_arg_reduce_tank(np.std, class_name='Std')
+all = rd.create_one_arg_reduce_tank(np.all, class_name='All')
+any = rd.create_one_arg_reduce_tank(np.any, class_name='Any')
