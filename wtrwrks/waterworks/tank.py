@@ -93,6 +93,9 @@ class Tank(wp.WaterworkPart):
         raise ValueError("Cannot pass slot as argument to " + str(type(self)))
       # If data is directly inputted into the slot, then
       # create a placeholder with it's value set to the data.
+      if type(input_dict[key]) is list or type(input_dict[key]) is tuple:
+        input_dict[key] = self._handle_iterable(input_dict[key])
+
       if type(input_dict[key]) is not tu.Tube and input_dict[key] is not empty:
         self.slots[key].set_val(input_dict[key])
         self.slots[key].tube = empty
@@ -149,6 +152,20 @@ class Tank(wp.WaterworkPart):
         input_dict[key].get_val() is None):
         all_slots_filled = False
         break
+      if type(input_dict[key]) is list or type(input_dict[key]) is tuple:
+        break_out = False
+        for val in input_dict[key]:
+          if val is empty:
+            all_slots_filled = False
+            break_out = True
+          if (
+            type(val) is tu.Tube and
+            val.get_val() is None):
+            all_slots_filled = False
+            break_out = True
+            break
+        if break_out:
+          break
     return all_slots_filled
 
   def _convert_tubes_to_vals(self, input_dict):
@@ -216,6 +233,28 @@ class Tank(wp.WaterworkPart):
 
       waterwork.tubes[tube.name] = tube
       waterwork.taps[tube.name] = tube
+
+  def _handle_iterable(self, iterable):
+    found_tube = False
+    for val in iterable:
+      if type(val) is sl.Slot:
+        raise ValueError("Cannot pass slot as argument to " + str(type(self)))
+
+      if type(val) is tu.Tube:
+        found_tube = True
+        break
+
+    if not found_tube:
+      return iterable
+
+    import wtrwrks.tanks.tank_defs as td
+    l_tubes, l_slots = td.tube_list(*iterable)
+
+    for i, val in enumerate(iterable):
+      if type(val) is not tu.Tube:
+        l_slots['a' + str(i)].set_plug(val)
+
+    return l_tubes['target']
 
   def _get_default_name(self, prefix=''):
     """Create the default name of the tank, of the form '<TankSubClass>_<num>'.

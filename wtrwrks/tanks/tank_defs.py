@@ -29,6 +29,9 @@ import wtrwrks.tanks.shape as sh
 import wtrwrks.tanks.reshape as rh
 import wtrwrks.tanks.remove as rm
 import wtrwrks.tanks.bert_random_insert as be
+import wtrwrks.tanks.tile as tl
+import wtrwrks.tanks.dim_size as ds
+import wtrwrks.tanks.tube_iterables as ti
 from wtrwrks.waterworks.empty import empty
 import numpy as np
 
@@ -274,6 +277,7 @@ def concatenate(a_list=empty, axis=empty, waterwork=None, name=None):
   # return tank['target'], tank['axis'], tank['indices'], tank['dtypes'], tank.get_slots()
   return tank.get_tubes(), tank.get_slots()
 
+
 def datetime_to_num(a=empty, zero_datetime=empty, num_units=empty, time_unit=empty, waterwork=None, name=None):
   """Converts a datetime64 array to an array of numbers.
 
@@ -326,6 +330,39 @@ def datetime_to_num(a=empty, zero_datetime=empty, num_units=empty, time_unit=emp
   # return tank['target'], tank['zero_datetime'], tank['num_units'], tank['time_unit'], tank['diff'], tank.get_slots()
   return tank.get_tubes(), tank.get_slots()
 
+
+def dim_size(a=empty, axis=empty, waterwork=None, name=None):
+  """Get the size of a dimension of an array.
+
+  Parameters
+  ----------
+  a: np.ndarray
+    The array to get the shape of
+  axis: int
+    The axis to get the size of.
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target: list of ints
+      The shape of the array.
+    a: np.ndarray
+      The array to get the shape of
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Transpose tank.
+  slots: dict(
+      a: np.ndarray
+        The array to get the shape of
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
+
+  """
+  tank = ds.DimSize(a=a, axis=axis, waterwork=waterwork, name=name)
+  return tank.get_tubes(), tank.get_slots()
 
 def div(a=empty, b=empty, waterwork=None, name=None):
   """Divide two objects together while returning extra information in order to be able to undo the operation. 'a' and 'b' must be able to be converted into numpy arrays.
@@ -1178,6 +1215,45 @@ def sub(a=empty, b=empty, waterwork=None, name=None):
   return tank.get_tubes(), tank.get_slots()
 
 
+def tile(a=empty, reps=empty, waterwork=None, name=None):
+  """Tile the elements of an array into an array with a shape defined by reps.
+
+  Parameters
+  ----------
+  a: np.ndarray
+    The array to reshape
+  reps : list of ints
+    The number of times to tile the array in each dimension
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target: np.ndarray
+      The reshaped array
+    old_shape: list of ints
+      The old shape of the array
+    reps : list of ints
+      The number of times to tile the array in each dimension
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Sub tank.
+  slots: dict(
+      a: np.ndarray
+        The array to reshape
+      reps : list of ints
+        The number of times to tile the array in each dimension
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Sub tank.
+
+  """
+  tank = tl.Tile(a=a, reps=reps, waterwork=waterwork, name=name)
+  return tank.get_tubes(), tank.get_slots()
+
+
 def tokenize(strings=empty, tokenizer=empty, max_len=empty, detokenizer=empty, waterwork=None, name=None):
   """Tokenize an array of strings according to the supplied tokenizer function, keeping the original shape of the array of strings but adding an additional 'token' dimension.
 
@@ -1265,6 +1341,40 @@ def transpose(a=empty, axes=empty, waterwork=None, name=None):
   # return tank['target'], tank['axes'], tank.get_slots()
   return tank.get_tubes(), tank.get_slots()
 
+
+def tube_list(l, type_dict=None, waterwork=None, name=None):
+  """Create a list of tubes from a tube which is list valued. Necessary if one wants to operate on the individual elements of a list rather then the entire list.
+
+  Parameters
+  ----------
+  a: list
+    The tube list whose elements will be converted to tubes.
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the IterList tank.
+  slots: dict(
+      a: list
+        The tube list whose elements will be converted to tubes.
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the IterList tank.
+
+  """
+  keys = ['a' + str(i) for i in xrange(len(l))]
+
+  class TubeListTyped(ti.TubeList):
+    tube_keys = keys
+  tank = TubeListTyped(l, waterwork=waterwork, name=name)
+
+  return tank.get_tubes(), tank.get_slots()
 
 isnan = bo.create_one_arg_bool_tank(np.isnan, class_name='IsNan')
 isnat = bo.create_one_arg_bool_tank(np.isnat, class_name='IsNat')

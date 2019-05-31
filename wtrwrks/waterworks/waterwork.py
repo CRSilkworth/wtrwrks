@@ -339,6 +339,16 @@ class Waterwork(object):
 
     return self.tanks[tank.name].tubes[key]
 
+  def get_taps(self, return_plugged=False):
+    """Get a dictionary of all the taps. Optionally choose to return the taps which are plugged or not."""
+    r_dict = {k: v for k, v in self.taps.iteritems() if v.plug is None}
+    return r_dict
+
+  def get_funnels(self, return_plugged=False):
+    """Get a dictionary of all the funnels. Optionally choose to return the funnels which are plugged or not."""
+    r_dict = {k: v for k, v in self.funnels.iteritems() if v.plug is None}
+    return r_dict
+
   def pour(self, funnel_dict=None, key_type='tube', return_plugged=False):
     """Run all the operations of the waterwork in the pour (or forward) direction.
 

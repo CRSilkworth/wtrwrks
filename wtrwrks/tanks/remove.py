@@ -73,7 +73,7 @@ class Remove(ta.Tank):
     elif target.dtype.type == np.string_:
       dtype = np.string
     else:
-      dtype = a.dtype
+      dtype = target.dtype
     a = np.empty(mask.shape, dtype=dtype)
     a[mask] = target
     a[mask] = removed

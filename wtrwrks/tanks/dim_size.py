@@ -4,8 +4,9 @@ import wtrwrks.waterworks.tank as ta
 import numpy as np
 import wtrwrks.tanks.utils as ut
 
-class Shape(ta.Tank):
-  """Get the shape of an array.
+
+class DimSize(ta.Tank):
+  """Get the size of a dimension of an array.
 
   Attributes
   ----------
@@ -16,10 +17,10 @@ class Shape(ta.Tank):
 
   """
 
-  slot_keys = ['a']
-  tube_keys = ['target', 'a']
+  slot_keys = ['a', 'axis']
+  tube_keys = ['target', 'a', 'axis']
 
-  def _pour(self, a):
+  def _pour(self, a, axis):
     """
 
     Parameters
@@ -37,9 +38,9 @@ class Shape(ta.Tank):
     )
 
     """
-    return {'target': list(a.shape), 'a': ut.maybe_copy(a)}
+    return {'target': list(a.shape), 'a': ut.maybe_copy(a), 'axis': axis}
 
-  def _pump(self, target, a):
+  def _pump(self, target, a, axis):
     """Execute the Shape tank (operation) in the pump (backward) direction.
 
     Parameters
@@ -57,4 +58,4 @@ class Shape(ta.Tank):
     )
 
     """
-    return {'a': ut.maybe_copy(a)}
+    return {'a': ut.maybe_copy(a), 'axis': axis}
