@@ -16,6 +16,7 @@ class Flatten(ta.Tank):
 
   """
 
+  func_name = 'flatten'
   slot_keys = ['a']
   tube_keys = ['target', 'shape']
 

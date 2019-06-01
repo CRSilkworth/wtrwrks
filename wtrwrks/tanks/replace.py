@@ -18,6 +18,7 @@ class Replace(ta.Tank):
 
   """
 
+  func_name = 'replace'
   slot_keys = ['a', 'mask', 'replace_with']
   tube_keys = ['target', 'mask', 'replaced_vals', 'replace_with_shape']
 

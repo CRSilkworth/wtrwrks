@@ -20,6 +20,7 @@ class FlatTokenize(ta.Tank):
     The names off all the tank's tubes, i.e. outputs in the pour (forward) direction,
 
   """
+  func_name = 'flat_tokenize'
   slot_keys = ['strings', 'tokenizer', 'detokenizer', 'ids']
   tube_keys = ['target', 'tokenizer', 'detokenizer', 'diff', 'shape', 'ids']
 

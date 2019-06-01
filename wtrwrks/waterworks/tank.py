@@ -35,7 +35,7 @@ class Tank(wp.WaterworkPart):
     The tube objects that define the pour direction outputs (or pump direction inputs) of the tank.
 
   """
-
+  func_name = None
   slot_keys = None
   tube_keys = None
 
@@ -79,6 +79,9 @@ class Tank(wp.WaterworkPart):
 
     # Join the this tank's slots to the tubes of the other tanks which are
     # inputted in as an argument (input_dict).
+    for key in input_dict:
+      if type(input_dict[key]) is list or type(input_dict[key]) is tuple:
+        input_dict[key] = self._handle_iterable(input_dict[key])
     self._join_tubes_to_slots(input_dict, self.waterwork)
 
     # If all the slots of the tank are 'filled', i.e. are either connected to a
@@ -93,8 +96,6 @@ class Tank(wp.WaterworkPart):
         raise ValueError("Cannot pass slot as argument to " + str(type(self)))
       # If data is directly inputted into the slot, then
       # create a placeholder with it's value set to the data.
-      if type(input_dict[key]) is list or type(input_dict[key]) is tuple:
-        input_dict[key] = self._handle_iterable(input_dict[key])
 
       if type(input_dict[key]) is not tu.Tube and input_dict[key] is not empty:
         self.slots[key].set_val(input_dict[key])
@@ -133,7 +134,6 @@ class Tank(wp.WaterworkPart):
         Whether or not all the values needed for eager execution have been filled.
 
     """
-
     # If there are any slot keys that are not covered by the input_dict, then
     # they have not all been filled.
     if set(self.slot_keys) - set(input_dict.keys()):
@@ -240,7 +240,7 @@ class Tank(wp.WaterworkPart):
       if type(val) is sl.Slot:
         raise ValueError("Cannot pass slot as argument to " + str(type(self)))
 
-      if type(val) is tu.Tube:
+      if type(val) is tu.Tube or val is empty:
         found_tube = True
         break
 
@@ -251,7 +251,7 @@ class Tank(wp.WaterworkPart):
     l_tubes, l_slots = td.tube_list(*iterable)
 
     for i, val in enumerate(iterable):
-      if type(val) is not tu.Tube:
+      if type(val) is not tu.Tube and val is not empty:
         l_slots['a' + str(i)].set_plug(val)
 
     return l_tubes['target']
@@ -312,20 +312,20 @@ class Tank(wp.WaterworkPart):
         tube.slot = empty
 
         import wtrwrks.tanks.tank_defs as td
-        c = td.clone(a=tube)
+        c_tubes, c_slots = td.clone(a=tube)
 
         # Join the other slot to the 'b' tube of the clone tank
-        other_slot.tube = c['b']
-        c['b'].slot = other_slot
+        other_slot.tube = c_tubes['b']
+        c_tubes['b'].slot = other_slot
 
         # Join this slot to the 'a' tube of the clone tank
-        slot.tube = c['a']
-        c['a'].slot = slot
+        slot.tube = c_tubes['a']
+        c_tubes['a'].slot = slot
 
         # Remove the newly created clone tupes from the taps, since they are
         # immediately connected to slots.
-        del waterwork.taps[c['a'].name]
-        del waterwork.taps[c['b'].name]
+        del waterwork.taps[c_tubes['a'].name]
+        del waterwork.taps[c_tubes['b'].name]
 
         # Remove the slots from the funnels, since the clone slot is now the
         # funnel.
@@ -342,8 +342,10 @@ class Tank(wp.WaterworkPart):
         slot.tube = tube
 
       if type(tube) is tu.Tube:
-        del waterwork.taps[tube.name]
-        del waterwork.funnels[slot.name]
+        if tube.name in waterwork.taps:
+          del waterwork.taps[tube.name]
+        if slot.name in waterwork.funnels:
+          del waterwork.funnels[slot.name]
         if slot.plug is not None:
           raise ValueError(str(slot) + ' was plugged but is no longer a funnel. Only funnels can have plugs.')
         if tube.plug is not None:
@@ -359,11 +361,10 @@ class Tank(wp.WaterworkPart):
 
   def _save_dict(self):
     save_dict = {}
-    save_dict['__class__'] = str(self.__class__.__name__)
-    save_dict['__module__'] = str(self.__module__)
+    save_dict['func_name'] = self.func_name
     save_dict['name'] = self.name
-    save_dict['slots'] = [s for s in self.get_slots()]
-    save_dict['tubes'] = [t for t in self.get_tubes()]
+    # save_dict['slots'] = [s for s in self.get_slots()]
+    # save_dict['tubes'] = [t for t in self.get_tubes()]
 
     return save_dict
 

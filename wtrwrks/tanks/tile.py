@@ -17,6 +17,7 @@ class Tile(ta.Tank):
 
   """
 
+  func_name = 'tile'
   slot_keys = ['a', 'reps']
   tube_keys = ['target', 'old_shape', 'reps']
 

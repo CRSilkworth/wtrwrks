@@ -16,6 +16,7 @@ class Transpose(ta.Tank):
 
   """
 
+  func_name = 'transpose'
   slot_keys = ['a', 'axes']
   tube_keys = ['target', 'axes']
 

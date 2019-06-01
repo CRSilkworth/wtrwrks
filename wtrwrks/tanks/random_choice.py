@@ -17,6 +17,7 @@ class RandomChoice(ta.Tank):
 
   """
 
+  func_name = 'random_choice'
   slot_keys = ['a', 'shape']
   tube_keys = ['target', 'a']
 

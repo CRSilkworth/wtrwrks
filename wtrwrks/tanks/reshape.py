@@ -17,6 +17,7 @@ class Reshape(ta.Tank):
 
   """
 
+  func_name = 'reshape'
   slot_keys = ['a', 'shape']
   tube_keys = ['target', 'old_shape']
 

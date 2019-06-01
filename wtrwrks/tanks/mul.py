@@ -16,6 +16,7 @@ class Mul(ta.Tank):
 
   """
 
+  func_name = 'mul'
   slot_keys = ['a', 'b']
   tube_keys = ['target', 'smaller_size_array', 'a_is_smaller', 'missing_vals']
 

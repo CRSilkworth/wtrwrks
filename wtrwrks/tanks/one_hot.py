@@ -17,6 +17,7 @@ class OneHot(ta.Tank):
 
   """
 
+  func_name = 'one_hot'
   slot_keys = ['indices', 'depth']
   tube_keys = ['target', 'missing_vals']
 

@@ -16,6 +16,7 @@ class Concatenate(ta.Tank):
 
   """
 
+  func_name = 'concatenate'
   slot_keys = ['a_list', 'axis']
   tube_keys = ['target', 'axis', 'indices', 'dtypes']
 

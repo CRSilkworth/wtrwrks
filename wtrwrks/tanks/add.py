@@ -15,6 +15,7 @@ class Add(ta.Tank):
     The names off all the tank's tubes, i.e. outputs in the pour (forward) direction,
 
   """
+  func_name = 'add'
   slot_keys = ['a', 'b']
   tube_keys = ['target', 'smaller_size_array', 'a_is_smaller']
 

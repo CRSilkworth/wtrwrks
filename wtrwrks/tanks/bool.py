@@ -5,7 +5,7 @@ import wtrwrks.waterworks.tank as ta
 from wtrwrks.waterworks.empty import empty
 
 
-def create_one_arg_bool_tank(np_func, class_name):
+def create_one_arg_bool_tank(np_func, class_name, func_name):
   """Create a function which generates the tank instance corresponding to some single argument, boolean valued numpy function. (e.g. np.isnan). The operation will be reversible but in the most trivial and wasteful manner possible. It will just copy over the original array.
 
   Parameters
@@ -21,9 +21,11 @@ def create_one_arg_bool_tank(np_func, class_name):
       A function which outputs a tank instance which behaves like the np_func but is also reversible
 
   """
+  temp = func_name
 
   # Define the tank subclass.
   class TankClass(ta.Tank):
+    func_name = temp
     slot_keys = ['a']
     tube_keys = ['target', 'a']
 
@@ -35,13 +37,21 @@ def create_one_arg_bool_tank(np_func, class_name):
 
   TankClass.__name__ = class_name
 
-  def func(a=empty, type_dict=None, waterwork=None, name=None):
+  def func(a=empty, type_dict=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
     tank = TankClass(a=a, waterwork=waterwork, name=name)
+
+    if slot_plugs is not None:
+      for key in slot_plugs:
+        tank.get_slots()[key].set_plug(slot_plugs[key])
+    if tube_plugs is not None:
+      for key in tube_plugs:
+        tank.get_tubes()[key].set_plug(tube_plugs[key])
+
     return tank.get_tubes(), tank.get_slots()
   return func
 
 
-def create_two_arg_bool_tank(np_func, class_name, target_type=None):
+def create_two_arg_bool_tank(np_func, class_name, func_name):
   """Create a function which generates the tank instance corresponding to some two argument, boolean valued numpy function. (e.g. np.equals). The operation will be reversible but in the most trivial and wasteful manner possible. It will just copy over the original array.
 
   Parameters
@@ -57,9 +67,11 @@ def create_two_arg_bool_tank(np_func, class_name, target_type=None):
       A function which outputs a tank instance which behaves like the np_func but is also reversible
 
   """
+  temp = func_name
 
   # Define the tank subclass.
   class TankClass(ta.Tank):
+    func_name = temp
     slot_keys = ['a', 'b']
     tube_keys = ['target', 'a', 'b']
 
@@ -71,8 +83,14 @@ def create_two_arg_bool_tank(np_func, class_name, target_type=None):
 
   TankClass.__name__ = class_name
 
-  def func(a=empty, b=empty, type_dict=None, waterwork=None, name=None):
+  def func(a=empty, b=empty, type_dict=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
     tank = TankClass(a=a, b=b, waterwork=waterwork, name=name)
+    if slot_plugs is not None:
+      for key in slot_plugs:
+        tank.get_slots()[key].set_plug(slot_plugs[key])
+    if tube_plugs is not None:
+      for key in tube_plugs:
+        tank.get_tubes()[key].set_plug(tube_plugs[key])
     return tank.get_tubes(), tank.get_slots()
   return func
 
@@ -88,6 +106,7 @@ class LogicalNot(ta.Tank):
     The names off all the tank's tubes, i.e. outputs in the pour (forward) direction,
 
   """
+  func_name = 'logical_not'
   slot_keys = ['a']
   tube_keys = ['target']
 

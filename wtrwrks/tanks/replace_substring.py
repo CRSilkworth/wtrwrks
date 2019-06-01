@@ -15,6 +15,7 @@ class ReplaceSubstring(ta.Tank):
     The names off all the tank's tubes, i.e. outputs in the pour (forward) direction,
 
   """
+  func_name = 'replace_substring'
   slot_keys = ['strings', 'old_substring', 'new_substring']
   tube_keys = ['target', 'old_substring', 'new_substring', 'diff']
 

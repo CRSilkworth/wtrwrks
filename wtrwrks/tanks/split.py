@@ -16,6 +16,7 @@ class Split(ta.Tank):
 
   """
 
+  func_name = 'split'
   slot_keys = ['a', 'indices', 'axis']
   tube_keys = ['target', 'indices', 'axis']
 

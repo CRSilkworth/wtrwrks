@@ -3,7 +3,7 @@ import wtrwrks.tanks.utils as ut
 import wtrwrks.waterworks.tank as ta
 
 
-def create_one_arg_reduce_tank(np_func, class_name):
+def create_one_arg_reduce_tank(np_func, class_name, func_name):
   """Create a function which generates the tank instance corresponding to some single argument, reduceean valued numpy function. (e.g. np.isnan). The operation will be reversible but in the most trivial and wasteful manner possible. It will just copy over the original array.
 
   Parameters
@@ -19,10 +19,11 @@ def create_one_arg_reduce_tank(np_func, class_name):
       A function which outputs a tank instance which behaves like the np_func but is also reversible
 
   """
+  temp = func_name
 
   # Define the tank subclass.
   class TankClass(ta.Tank):
-
+    func_name = temp
     slot_keys = ['a', 'axis']
     tube_keys = ['target', 'axis', 'a']
 
@@ -45,7 +46,13 @@ def create_one_arg_reduce_tank(np_func, class_name):
   TankClass.__name__ = class_name
 
   # Return the tank_def function.
-  def func(a, axis=(), type_dict=None, waterwork=None, name=None, return_tank=False):
+  def func(a, axis=(), type_dict=None, waterwork=None, name=None, return_tank=False, slot_plugs=None, tube_plugs=None):
     tank = TankClass(a=a, axis=axis, waterwork=waterwork, name=name)
+    if slot_plugs is not None:
+      for key in slot_plugs:
+        tank.get_slots()[key].set_plug(slot_plugs[key])
+    if tube_plugs is not None:
+      for key in tube_plugs:
+        tank.get_tubes()[key].set_plug(tube_plugs[key])
     return tank.get_tubes(), tank.get_slots()
   return func

@@ -32,11 +32,12 @@ import wtrwrks.tanks.bert_random_insert as be
 import wtrwrks.tanks.tile as tl
 import wtrwrks.tanks.dim_size as ds
 import wtrwrks.tanks.tube_iterables as ti
+import wtrwrks.tanks.effective_length as el
 from wtrwrks.waterworks.empty import empty
 import numpy as np
 
 
-def add(a=empty, b=empty, waterwork=None, name=None):
+def add(a=empty, b=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Add two objects together while returning extra information in order to be able to undo the operation. 'a' and 'b' must be able to be converted into numpy arrays.
 
   Parameters
@@ -72,10 +73,17 @@ def add(a=empty, b=empty, waterwork=None, name=None):
 
   """
   tank = ad.Add(a=a, b=b, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+
   return tank.get_tubes(), tank.get_slots()
 
 
-def bert_random_insert(a=empty, ends=empty, num_tries=empty, random_seed=empty, waterwork=None, name=None):
+def bert_random_insert(a=empty, ends=empty, num_tries=empty, random_seed=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """A specialized tank built specifically for the BERT ML model. Randomly inserts a [SEP] token at the end of some sentence in a row, then with some probability overwrites the latter part of the string with a randomly selected sentence. For more information or motivation look up the bert model.
 
   Parameters
@@ -117,10 +125,16 @@ def bert_random_insert(a=empty, ends=empty, num_tries=empty, random_seed=empty, 
 
   """
   tank = be.BertRandomInsert(a=a, ends=ends, num_tries=num_tries, random_seed=random_seed, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def cast(a=empty, dtype=empty, waterwork=None, name=None):
+def cast(a=empty, dtype=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Cast an object to another dtype while saving the original dtype and any lost information.
 
   Parameters
@@ -156,10 +170,16 @@ def cast(a=empty, dtype=empty, waterwork=None, name=None):
 
   """
   tank = ct.Cast(a=a, dtype=dtype, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def cat_to_index(cats=empty, cat_to_index_map=empty, waterwork=None, name=None):
+def cat_to_index(cats=empty, cat_to_index_map=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Convert an array of values drawn from a set of categories into an index according to the map cat_to_index_map, while keeping track of the values that aren't found in the map. Any values not found in the map are given -1 as an index.
 
   Parameters
@@ -198,10 +218,16 @@ def cat_to_index(cats=empty, cat_to_index_map=empty, waterwork=None, name=None):
   """
   tank = cti.CatToIndex(cats=cats, cat_to_index_map=cat_to_index_map, waterwork=waterwork, name=name)
   # return tank['target'], tank['cat_to_index_map'], tank['missing_vals'], tank['input_dtype'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def clone(a=empty, waterwork=None, name=None):
+def clone(a=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Copy an object in order to send it to two different tanks. Usually not performed explicitly but rather when a tube is put as input into two different slots. A clone operation is automatically created.
 
   Parameters
@@ -233,10 +259,16 @@ def clone(a=empty, waterwork=None, name=None):
   tank = cl.Clone(a=a, waterwork=waterwork, name=name)
 
   # return tank['a'], tank['b'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def concatenate(a_list=empty, axis=empty, waterwork=None, name=None):
+def concatenate(a_list=empty, axis=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Concatenate a np.array from subarrays along one axis while saving the indices of the places where they were merged so that the process can be reversed.
 
   Parameters
@@ -275,10 +307,16 @@ def concatenate(a_list=empty, axis=empty, waterwork=None, name=None):
   """
   tank = co.Concatenate(a_list=a_list, axis=axis, waterwork=waterwork, name=name)
   # return tank['target'], tank['axis'], tank['indices'], tank['dtypes'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def datetime_to_num(a=empty, zero_datetime=empty, num_units=empty, time_unit=empty, waterwork=None, name=None):
+def datetime_to_num(a=empty, zero_datetime=empty, num_units=empty, time_unit=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Converts a datetime64 array to an array of numbers.
 
   Parameters
@@ -328,10 +366,16 @@ def datetime_to_num(a=empty, zero_datetime=empty, num_units=empty, time_unit=emp
   tank = dtn.DatetimeToNum(a=a, zero_datetime=zero_datetime, num_units=num_units, time_unit=time_unit, waterwork=waterwork, name=name)
 
   # return tank['target'], tank['zero_datetime'], tank['num_units'], tank['time_unit'], tank['diff'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def dim_size(a=empty, axis=empty, waterwork=None, name=None):
+def dim_size(a=empty, axis=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Get the size of a dimension of an array.
 
   Parameters
@@ -362,9 +406,16 @@ def dim_size(a=empty, axis=empty, waterwork=None, name=None):
 
   """
   tank = ds.DimSize(a=a, axis=axis, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
-def div(a=empty, b=empty, waterwork=None, name=None):
+
+def div(a=empty, b=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Divide two objects together while returning extra information in order to be able to undo the operation. 'a' and 'b' must be able to be converted into numpy arrays.
 
   Parameters
@@ -404,10 +455,61 @@ def div(a=empty, b=empty, waterwork=None, name=None):
 
   """
   tank = dv.Div(a=a, b=b, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def flat_tokenize(strings=empty, ids=empty, tokenizer=empty, detokenizer=empty, waterwork=None, name=None):
+def effective_length(a=empty, default_val=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
+  """Get the length of the last dimension, not including the default_val.
+
+  Parameters
+  ----------
+  a: np.ndarray
+    The array to get the effective length of.
+  default_val:
+    The value to not count
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    a: np.ndarray
+      The array to get the effective length of.
+    default_val:
+      The value to not count
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Transpose tank.
+  slots: dict(
+      target: np.ndarray
+        An array of the same shape as 'a' except missing the last dimension. The values are effective lengths of the last dimesion of a.
+      a: np.ndarray
+        The array to get the effective length of.
+      default_val:
+        The value to not count
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
+
+  """
+  tank = el.EffectiveLength(a=a, default_val=default_val, waterwork=waterwork, name=name)
+  # return tank['target'], tank['axes'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+  return tank.get_tubes(), tank.get_slots()
+
+
+def flat_tokenize(strings=empty, ids=empty, tokenizer=empty, detokenizer=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Tokenize an array of strings according to the supplied tokenizer function, but instead of keeping the original structure of the inputted array, flatten the array and put all tokens from all strings on the same axis.
 
   Parameters
@@ -457,10 +559,16 @@ def flat_tokenize(strings=empty, ids=empty, tokenizer=empty, detokenizer=empty, 
 
   """
   tank = ft.FlatTokenize(strings=strings, tokenizer=tokenizer, detokenizer=detokenizer, ids=ids)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def flatten(a=empty, waterwork=None, name=None):
+def flatten(a=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Flatten a multidimensional array into 1D.
 
   Parameters
@@ -490,10 +598,16 @@ def flatten(a=empty, waterwork=None, name=None):
 
   """
   tank = fl.Flatten(a=a)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def half_width(strings=empty, waterwork=None, name=None):
+def half_width(strings=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Convert any unicode (e.g. chinese, japanese, korean, etc.) characters in a array from full width to half width.
 
   Parameters
@@ -524,10 +638,16 @@ def half_width(strings=empty, waterwork=None, name=None):
   """
   tank = hw.HalfWidth(strings=strings)
   # return tank['target'], tank['diff'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def iter_dict(a=empty, keys=None, type_dict=None, waterwork=None, name=None):
+def iter_dict(a=empty, keys=None, type_dict=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Create a dictionary of tubes from a tube which is dictionary valued. Necessary if one wants to operate on the individual values of a dictionary rather then the entire dictionary.
 
   Parameters
@@ -554,18 +674,38 @@ def iter_dict(a=empty, keys=None, type_dict=None, waterwork=None, name=None):
 
   """
   if keys is None:
-    raise ValueError("Must explicitly set num_entries.")
+    raise ValueError("Must explicitly set keys.")
 
   class IterDictTyped(it.IterDict):
     tube_keys = keys
   tank = IterDictTyped(a=a, waterwork=waterwork, name=name)
 
   tubes = tank.get_tubes()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return {tube_key: tubes[tube_key] for tube_key in keys}, tank.get_slots()
-  return {tube_key: tubes[tube_key] for tube_key in keys}, tank.get_slots(), tank
+
+def _iter_dict(a=empty, keys=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
+  """Used internally. Do not use."""
+
+  class IterDictTyped(it.IterDict):
+    tube_keys = keys
+  tank = IterDictTyped(a=a, waterwork=waterwork, name=name)
+
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+  return tank.get_tubes(), tank.get_slots()
 
 
-def iter_list(a=empty, num_entries=None, type_dict=None, waterwork=None, name=None):
+def iter_list(a=empty, num_entries=None, type_dict=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Create a list of tubes from a tube which is list valued. Necessary if one wants to operate on the individual elements of a list rather then the entire list.
 
   Parameters
@@ -601,10 +741,33 @@ def iter_list(a=empty, num_entries=None, type_dict=None, waterwork=None, name=No
   tank = IterListTyped(a=a, waterwork=waterwork, name=name)
 
   tubes = tank.get_tubes()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return [tubes[tube_key] for tube_key in keys], tank.get_slots()
 
 
-def lemmatize(strings=empty, lemmatizer=empty, waterwork=None, name=None):
+def _iter_list(a=empty, num_entries=None, type_dict=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
+  """Use only for internal purposes. Do not use."""
+  keys = ['a' + str(i) for i in xrange(num_entries)]
+
+  class IterListTyped(it.IterList):
+    tube_keys = keys
+  tank = IterListTyped(a=a, waterwork=waterwork, name=name)
+
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+  return tank.get_tubes(), tank.get_slots()
+
+
+def lemmatize(strings=empty, lemmatizer=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Standardize the strings of an array according to the supplied lemmatizer function.
 
   Parameters
@@ -641,10 +804,16 @@ def lemmatize(strings=empty, lemmatizer=empty, waterwork=None, name=None):
   """
   tank = lm.Lemmatize(strings=strings, lemmatizer=lemmatizer)
   # return tank['target'], tank['lemmatizer'], tank['diff'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def logical_not(a=empty, waterwork=None, name=None):
+def logical_not(a=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Take the 'not' of boolean array.
 
   Parameters
@@ -673,10 +842,16 @@ def logical_not(a=empty, waterwork=None, name=None):
   """
   tank = bo.LogicalNot(a=a, waterwork=waterwork, name=name)
   # return tank['target'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def lower_case(strings=empty, waterwork=None, name=None):
+def lower_case(strings=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Convert any upper case substrings of an array into their lower case counterparts.
 
   Parameters
@@ -706,10 +881,85 @@ def lower_case(strings=empty, waterwork=None, name=None):
 
   """
   tank = lc.LowerCase(strings=strings)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def mul(a=empty, b=empty, waterwork=None, name=None):
+def merge_equal(*args, **kwargs):
+  """Merge several equal objects into a single object.
+
+  Parameters
+  ----------
+  l: list
+    list of tube objects
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target:
+      The tube of the list.
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the IterList tank.
+  slots: dict(
+    l: list
+      list of tube objects
+  )
+
+  """
+  waterwork = None
+  if 'waterwork' in kwargs:
+    waterwork = kwargs['waterwork']
+    del kwargs['waterwork']
+  name = None
+  if 'name' in kwargs:
+    name = kwargs['name']
+    del kwargs['name']
+
+  temp_test_equal = True
+  if 'test_equal' in kwargs:
+    temp_test_equal = kwargs['test_equal']
+    del kwargs['test_equal']
+
+  slot_plugs = None
+  if 'slot_plugs' in kwargs:
+    slot_plugs = kwargs['slot_plugs']
+    del kwargs['slot_plugs']
+
+  tube_plugs = None
+  if 'tube_plugs' in kwargs:
+    tube_plugs = kwargs['tube_plugs']
+    del kwargs['tube_plugs']
+
+  keys = ['a' + str(i) for i in xrange(len(args))]
+  kwargs = {}
+  for num, key in enumerate(keys):
+    kwargs[key] = args[num]
+
+  class MergeEqualTyped(cl.MergeEqual):
+    slot_keys = keys
+    test_equal = temp_test_equal
+
+  tank = MergeEqualTyped(waterwork=waterwork, name=name, **kwargs)
+
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+  return tank.get_tubes(), tank.get_slots()
+
+
+def mul(a=empty, b=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Multiply two objects together while returning extra information in order to be able to undo the operation. 'a' and 'b' must be able to be converted into numpy arrays.
 
   Parameters
@@ -748,10 +998,16 @@ def mul(a=empty, b=empty, waterwork=None, name=None):
   """
 
   tank = mu.Mul(a=a, b=b, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def one_hot(indices=empty, depth=empty, waterwork=None, name=None):
+def one_hot(indices=empty, depth=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Convert an array of indices of rank n to an array of 1's and 0's of rank n+1, where there is a 1 in the location specified by the index and zeros everywhere else.
 
   Parameters
@@ -786,10 +1042,16 @@ def one_hot(indices=empty, depth=empty, waterwork=None, name=None):
   """
   tank = oh.OneHot(indices=indices, depth=depth, waterwork=waterwork, name=name)
   # return tank['target'], tank['missing_vals'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def pack(a=empty, default_val=empty, waterwork=None, name=None):
+def pack(a=empty, lengths=empty, default_val=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """More efficiently pack in the data of an array by overwriting the default_val's. The array must have rank at least equal to 2 The last dimension will be packed so that fewer default vals appear, and the next to last dimension with be shortened, any other dimensions are left unchanged.
   e.g.
 
@@ -800,7 +1062,7 @@ def pack(a=empty, default_val=empty, waterwork=None, name=None):
     [3, 3, 0, 3, 3, 0],
     [4, 0, 0, 0, 0, 0],
     [5, 5, 5, 5, 5, 5],
-    [0, 6, 6, 0, 0, 0],
+    [6, 6, 0, 0, 0, 0],
     [7, 7, 0, 0, 0, 0]
   ])
 
@@ -843,11 +1105,17 @@ def pack(a=empty, default_val=empty, waterwork=None, name=None):
     A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
 
   """
-  tank = pc.Pack(a=a, default_val=default_val, waterwork=waterwork, name=name)
+  tank = pc.Pack(a=a, default_val=default_val, lengths=lengths, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def partition(a=empty, indices=empty, type_dict=None, waterwork=None, name=None):
+def partition(a=empty, indices=empty, type_dict=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Create a list of array slices according to the indices. All slices are ranges of the 0th axis of the array.
 
   Parameters
@@ -886,10 +1154,16 @@ def partition(a=empty, indices=empty, type_dict=None, waterwork=None, name=None)
   """
   tank = pa.Partition(a=a, indices=indices, waterwork=waterwork, name=name)
 
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def random_choice(a=empty, shape=empty, p=None, waterwork=None, name=None):
+def random_choice(a=empty, shape=empty, p=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Randomly select values from a list to fill some array.
 
   Parameters
@@ -930,10 +1204,16 @@ def random_choice(a=empty, shape=empty, p=None, waterwork=None, name=None):
   """
   tank = rc.RandomChoice(a=a, shape=shape, p=p, waterwork=waterwork, name=name)
   # return tank['target'], tank['axes'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def replace(a=empty, mask=empty, replace_with=empty, waterwork=None, name=None):
+def replace(a=empty, mask=empty, replace_with=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Replace the values of an array with some other values specified by replace_with.
 
   Parameters
@@ -976,10 +1256,16 @@ def replace(a=empty, mask=empty, replace_with=empty, waterwork=None, name=None):
   """
   tank = rp.Replace(a=a, mask=mask, replace_with=replace_with, waterwork=waterwork, name=name)
   # return tank['target'], tank['mask'], tank['replaced_vals'], tank['replace_with_shape'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def replace_substring(strings=empty, old_substring=empty, new_substring=empty, waterwork=None, name=None):
+def replace_substring(strings=empty, old_substring=empty, new_substring=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Replace old_substring in an array with a new_substring.
 
   Parameters
@@ -1020,12 +1306,17 @@ def replace_substring(strings=empty, old_substring=empty, new_substring=empty, w
     A dictionary where the keys are the slot names and the values are the slot objects of the ReplaceSubstring tank.
 
   """
-  tank = rs.ReplaceSubstring(strings=strings, old_substring=old_substring, new_substring=new_substring, waterwork=None, name=None)
-  # return tank['target'], tank['old_substring'], tank['new_substring'], tank['diff'], tank.get_slots()
+  tank = rs.ReplaceSubstring(strings=strings, old_substring=old_substring, new_substring=new_substring, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def remove(a=empty, mask=empty, waterwork=None, name=None):
+def remove(a=empty, mask=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Remove elements of an array according to a mask.
 
   Parameters
@@ -1059,11 +1350,17 @@ def remove(a=empty, mask=empty, waterwork=None, name=None):
     A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
 
   """
-  tank = rm.Remove(a=a, mask=mask, waterwork=None, name=None)
+  tank = rm.Remove(a=a, mask=mask, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def reshape(a=empty, shape=empty, waterwork=None, name=None):
+def reshape(a=empty, shape=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Get the shape of an array.
 
   Parameters
@@ -1095,11 +1392,17 @@ def reshape(a=empty, shape=empty, waterwork=None, name=None):
     A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
 
   """
-  tank = rh.Reshape(a=a, shape=shape, waterwork=None, name=None)
+  tank = rh.Reshape(a=a, shape=shape, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def shape(a=empty, waterwork=None, name=None):
+def shape(a=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Get the shape of an array.
 
   Parameters
@@ -1127,12 +1430,18 @@ def shape(a=empty, waterwork=None, name=None):
     A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
 
   """
-  tank = sh.shape(a=a, waterwork=waterwork, name=name)
+  tank = sh.Shape(a=a, waterwork=waterwork, name=name)
   # return tank['target'], tank['axes'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def split(a=empty, indices=empty, axis=empty, type_dict=None, waterwork=None, name=None):
+def split(a=empty, indices=empty, axis=empty, type_dict=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Split up an array along an axis according to provided indices. For a more detailed description look at the documentation for the corresponding numpy function.
 
   Parameters
@@ -1173,10 +1482,16 @@ def split(a=empty, indices=empty, axis=empty, type_dict=None, waterwork=None, na
   """
   tank = sp.Split(a=a, indices=indices, axis=axis, waterwork=waterwork, name=name)
 
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def sub(a=empty, b=empty, waterwork=None, name=None):
+def sub(a=empty, b=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Subtract two objects together while returning extra information in order to be able to undo the operation. 'a' and 'b' must be able to be converted into numpy arrays.
 
   Parameters
@@ -1212,10 +1527,16 @@ def sub(a=empty, b=empty, waterwork=None, name=None):
 
   """
   tank = su.Sub(a=a, b=b, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def tile(a=empty, reps=empty, waterwork=None, name=None):
+def tile(a=empty, reps=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Tile the elements of an array into an array with a shape defined by reps.
 
   Parameters
@@ -1251,10 +1572,16 @@ def tile(a=empty, reps=empty, waterwork=None, name=None):
 
   """
   tank = tl.Tile(a=a, reps=reps, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def tokenize(strings=empty, tokenizer=empty, max_len=empty, detokenizer=empty, waterwork=None, name=None):
+def tokenize(strings=empty, tokenizer=empty, max_len=empty, detokenizer=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Tokenize an array of strings according to the supplied tokenizer function, keeping the original shape of the array of strings but adding an additional 'token' dimension.
 
   Parameters
@@ -1301,10 +1628,16 @@ def tokenize(strings=empty, tokenizer=empty, max_len=empty, detokenizer=empty, w
   """
   tank = to.Tokenize(strings=strings, tokenizer=tokenizer, max_len=max_len, detokenizer=detokenizer)
   # return tank['target'], tank['tokenizer'], tank['delimiter'], tank['diff'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def transpose(a=empty, axes=empty, waterwork=None, name=None):
+def transpose(a=empty, axes=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
   """Permute the dimensions of array while saving the permutation so that it can be undone.
 
   Parameters
@@ -1339,17 +1672,22 @@ def transpose(a=empty, axes=empty, waterwork=None, name=None):
   """
   tank = tr.Transpose(a=a, axes=axes, waterwork=waterwork, name=name)
   # return tank['target'], tank['axes'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
 
-def tube_list(l, type_dict=None, waterwork=None, name=None):
-  """Create a list of tubes from a tube which is list valued. Necessary if one wants to operate on the individual elements of a list rather then the entire list.
+def tube_list(*args, **kwargs):
+  """Convert a list of Tubes into a single Tube. Usually called by the waterwork object.
 
   Parameters
   ----------
-  a: list
-    The tube list whose elements will be converted to tubes.
-
+  l: list
+    list of tube objects
   waterwork : Waterwork or None
     The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
   name : str or None
@@ -1358,37 +1696,91 @@ def tube_list(l, type_dict=None, waterwork=None, name=None):
   Returns
   -------
   tubes: dict(
-
+    target:
+      The tube of the list.
   )
     A dictionary where the keys are the tube names and the values are the tube objects of the IterList tank.
   slots: dict(
-      a: list
-        The tube list whose elements will be converted to tubes.
+    l: list
+      list of tube objects
   )
-    A dictionary where the keys are the slot names and the values are the slot objects of the IterList tank.
 
   """
-  keys = ['a' + str(i) for i in xrange(len(l))]
+  waterwork = None
+  if 'waterwork' in kwargs:
+    waterwork = kwargs['waterwork']
+    del kwargs['waterwork']
+  name = None
+  if 'name' in kwargs:
+    name = kwargs['name']
+    del kwargs['name']
+
+  slot_plugs = None
+  if 'slot_plugs' in kwargs:
+    slot_plugs = kwargs['slot_plugs']
+    del kwargs['slot_plugs']
+
+  tube_plugs = None
+  if 'tube_plugs' in kwargs:
+    tube_plugs = kwargs['tube_plugs']
+    del kwargs['tube_plugs']
+
+  keys = ['a' + str(i) for i in xrange(len(args))]
+  kwargs = {}
+  for num, key in enumerate(keys):
+    kwargs[key] = args[num]
 
   class TubeListTyped(ti.TubeList):
-    tube_keys = keys
-  tank = TubeListTyped(l, waterwork=waterwork, name=name)
+    slot_keys = keys
+  tank = TubeListTyped(waterwork=waterwork, name=name, **kwargs)
 
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
   return tank.get_tubes(), tank.get_slots()
 
-isnan = bo.create_one_arg_bool_tank(np.isnan, class_name='IsNan')
-isnat = bo.create_one_arg_bool_tank(np.isnat, class_name='IsNat')
-equal = bo.create_two_arg_bool_tank(np.equal, class_name='Equals')
-greater = bo.create_two_arg_bool_tank(np.greater, class_name='Greater')
-greater_equal = bo.create_two_arg_bool_tank(np.greater_equal, class_name='GreaterEqual')
-less = bo.create_two_arg_bool_tank(np.less, class_name='Less')
-less_equal = bo.create_two_arg_bool_tank(np.less_equal, class_name='LessEqual')
-isin = bo.create_two_arg_bool_tank(np.isin, class_name='IsIn')
 
-max = rd.create_one_arg_reduce_tank(np.max, class_name='Max')
-min = rd.create_one_arg_reduce_tank(np.min, class_name='Min')
-sum = rd.create_one_arg_reduce_tank(np.sum, class_name='Sum')
-mean = rd.create_one_arg_reduce_tank(np.mean, class_name='Mean')
-std = rd.create_one_arg_reduce_tank(np.std, class_name='Std')
-all = rd.create_one_arg_reduce_tank(np.all, class_name='All')
-any = rd.create_one_arg_reduce_tank(np.any, class_name='Any')
+def _tube_list(**kwargs):
+  """Used internally. Do not use."""
+  waterwork = None
+  if 'waterwork' in kwargs:
+    waterwork = kwargs['waterwork']
+    del kwargs['waterwork']
+  name = None
+  if 'name' in kwargs:
+    name = kwargs['name']
+    del kwargs['name']
+  keys = ['a' + str(i) for i in xrange(len(kwargs))]
+
+  class TubeListTyped(ti.TubeList):
+    slot_keys = keys
+  tank = TubeListTyped(waterwork=waterwork, name=name, **kwargs)
+
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+  return tank.get_tubes(), tank.get_slots()
+
+
+isnan = bo.create_one_arg_bool_tank(np.isnan, class_name='IsNan', func_name='isnan')
+isnat = bo.create_one_arg_bool_tank(np.isnat, class_name='IsNat', func_name='isnat')
+equal = bo.create_two_arg_bool_tank(np.equal, class_name='Equals', func_name='equal')
+greater = bo.create_two_arg_bool_tank(np.greater, class_name='Greater', func_name='greater')
+greater_equal = bo.create_two_arg_bool_tank(np.greater_equal, class_name='GreaterEqual', func_name='greater_equal')
+less = bo.create_two_arg_bool_tank(np.less, class_name='Less', func_name='less')
+less_equal = bo.create_two_arg_bool_tank(np.less_equal, class_name='LessEqual', func_name='less_equal')
+isin = bo.create_two_arg_bool_tank(np.isin, class_name='IsIn', func_name='isin')
+
+max = rd.create_one_arg_reduce_tank(np.max, class_name='Max', func_name='max')
+min = rd.create_one_arg_reduce_tank(np.min, class_name='Min', func_name='min')
+sum = rd.create_one_arg_reduce_tank(np.sum, class_name='Sum', func_name='sum')
+mean = rd.create_one_arg_reduce_tank(np.mean, class_name='Mean', func_name='mean')
+std = rd.create_one_arg_reduce_tank(np.std, class_name='Std', func_name='std')
+all = rd.create_one_arg_reduce_tank(np.all, class_name='All', func_name='all')
+any = rd.create_one_arg_reduce_tank(np.any, class_name='Any', func_name='any')

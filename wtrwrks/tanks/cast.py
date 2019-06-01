@@ -16,6 +16,7 @@ class Cast(ta.Tank):
 
   """
 
+  func_name = 'cast'
   slot_keys = ['a', 'dtype']
   tube_keys = ['target', 'input_dtype', 'diff']
 

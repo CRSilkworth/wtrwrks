@@ -17,6 +17,7 @@ class DimSize(ta.Tank):
 
   """
 
+  func_name = 'dim_size'
   slot_keys = ['a', 'axis']
   tube_keys = ['target', 'a', 'axis']
 

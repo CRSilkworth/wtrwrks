@@ -212,6 +212,46 @@ class TestWaterwork(unittest.TestCase):
       ww.save_to_file(pickle_name)
       ww = wa.Waterwork(from_file=pickle_name)
 
+  def test_list(self):
+    with wa.Waterwork() as ww:
+      add0_tubes, add0_slots = empty + empty
+
+      add0_slots['b'].set_plug(2)
+      add0_tubes['a_is_smaller'].set_plug(False)
+
+      reshape = td.reshape(empty, [1, add0_tubes['smaller_size_array']])
+    true_funnel_dict = {
+      ('Add_0', 'a'): np.array([1, 2]),
+      ('Reshape_0', 'a'): np.array([[[3, 4]]])
+    }
+    for _ in xrange(2):
+      tap_dict = ww.pour(true_funnel_dict, key_type='str')
+
+      true_tap_dict = {
+        'Reshape_0/tubes/target': np.array([[3, 4]]),
+        'Reshape_0/tubes/old_shape': [1, 1, 2],
+        'Add_0/tubes/target': np.array([3, 4]),
+      }
+
+      self.assertEqual(set(tap_dict.keys()), set(true_tap_dict.keys()))
+      for tap in tap_dict:
+        th.assert_arrays_equal(self, tap_dict[tap], true_tap_dict[tap])
+
+      funnel_dict = ww.pump(true_tap_dict, key_type='tuple')
+
+      self.assertEqual(sorted(funnel_dict.keys()), sorted(true_funnel_dict.keys()))
+      for funnel in funnel_dict:
+        th.assert_arrays_equal(self, funnel_dict[funnel], true_funnel_dict[funnel])
+
+      ww.clear_vals()
+      for d in [ww.slots, ww.tubes]:
+        for key in d:
+          self.assertEqual(d[key].get_val(), None)
+      pickle_name = os.path.join(self.temp_dir, 'ww.pickle')
+
+      ww.save_to_file(pickle_name)
+      ww = wa.Waterwork(from_file=pickle_name)
+
 
 if __name__ == "__main__":
     unittest.main()

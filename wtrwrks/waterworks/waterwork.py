@@ -74,14 +74,19 @@ class Waterwork(object):
     self.name_space.__exit__(exc_type, exc_val, exc_tb)
 
   def _from_save_dict(self, save_dict):
+    import wtrwrks.tanks.tank_defs as td
     with ns.NameSpace(''):
       self.name = save_dict['name']
       for tank_name in save_dict['tanks']:
         tank_dict = save_dict['tanks'][tank_name]
-        mod = importlib.import_module(tank_dict['__module__'])
-        cls = getattr(mod, tank_dict['__class__'])
+        func = getattr(td, tank_dict['func_name'])
 
-        tank = cls(name=tank_name, waterwork=self)
+        kwargs = {}
+        if 'kwargs' in tank_dict:
+          kwargs = tank_dict['kwargs']
+
+        tubes, slots = func(name=tank_name, waterwork=self, **kwargs)
+        tank = tubes[tubes.keys()[0]].tank
         self.tanks[tank_name] = tank
 
       for slot_name in save_dict['slots']:

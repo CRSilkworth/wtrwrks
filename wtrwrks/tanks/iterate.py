@@ -16,7 +16,7 @@ class IterList(ta.Tank):
     The names off all the tank's tubes, i.e. outputs in the pour (forward) direction,
 
   """
-
+  func_name = '_iter_list'
   slot_keys = ['a']
   tube_keys = None
 
@@ -60,6 +60,14 @@ class IterList(ta.Tank):
       a.append(kwargs[tube_key])
     return {'a': a}
 
+  def _save_dict(self):
+    save_dict = {}
+    save_dict['func_name'] = self.func_name
+    save_dict['name'] = self.name
+    # save_dict['slots'] = [s for s in self.get_slots()]
+    # save_dict['tubes'] = [t for t in self.get_tubes()]
+    save_dict['kwargs'] = {'num_entries': len(self.tube_keys)}
+    return save_dict
 
 class IterDict(ta.Tank):
   """The defintion of the IterDict tank. Contains the implementations of the _pour and _pump methods, as well as which slots and tubes the waterwork objects will look for.
@@ -72,7 +80,7 @@ class IterDict(ta.Tank):
     The names off all the tank's tubes, i.e. outputs in the pour (forward) direction,
 
   """
-
+  func_name = '_iter_dict'
   slot_keys = ['a']
   tube_keys = None
 
@@ -114,3 +122,12 @@ class IterDict(ta.Tank):
 
     """
     return {'a': kwargs}
+
+  def _save_dict(self):
+    save_dict = {}
+    save_dict['func_name'] = self.func_name
+    save_dict['name'] = self.name
+    # save_dict['slots'] = [s for s in self.get_slots()]
+    # save_dict['tubes'] = [t for t in self.get_tubes()]
+    save_dict['kwargs'] = {'keys': self.tube_keys}
+    return save_dict

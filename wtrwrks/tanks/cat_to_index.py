@@ -20,6 +20,7 @@ class CatToIndex(ta.Tank):
     The tank's (operation's) output keys and their corresponding types.
 
   """
+  func_name = 'cat_to_index'
   slot_keys = ['cats', 'cat_to_index_map']
   tube_keys = ['target', 'cat_to_index_map', 'missing_vals', 'input_dtype']
 

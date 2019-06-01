@@ -23,6 +23,7 @@ class HalfWidth(ta.Tank):
     The names off all the tank's tubes, i.e. outputs in the pour (forward) direction,
 
   """
+  func_name = 'half_width'
   slot_keys = ['strings']
   tube_keys = ['target', 'diff']
 

@@ -21,6 +21,7 @@ class LowerCase(ta.Tank):
 
   """
 
+  func_name = 'lower_case'
   slot_keys = ['strings']
   tube_keys = ['target', 'diff']
 

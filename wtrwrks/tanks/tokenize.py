@@ -21,6 +21,7 @@ class Tokenize(ta.Tank):
 
   """
 
+  func_name = 'tokenize'
   slot_keys = ['strings', 'tokenizer', 'detokenizer', 'max_len']
   tube_keys = ['target', 'tokenizer', 'detokenizer', 'diff']
 
@@ -61,7 +62,6 @@ class Tokenize(ta.Tank):
 
     all_tokens = []
     all_diffs = []
-
 
     for string in strings.flatten():
       # Tokenize the string, and regularize the length of the array by padding

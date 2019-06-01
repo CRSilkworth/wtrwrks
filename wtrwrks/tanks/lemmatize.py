@@ -19,6 +19,7 @@ class Lemmatize(ta.Tank):
 
   """
 
+  func_name = 'lemmatize'
   slot_keys = ['strings', 'lemmatizer']
   tube_keys = ['target', 'lemmatizer', 'diff']
 
