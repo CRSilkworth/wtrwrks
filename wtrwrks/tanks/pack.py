@@ -3,7 +3,7 @@ import wtrwrks.waterworks.waterwork_part as wp
 import wtrwrks.waterworks.tank as ta
 import numpy as np
 import wtrwrks.tanks.utils as ut
-
+import logging
 
 class Pack(ta.Tank):
   """More efficiently pack in the data of an array by overwriting the default_val's. The array must have rank at least equal to 2 The last dimension will be packed so that fewer default vals appear, and the next to last dimension with be shortened, any other dimensions are left unchanged.
@@ -38,7 +38,7 @@ class Pack(ta.Tank):
 
   func_name = 'pack'
   slot_keys = ['a', 'lengths', 'default_val']
-  tube_keys = ['target', 'ends', 'lengths', 'default_val']
+  tube_keys = ['target', 'ends', 'row_map', 'default_val']
 
   def _pour(self, a, lengths, default_val):
     """
@@ -62,6 +62,7 @@ class Pack(ta.Tank):
     )
 
     """
+    logging.debug('%s', a.shape)
     a = np.array(a)
     dtype = a.dtype
     outer_dims = list(a.shape[:-2])
@@ -69,19 +70,25 @@ class Pack(ta.Tank):
     col_dim = a.shape[-1]
 
     pack_row_lens = []
+    grouped_row_lens = []
     all_pack_rows = []
     all_ends = []
+    reshaped_a = a.reshape([-1, row_dim, col_dim])
     reshaped_lengths = lengths.reshape([-1, row_dim])
+    row_map = []
 
     # Flatten any of the outer dimensions and work with two d arrays, since
     # those will be the dimensions which affect the packing.
-    for slice_num, two_d_slice in enumerate(a.reshape([-1, row_dim, col_dim])):
+    for slice_num, two_d_slice in enumerate(reshaped_a):
       cur_lengths = reshaped_lengths[slice_num]
 
-      grouped_rows = []
       tally = 0
+      grouped_rows = []
       rows = []
+      triplets = []
       slice_ends = []
+      slice_row_map = []
+
       ends = np.zeros([col_dim], dtype=bool)
       # Assign each row from the two d slice to a group of rows adding rows
       # until the total number of elements in that row is reached. Then start
@@ -89,19 +96,26 @@ class Pack(ta.Tank):
       for row_num, num in enumerate(cur_lengths):
         if num + tally > col_dim:
           grouped_rows.append(rows)
+          grouped_row_lens.append(len(rows))
+          slice_row_map.append(triplets)
+
           slice_ends.append(ends)
           ends = np.zeros([col_dim], dtype=bool)
           ends[num - 1] = True
+          triplets = []
           rows = []
           tally = 0
         elif num:
           ends[num + tally - 1] = True
-
+        triplets.append([row_num, tally, tally + num])
         rows.append(row_num)
         tally += num
 
+      slice_row_map.append(triplets)
+      grouped_row_lens.append(len(rows))
       grouped_rows.append(rows)
       slice_ends.append(ends)
+
       # Create the new rows of the arrays by pulling out the non default values
       # from the two d slice and adding them to the new row.
       pack_rows = []
@@ -117,11 +131,13 @@ class Pack(ta.Tank):
         pack_row = pack_row + [default_val] * (col_dim - len(pack_row))
         pack_rows.append(np.array(pack_row, dtype=dtype))
 
+      row_map.append(slice_row_map)
       pack_rows = np.stack(pack_rows)
       pack_row_lens.append(pack_rows.shape[0])
       all_pack_rows.append(pack_rows)
       all_ends.append(slice_ends)
     max_num_rows = max(pack_row_lens)
+    max_num_grouped = max(grouped_row_lens)
 
     # Standardize the size of each newly created slice (pack_rows) so that they
     # can all be added to one array. pack_rows slice is filled with several
@@ -136,16 +152,25 @@ class Pack(ta.Tank):
       falses = np.zeros([rows_to_add, col_dim], dtype=bool)
       all_ends[slice_num] = np.concatenate([all_ends[slice_num], falses])
 
+      for row_num in xrange(len(row_map[slice_num])):
+        row_map[slice_num][row_num] = row_map[slice_num][row_num] + [[-1, -1, -1]] * (max_num_grouped - len(row_map[slice_num][row_num]))
+
+      row_map[slice_num] = np.stack(row_map[slice_num])
+      minus_ones = -1 * np.ones([rows_to_add, max_num_grouped, 3], dtype=int)
+      row_map[slice_num] = np.concatenate([row_map[slice_num], minus_ones])
+
     # Reshape the array so that you have an array with only the second to last
     # dimension differening in size from the original 'a'
     target = np.stack(target)
     target = target.reshape(outer_dims + [max_num_rows, col_dim])
 
+    row_map = np.stack(row_map).reshape(outer_dims + [max_num_rows, max_num_grouped, 3])
+
     all_ends = np.stack(all_ends).reshape(outer_dims + [max_num_rows, col_dim])
 
-    return {'target': target, 'default_val': default_val, 'ends': all_ends, 'lengths': ut.maybe_copy(lengths)}
+    return {'target': target, 'default_val': default_val, 'ends': all_ends, 'row_map': row_map}
 
-  def _pump(self, target, default_val, lengths, ends):
+  def _pump(self, target, default_val, row_map, ends):
     """Execute the Concatenate tank (operation) in the pump (backward) direction.
 
     Parameters
@@ -172,33 +197,39 @@ class Pack(ta.Tank):
     row_dim = target.shape[-2]
     col_dim = target.shape[-1]
 
+    a_row_dim = np.max(row_map[..., 0]) + 1
+
     reshaped_target = target.reshape([-1, row_dim, col_dim])
-    reshaped_lengths = lengths.reshape([-1] + list(lengths.shape[-1:]))
+    reshaped_row_map = row_map.reshape([-1, row_dim] + list(row_map.shape[-2:]))
 
     a = []
-    for two_d_slice, cur_lengths in zip(reshaped_target, reshaped_lengths):
-      recon = []
+    lengths = []
 
-      target_row_num = 0
-      tally = 0
-      recon = []
-      for row_num, num in enumerate(cur_lengths):
-        if num + tally > col_dim:
-          target_row_num += 1
-          tally = 0
+    for two_d_slice, cur_row_map in zip(reshaped_target, reshaped_row_map):
+      recon = np.full([a_row_dim, col_dim], default_val, dtype=dtype)
+      slice_lengths = np.zeros([a_row_dim], dtype=int)
 
-        recon_row = two_d_slice[target_row_num, tally: tally + num].tolist()
-        recon_row += [default_val] * (col_dim - len(recon_row))
-        recon.append(recon_row)
+      for packed_row_num in xrange(row_dim):
+        packed_row = two_d_slice[packed_row_num]
+        for row_num, b_index, e_index in cur_row_map[packed_row_num]:
+          # if self.name == 'Pack_2':
+            # if b_index == 36 and e_index == 36:
+              # print packed_row
+            # all_rows.add(row_num)
+          if row_num == -1:
+            break
 
-        tally += num
+          length = e_index - b_index
+          recon[row_num][:length] = packed_row[b_index: e_index]
+          slice_lengths[row_num] = length
 
-      # Reshape this slice to the original (row_dim, col_dim) from the original
-      # a.
+      lengths.append(slice_lengths)
       recon = np.array(recon, dtype=dtype)
       a.append(recon)
 
+    lengths = np.stack(lengths)
+    lengths = lengths.reshape(list(target.shape[:-2]) + [a_row_dim])
     a = np.stack(a)
-    a = a.reshape(list(lengths.shape) + [col_dim])
+    a = a.reshape(list(target.shape[:-2]) + [a_row_dim, col_dim])
 
     return {'a': a, 'default_val': default_val, 'lengths': lengths}

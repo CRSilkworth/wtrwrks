@@ -38,6 +38,7 @@ class Tank(wp.WaterworkPart):
   func_name = None
   slot_keys = None
   tube_keys = None
+  equal_keys = None
 
   def __init__(self, waterwork=None, name=None, **input_dict):
     """Create a Tank. Eagerly run the pour function if all the input values are known at creation.
@@ -82,6 +83,7 @@ class Tank(wp.WaterworkPart):
     for key in input_dict:
       if type(input_dict[key]) is list or type(input_dict[key]) is tuple:
         input_dict[key] = self._handle_iterable(input_dict[key])
+
     self._join_tubes_to_slots(input_dict, self.waterwork)
 
     # If all the slots of the tank are 'filled', i.e. are either connected to a
@@ -94,11 +96,12 @@ class Tank(wp.WaterworkPart):
     for key in input_dict:
       if type(input_dict[key]) is sl.Slot:
         raise ValueError("Cannot pass slot as argument to " + str(type(self)))
-      # If data is directly inputted into the slot, then
-      # create a placeholder with it's value set to the data.
 
+      # If data is directly inputted into the slot, then create a placeholder
+      # with it's value set to the data. And set it as plugged to that value by # default.
       if type(input_dict[key]) is not tu.Tube and input_dict[key] is not empty:
         self.slots[key].set_val(input_dict[key])
+        self.slots[key].set_plug(input_dict[key], obj_is_callable=callable(input_dict[key]))
         self.slots[key].tube = empty
 
     if all_slots_filled:

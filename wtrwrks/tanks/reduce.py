@@ -46,7 +46,7 @@ def create_one_arg_reduce_tank(np_func, class_name, func_name):
   TankClass.__name__ = class_name
 
   # Return the tank_def function.
-  def func(a, axis=(), type_dict=None, waterwork=None, name=None, return_tank=False, slot_plugs=None, tube_plugs=None):
+  def func(a, axis=(), type_dict=None, waterwork=None, name=None, return_tank=False, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
     tank = TankClass(a=a, axis=axis, waterwork=waterwork, name=name)
     if slot_plugs is not None:
       for key in slot_plugs:

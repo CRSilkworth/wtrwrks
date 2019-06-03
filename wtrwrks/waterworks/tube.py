@@ -161,3 +161,7 @@ class Tube(wp.WaterworkPart):
     if old_name in self.waterwork.taps:
       del self.waterwork.taps[old_name]
       self.waterwork.taps[self.name] = self
+
+  def unplug(self):
+    """Remove the plug function from a tap."""
+    self.plug = None

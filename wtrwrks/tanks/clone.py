@@ -94,11 +94,13 @@ class MergeEqual(ta.Tank):
     )
 
     """
+
     if self.test_equal:
       for key in kwargs:
         if not np.all(kwargs[key] == kwargs['a0']):
           raise ValueError("All arguments passed to merge_equal must be equal. Got " + str(kwargs[key]) + ' and ' + str(kwargs['a0']))
-
+    if self.name == 'MergeEqualTyped_2':
+      self.kwargs = kwargs
     return {'target': ut.maybe_copy(kwargs['a0'])}
 
   def _pump(self, target):

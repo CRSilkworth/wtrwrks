@@ -70,11 +70,14 @@ class TestWaterwork(unittest.TestCase):
       ww.save_to_file(pickle_name)
       ww = wa.Waterwork(from_file=pickle_name)
 
-
   def test_pour_pump_eager(self):
     with wa.Waterwork() as ww:
       cl0_tubes, cl0_slots = td.clone(a=np.array([1, 2]))
+      cl0_slots['a'].unplug()
+
       add0_tubes, add0_slots = cl0_tubes['a'] + np.array([3, 4])
+      add0_slots['b'].unplug()
+
       add1_tubes, _ = add0_tubes['target'] + cl0_tubes['b']
       cl1_tubes, _ = td.clone(a=add0_tubes['smaller_size_array'])
       add2_tubes, _ = cl1_tubes['a'] * add1_tubes['smaller_size_array']

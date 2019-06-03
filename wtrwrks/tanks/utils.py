@@ -24,4 +24,4 @@ def maybe_copy(a):
   if type(a) in (list, dict):
     return copy.copy(a)
 
-  return copy.copy(a)
+  return a

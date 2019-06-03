@@ -34,7 +34,7 @@ def get_diff_string(source_string, target_string):
   }
 
   # Get out the operation codes which list out all the operations that need to
-  # occur in order to transform source_string into target_string. 
+  # occur in order to transform source_string into target_string.
   diff_string = []
   for tag, i1, i2, j1, j2 in matcher.get_opcodes():
     if tag == 'equal':

@@ -7,6 +7,7 @@ import numpy as np
 # from chop.hmm import Tokenizer as HMMTokenizer
 import nltk
 import tinysegmenter
+import logging
 
 
 class Tokenize(ta.Tank):
@@ -24,8 +25,9 @@ class Tokenize(ta.Tank):
   func_name = 'tokenize'
   slot_keys = ['strings', 'tokenizer', 'detokenizer', 'max_len']
   tube_keys = ['target', 'tokenizer', 'detokenizer', 'diff']
+  equal_keys = ['tokenizer', 'detokenizer']
 
-  def _pour(self, strings, tokenizer, max_len, detokenizer=lambda a: ' '.join(a)):
+  def _pour(self, strings, tokenizer, max_len, detokenizer):
     """Execute the Tokenize tank (operation) in the pour (forward) direction.
 
     Parameters
@@ -56,6 +58,7 @@ class Tokenize(ta.Tank):
     # Convert to a numpy array.
     strings = np.array(strings)
 
+    # print detokenizer('I went on a run yesterday. I saw a bird and it was magnificent. I hope to see one again tomorrow.')
     # Handle the empty array case
     if not strings.size:
       return {'target': ut.maybe_copy(strings), 'diff': ut.maybe_copy(strings), 'tokenizer': tokenizer, 'detokenizer': detokenizer}
@@ -63,11 +66,13 @@ class Tokenize(ta.Tank):
     all_tokens = []
     all_diffs = []
 
+    lengths = []
     for string in strings.flatten():
       # Tokenize the string, and regularize the length of the array by padding
       # with '' to fill out the array if it's too small or truncated if it's
       # too long.
       tokens = np.array(tokenizer(string))
+      lengths.append(len(tokens))
       if tokens.size < max_len:
         num = max_len - tokens.size
         tokens = np.concatenate([tokens, np.full([num], '')])
@@ -75,12 +80,11 @@ class Tokenize(ta.Tank):
         tokens = tokens[:max_len]
 
       all_tokens.append(tokens)
-
       # Detokenize the tokens and reconstruct the orignal string from the
       # diff_string
       processed = detokenizer(tokens)
       diff = di.get_diff_string(processed, string)
-      all_diffs.append(diff)
+      all_diffs.append(np.array(diff, dtype=np.unicode))
 
     # Combine all the tokens arrays into a single array and reshape to the
     # shape of the original strings array with an additional dimesion of size
@@ -93,7 +97,7 @@ class Tokenize(ta.Tank):
     diff_array = np.stack(all_diffs)
     diff = np.reshape(diff_array, strings.shape)
 
-    return {'target': target.astype(strings.dtype), 'diff': diff, 'tokenizer': tokenizer, 'detokenizer': detokenizer}
+    return {'target': target, 'diff': diff, 'tokenizer': tokenizer, 'detokenizer': detokenizer}
 
   def _pump(self, target, diff, tokenizer, detokenizer):
     """Execute the Tokenize tank (operation) in the pump (backward) direction.

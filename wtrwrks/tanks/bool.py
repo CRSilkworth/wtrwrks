@@ -37,7 +37,7 @@ def create_one_arg_bool_tank(np_func, class_name, func_name):
 
   TankClass.__name__ = class_name
 
-  def func(a=empty, type_dict=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
+  def func(a=empty, type_dict=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
     tank = TankClass(a=a, waterwork=waterwork, name=name)
 
     if slot_plugs is not None:
@@ -46,7 +46,12 @@ def create_one_arg_bool_tank(np_func, class_name, func_name):
     if tube_plugs is not None:
       for key in tube_plugs:
         tank.get_tubes()[key].set_plug(tube_plugs[key])
-
+    if slot_names is not None:
+      for key in slot_names:
+        tank.get_slots()[key].set_name(slot_names[key])
+    if tube_names is not None:
+      for key in tube_names:
+        tank.get_tubes()[key].set_name(tube_names[key])
     return tank.get_tubes(), tank.get_slots()
   return func
 
@@ -83,7 +88,7 @@ def create_two_arg_bool_tank(np_func, class_name, func_name):
 
   TankClass.__name__ = class_name
 
-  def func(a=empty, b=empty, type_dict=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None):
+  def func(a=empty, b=empty, type_dict=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
     tank = TankClass(a=a, b=b, waterwork=waterwork, name=name)
     if slot_plugs is not None:
       for key in slot_plugs:
@@ -146,3 +151,59 @@ class LogicalNot(ta.Tank):
 
     """
     return {'a': np.logical_not(target)}
+
+
+class Equals(ta.Tank):
+  """The defintion of the LogicalNot tank. Contains the implementations of the _pour and _pump methods, as well as which slots and tubes the waterwork objects will look for.
+
+  Attributes
+  ----------
+  slot_keys: list of strs
+    The names off all the tank's slots, i.e. inputs in the pour (forward) direction, or outputs in the pump (backward) direction
+  tubes: list of strs
+    The names off all the tank's tubes, i.e. outputs in the pour (forward) direction,
+
+  """
+  func_name = 'equals'
+  slot_keys = ['a', 'b']
+  tube_keys = ['target', 'a', 'b']
+
+  def _pour(self, a, b):
+    """Execute the LogicalNot tank (operation) in the pour (forward) direction.
+
+    Parameters
+    ----------
+    a: np.ndarray of bools
+      The array to take the logical not of.
+
+    Returns
+    -------
+    dict(
+      target: np.ndarray of bools.
+        The negated array.
+    )
+
+    """
+    a = np.array(a, copy=True)
+    b = np.array(b, copy=True)
+    return {'target': a == b, 'a': a, 'b': b}
+
+  def _pump(self, target, a, b):
+    """Execute the LogicalNot tank (operation) in the pump (backward) direction.
+
+    Parameters
+    ----------
+    target: np.ndarray of bools.
+      The negated array.
+
+    Returns
+    -------
+    dict(
+      a: np.ndarray of bools
+        The array to take the logical not of.
+    )
+
+    """
+    a = np.array(a, copy=True)
+    b = np.array(b, copy=True)
+    return {'a': a, 'b': b}

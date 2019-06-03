@@ -66,6 +66,10 @@ class TestTank (WWTest):
     with wa.Waterwork() as ww:
       # test eager
       tank_tubes, tank_slots = tank_func(**input_dict)
+
+      for key in input_dict:
+        tank_slots[key].unplug()
+
       tank = tank_tubes[tank_tubes.keys()[0]].tank
       out_dict = {t: v.val for t, v in tank_tubes.iteritems()}
       self.assertEqual(sorted(out_dict.keys()), sorted(output_dict.keys()))

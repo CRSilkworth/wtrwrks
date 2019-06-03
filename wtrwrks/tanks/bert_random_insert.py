@@ -47,6 +47,7 @@ class BertRandomInsert(ta.Tank):
     )
 
     """
+    self.temp_ends = ends
     np.random.seed(random_seed)
     sepped_array = []
     max_row_len = a.shape[1] + 3
@@ -88,6 +89,7 @@ class BertRandomInsert(ta.Tank):
 
     target = np.array(target)
     removed = np.array(removed)
+    # if self.name == 'Pack_1':
 
     return {'target': target, 'removed': removed, 'num_tries': num_tries, 'ends': ends, 'random_seed': random_seed}
 
@@ -119,12 +121,10 @@ class BertRandomInsert(ta.Tank):
     """
     mask = removed != '[NA]'
     target[mask] = removed[mask]
-
     a = []
     for row_num in xrange(target.shape[0]):
       row = target[row_num]
       row = row[(row != '[CLS]') & (row != '[SEP]')]
       a.append(row)
     a = np.stack(a)
-
     return {'a': a, 'num_tries': num_tries, 'ends': ends, 'random_seed': random_seed}

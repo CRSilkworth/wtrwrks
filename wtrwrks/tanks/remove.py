@@ -43,6 +43,7 @@ class Remove(ta.Tank):
     )
 
     """
+    print a.shape, mask.shape
     target = a[mask]
     removed = a[~mask]
     return {'target': target, 'mask': mask, 'removed': removed}
@@ -70,12 +71,18 @@ class Remove(ta.Tank):
 
     """
     if target.dtype.type == np.unicode_:
-      dtype = np.unicode
+      size = max(target.dtype.itemsize, removed.dtype.itemsize)
+      dtype = '|U' + str(size)
     elif target.dtype.type == np.string_:
-      dtype = np.string
+      size = max(target.dtype.itemsize, removed.dtype.itemsize)
+      dtype = '|S' + str(size)
     else:
       dtype = target.dtype
-    a = np.empty(mask.shape, dtype=dtype)
+
+    shape = list(mask.shape)
+    shape = shape + list(target.shape[len(shape):])
+    a = np.empty(shape, dtype=dtype)
+
     a[mask] = target
-    a[mask] = removed
+    a[~mask] = removed
     return {'a': a, 'mask': mask}

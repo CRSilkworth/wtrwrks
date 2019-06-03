@@ -224,13 +224,9 @@ class StringTransform(n.Transform):
 
     """
     if array is not None:
-      funnel_dict = {'input': array, 'word_to_index': self.word_to_index}
+      funnel_dict = {'input': array}
     else:
       funnel_dict = {}
-
-    funnel_dict['index_to_word'] = self.index_to_word + ['']
-    funnel_dict['tokenizer'] = self.word_tokenizer
-    funnel_dict['detokenizer'] = self.word_detokenizer
 
     if self.lemmatize and self.lemmatizer is None:
       raise ValueError("No lemmatizer set for this Transform. Must supply one as input into pour.")
@@ -378,6 +374,7 @@ class StringTransform(n.Transform):
     """
     # Tokenize the full strings into words
     tokens, tokens_slots = td.tokenize(strings=array, tokenizer=self.word_tokenizer, detokenizer=self.word_detokenizer, max_len=self.max_sent_len)
+    tokens_slots['strings'].unplug()
 
     # Set the names of various tubes and slots to make it easier to reference
     # them in further downstream.

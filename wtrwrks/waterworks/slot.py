@@ -83,15 +83,17 @@ class Slot(wp.WaterworkPart):
     """Set the value stored in the slot."""
     self.val = val
 
-  def set_plug(self, plug):
+  def set_plug(self, plug, obj_is_callable=False):
     """Plug up the funnel with a function."""
+
     if self.name not in self.waterwork.funnels:
       raise ValueError("Can only plug funnels. " + str(self) + " is not a funnel.")
 
-    if not callable(plug):
+    if not callable(plug) or obj_is_callable:
       func_plug = lambda a: plug
     else:
       func_plug = plug
+
     self.plug = func_plug
 
   def set_name(self, name):
@@ -117,3 +119,8 @@ class Slot(wp.WaterworkPart):
     if old_name in self.waterwork.funnels:
       del self.waterwork.funnels[old_name]
       self.waterwork.funnels[self.name] = self
+
+  def unplug(self):
+    """Remove the plug function from a funnel."""
+
+    self.plug = None

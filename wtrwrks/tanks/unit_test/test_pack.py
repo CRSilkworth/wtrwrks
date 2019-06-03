@@ -39,6 +39,13 @@ class TestPack(th.TestTank):
       [0, 1, 0, 1, 0, 0],
     ], dtype=bool)
 
+    row_map = np.array([
+      [[0, 0, 3], [1, 3, 5]],
+      [[2, 0, 5], [3, 5, 6]],
+      [[4, 0, 6], [-1, -1, -1]],
+      [[5, 0, 2], [6, 2, 4]]
+    ])
+
     self.pour_pump(
       td.pack,
 
@@ -51,7 +58,7 @@ class TestPack(th.TestTank):
         'target': target,
         'default_val': 0,
         'ends': ends,
-        'lengths': self.get_lengths(a)
+        'row_map': row_map
       },
     )
 
@@ -73,6 +80,11 @@ class TestPack(th.TestTank):
       [0, 0, 0, 0, 0, 1],
     ], dtype=bool)
 
+    row_map = np.array([
+        [[0, 0, 3], [1, 3, 5]],
+        [[2, 0, 5], [3, 5, 6]],
+        [[4, 0, 6], [-1, -1, -1]]
+      ])
     self.pour_pump(
       td.pack,
 
@@ -84,7 +96,7 @@ class TestPack(th.TestTank):
       {
         'target': target,
         'default_val': '',
-        'lengths': self.get_lengths(a, default_val=''),
+        'row_map': row_map,
         'ends': ends
       },
     )
@@ -140,6 +152,10 @@ class TestPack(th.TestTank):
     ], dtype=bool)
     is_default = a == 0
 
+    row_map = np.array(
+      [[[[0, 0, 3], [1, 3, 5], [-1, -1, -1]], [[2, 0, 5], [-1, -1, -1], [-1, -1, -1]]], [[[0, 0, 1], [1, 1, 5], [-1, -1, -1]], [[2, 0, 2], [-1, -1, -1], [-1, -1, -1]]], [[[0, 0, 2], [1, 2, 4], [2, 4, 6]], [[-1, -1, -1], [-1, -1, -1], [-1, -1, -1]]]]
+    )
+
     self.pour_pump(
       td.pack,
 
@@ -151,7 +167,7 @@ class TestPack(th.TestTank):
       {
         'target': target,
         'default_val': 0,
-        'lengths': self.get_lengths(a),
+        'row_map': row_map,
         'ends': ends
       },
     )
@@ -220,9 +236,10 @@ class TestPack(th.TestTank):
       ]
     ], dtype=bool)
     is_default = a == 0
-    with wa.Waterwork() as ww:
-      ts, ss = td.pack(a, self.get_lengths(a), 0)
-    print ts['target'].get_val()
+
+    row_map = np.array(
+      [[[[[0, 0, 3], [1, 3, 5]]], [[[0, 0, 0], [1, 0, 5]]]], [[[[0, 0, 1], [1, 1, 5]]], [[[0, 0, 2], [1, 2, 4]]]], [[[[0, 0, 0], [1, 0, 2]]], [[[0, 0, 2], [1, 2, 2]]]]]
+    )
     self.pour_pump(
       td.pack,
 
@@ -234,7 +251,7 @@ class TestPack(th.TestTank):
       {
         'target': target,
         'default_val': 0,
-        'lengths': self.get_lengths(a),
+        'row_map': row_map,
         'ends': ends
       },
     )
