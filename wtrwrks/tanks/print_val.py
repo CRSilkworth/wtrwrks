@@ -19,7 +19,7 @@ class Print(ta.Tank):
   func_name = 'print_val'
   slot_keys = None
   tube_keys = None
-  slot_and_tube_equal = None
+  pass_through_keys = None
 
   def _pour(self, **kwargs):
     """

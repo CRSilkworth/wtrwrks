@@ -19,6 +19,7 @@ class Split(ta.Tank):
   func_name = 'split'
   slot_keys = ['a', 'indices', 'axis']
   tube_keys = ['target', 'indices', 'axis']
+  pass_through_keys = ['indices', 'axis']
 
   def _pour(self, a, indices, axis):
     """Execute the Split tank (operation) in the pour (forward) direction.

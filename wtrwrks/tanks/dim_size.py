@@ -20,6 +20,7 @@ class DimSize(ta.Tank):
   func_name = 'dim_size'
   slot_keys = ['a', 'axis']
   tube_keys = ['target', 'a', 'axis']
+  pass_through_keys = ['a', 'axis']
 
   def _pour(self, a, axis):
     """

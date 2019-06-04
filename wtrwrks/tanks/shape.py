@@ -19,6 +19,7 @@ class Shape(ta.Tank):
   func_name = 'shape'
   slot_keys = ['a']
   tube_keys = ['target', 'a']
+  pass_through_keys = ['a']
 
   def _pour(self, a):
     """

@@ -39,6 +39,7 @@ class Pack(ta.Tank):
   func_name = 'pack'
   slot_keys = ['a', 'lengths', 'default_val']
   tube_keys = ['target', 'ends', 'row_map', 'default_val']
+  pass_through_keys = ['default_val']
 
   def _pour(self, a, lengths, default_val):
     """

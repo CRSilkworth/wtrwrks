@@ -22,6 +22,8 @@ class Lemmatize(ta.Tank):
   func_name = 'lemmatize'
   slot_keys = ['strings', 'lemmatizer']
   tube_keys = ['target', 'lemmatizer', 'diff']
+  pass_through_keys = ['lemmatizer']
+
 
   def _pour(self, strings, lemmatizer):
     """Execute the Lemmatize tank (operation) in the pour (forward) direction.

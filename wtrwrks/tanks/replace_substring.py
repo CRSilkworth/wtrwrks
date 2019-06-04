@@ -18,6 +18,7 @@ class ReplaceSubstring(ta.Tank):
   func_name = 'replace_substring'
   slot_keys = ['strings', 'old_substring', 'new_substring']
   tube_keys = ['target', 'old_substring', 'new_substring', 'diff']
+  pass_through_keys = ['old_substring', 'new_substring']
 
   def _pour(self, strings, old_substring, new_substring):
     """Execute the ReplaceSubstring tank (operation) in the pour (forward) direction.

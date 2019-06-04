@@ -1469,6 +1469,7 @@ def print_val(**kwargs):
   class PrintTyped(pr.Print):
     slot_keys = keys
     tube_keys = keys
+    pass_through_keys = keys
   tank = PrintTyped(waterwork=waterwork, name=name, **kwargs)
 
   return tank.get_tubes(), tank.get_slots()

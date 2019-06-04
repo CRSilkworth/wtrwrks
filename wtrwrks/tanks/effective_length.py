@@ -19,6 +19,7 @@ class EffectiveLength(ta.Tank):
   func_name = 'effective_length'
   slot_keys = ['a', 'default_val']
   tube_keys = ['target', 'a', 'default_val']
+  pass_through_keys = ['a', 'default_val']
 
   def _pour(self, a, default_val):
     """

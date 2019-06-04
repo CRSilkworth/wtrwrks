@@ -19,6 +19,7 @@ class Transpose(ta.Tank):
   func_name = 'transpose'
   slot_keys = ['a', 'axes']
   tube_keys = ['target', 'axes']
+  pass_through_keys = ['axes']
 
   def _pour(self, a, axes):
     """Execute the Transpose tank (operation) in the pour (forward) direction.

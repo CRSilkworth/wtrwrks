@@ -21,7 +21,7 @@ class Tube(wp.WaterworkPart):
 
   """
 
-  def __init__(self, tank, key, val=None, slot=empty, plug=None):
+  def __init__(self, tank, key, val=None, slot=empty, plug=None, downstream_tube=None):
     """Initialize the tube.
 
     Parameters
@@ -41,6 +41,7 @@ class Tube(wp.WaterworkPart):
     self.name = None
     self.val = val
     self.plug = None
+    self.downstream_tube = downstream_tube
 
     super(Tube, self).__init__(tank.waterwork, self.name)
     if self.name in self.waterwork.tubes:

@@ -7,6 +7,7 @@ import wtrwrks.waterworks.tube as tu
 import os
 import sys
 
+
 class Tank(wp.WaterworkPart):
   """Base class for any tank, i.e. an operation that pulls in information from the 'slots', does some processing and outputs them to the 'tubes'.
 
@@ -38,7 +39,7 @@ class Tank(wp.WaterworkPart):
   func_name = None
   slot_keys = None
   tube_keys = None
-  equal_keys = None
+  pass_through_keys = None
 
   def __init__(self, waterwork=None, name=None, **input_dict):
     """Create a Tank. Eagerly run the pour function if all the input values are known at creation.
@@ -81,8 +82,12 @@ class Tank(wp.WaterworkPart):
     # Join the this tank's slots to the tubes of the other tanks which are
     # inputted in as an argument (input_dict).
     for key in input_dict:
+      if type(input_dict[key]) is sl.Slot:
+        raise ValueError("Cannot pass slot as argument to " + str(type(self)))
       if type(input_dict[key]) is list or type(input_dict[key]) is tuple:
         input_dict[key] = self._handle_iterable(input_dict[key])
+      if type(input_dict[key]) is tu.Tube and input_dict[key].downstream_tube is not None:
+        input_dict[key] = input_dict[key].downstream_tube
 
     self._join_tubes_to_slots(input_dict, self.waterwork)
 
@@ -107,6 +112,17 @@ class Tank(wp.WaterworkPart):
     if all_slots_filled:
       input_dict = self._convert_tubes_to_vals(input_dict)
       self.pour(**input_dict)
+
+    import wtrwrks.tanks.clone as cl
+    if isinstance(self, cl.MergeEqual):
+      self._handle_merge()
+
+    if self.pass_through_keys is not None:
+      import wtrwrks.tanks.tank_defs as td
+      for key in self.pass_through_keys:
+        slot = self.slots[key]
+        if slot.tube is not empty:
+          td.merge_equal(self.tubes[key], slot.tube)
 
   def __hash__(self):
     """Uniquely identify the tank among other tanks in the waterwork."""
@@ -258,6 +274,13 @@ class Tank(wp.WaterworkPart):
         l_slots['a' + str(i)].set_plug(val)
 
     return l_tubes['target']
+
+  def _handle_merge(self):
+    for key in self.slots:
+      slot = self.slots[key]
+
+      if slot.tube is not empty:
+        slot.tube.downstream_tube = self.tubes['target']
 
   def _get_default_name(self, prefix=''):
     """Create the default name of the tank, of the form '<TankSubClass>_<num>'.

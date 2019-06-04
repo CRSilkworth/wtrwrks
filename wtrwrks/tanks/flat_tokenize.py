@@ -23,6 +23,7 @@ class FlatTokenize(ta.Tank):
   func_name = 'flat_tokenize'
   slot_keys = ['strings', 'tokenizer', 'detokenizer', 'ids']
   tube_keys = ['target', 'tokenizer', 'detokenizer', 'diff', 'shape', 'ids']
+  pass_through_keys = ['tokenizer', 'detokenizer', 'ids']
 
   def _pour(self, strings, ids, tokenizer, detokenizer=lambda a: ' '.join(a)):
     """Execute the FlatTokenize tank (operation) in the pour (forward) direction.

@@ -26,6 +26,7 @@ def create_one_arg_reduce_tank(np_func, class_name, func_name):
     func_name = temp
     slot_keys = ['a', 'axis']
     tube_keys = ['target', 'axis', 'a']
+    pass_through_keys = ['a', 'axis']
 
     def _pour(self, a, axis):
       # If an empty tuple was given then set the axis to None

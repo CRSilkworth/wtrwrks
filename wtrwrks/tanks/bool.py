@@ -28,6 +28,7 @@ def create_one_arg_bool_tank(np_func, class_name, func_name):
     func_name = temp
     slot_keys = ['a']
     tube_keys = ['target', 'a']
+    pass_through_keys = ['a']
 
     def _pour(self, a):
       return {'target': np_func(a), 'a': ut.maybe_copy(a)}
@@ -79,6 +80,7 @@ def create_two_arg_bool_tank(np_func, class_name, func_name):
     func_name = temp
     slot_keys = ['a', 'b']
     tube_keys = ['target', 'a', 'b']
+    pass_through_keys = ['a', 'b']
 
     def _pour(self, a, b):
       return {'target': np_func(a, b), 'a': ut.maybe_copy(a), 'b': ut.maybe_copy(b)}

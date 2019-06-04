@@ -19,7 +19,7 @@ class Slot(wp.WaterworkPart):
   name : str
     The string used to identify the slot within the entire waterwork. Must be unique among all other slots of this waterwork.
   """
-  def __init__(self, tank, key, val=None, tube=empty, plug=None):
+  def __init__(self, tank, key, val=None, tube=empty, plug=None, upstream_slot=None):
     """Initialize the slot.
     Attributes
     ----------
@@ -38,6 +38,7 @@ class Slot(wp.WaterworkPart):
     self.name = None
     self.val = val
     self.plug = None
+    self.upstream_slot = None
 
     super(Slot, self).__init__(tank.waterwork, self.name)
     if self.name in self.waterwork.slots:

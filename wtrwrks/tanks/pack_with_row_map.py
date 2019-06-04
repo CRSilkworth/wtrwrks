@@ -40,6 +40,7 @@ class PackWithRowMap(ta.Tank):
   func_name = 'pack_with_row_map'
   slot_keys = ['a', 'default_val', 'row_map']
   tube_keys = ['target', 'row_map', 'default_val']
+  pass_through_keys = ['default_val', 'row_map']
 
   def _pour(self, a, row_map, default_val):
     """

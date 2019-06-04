@@ -3,11 +3,6 @@ import wtrwrks.waterworks.tank as ta
 import wtrwrks.tanks.utils as ut
 import wtrwrks.string_manipulations.diff as di
 import numpy as np
-# from chop.mmseg import Tokenizer as MMSEGTokenizer
-# from chop.hmm import Tokenizer as HMMTokenizer
-import nltk
-import tinysegmenter
-import logging
 
 
 class Tokenize(ta.Tank):
@@ -25,7 +20,7 @@ class Tokenize(ta.Tank):
   func_name = 'tokenize'
   slot_keys = ['strings', 'tokenizer', 'detokenizer', 'max_len']
   tube_keys = ['target', 'tokenizer', 'detokenizer', 'diff']
-  equal_keys = ['tokenizer', 'detokenizer']
+  pass_through_keys = ['tokenizer', 'detokenizer']
 
   def _pour(self, strings, tokenizer, max_len, detokenizer):
     """Execute the Tokenize tank (operation) in the pour (forward) direction.

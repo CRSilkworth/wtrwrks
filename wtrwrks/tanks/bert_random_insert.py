@@ -21,6 +21,7 @@ class BertRandomInsert(ta.Tank):
   func_name = 'bert_random_insert'
   slot_keys = ['a', 'ends', 'num_tries', 'random_seed']
   tube_keys = ['target', 'removed', 'num_tries', 'ends', 'random_seed']
+  pass_through_keys = ['ends', 'num_tries', 'random_seed']
 
   def _pour(self, a, ends, num_tries, random_seed):
     """

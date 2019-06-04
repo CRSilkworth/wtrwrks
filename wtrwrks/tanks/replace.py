@@ -21,6 +21,7 @@ class Replace(ta.Tank):
   func_name = 'replace'
   slot_keys = ['a', 'mask', 'replace_with']
   tube_keys = ['target', 'mask', 'replaced_vals', 'replace_with_shape']
+  pass_through_keys = ['mask']
 
   def _pour(self, a, mask, replace_with):
     """Execute the Replace tank (operation) in the pour (forward) direction.

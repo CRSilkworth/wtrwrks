@@ -20,6 +20,7 @@ class DatetimeToNum(ta.Tank):
   func_name = 'datetime_to_num'
   slot_keys = ['a', 'zero_datetime', 'num_units', 'time_unit']
   tube_keys = ['target', 'zero_datetime', 'num_units', 'time_unit', 'diff']
+  pass_through_keys = ['num_units', 'time_unit', 'zero_datetime']
 
   def _pour(self, a, zero_datetime, num_units, time_unit):
     """Execute the DatetimeToNum tank (operation) in the pour (forward) direction.

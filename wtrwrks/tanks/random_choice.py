@@ -20,6 +20,7 @@ class RandomChoice(ta.Tank):
   func_name = 'random_choice'
   slot_keys = ['a', 'shape']
   tube_keys = ['target', 'a']
+  pass_through_keys = ['a']
 
   def _pour(self, a, shape, p):
     """

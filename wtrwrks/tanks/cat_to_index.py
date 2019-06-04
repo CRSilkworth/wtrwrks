@@ -23,6 +23,7 @@ class CatToIndex(ta.Tank):
   func_name = 'cat_to_index'
   slot_keys = ['cats', 'cat_to_index_map']
   tube_keys = ['target', 'cat_to_index_map', 'missing_vals', 'input_dtype']
+  pass_through_keys = ['cat_to_index_map']
 
   def _pour(self, cats, cat_to_index_map):
     """Execute the mapping in the pour (forward) direction .

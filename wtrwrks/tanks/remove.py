@@ -20,6 +20,7 @@ class Remove(ta.Tank):
   func_name = 'remove'
   slot_keys = ['a', 'mask']
   tube_keys = ['target', 'mask', 'removed']
+  pass_through_keys = ['mask']
 
   def _pour(self, a, mask):
     """Execute the Flatten tank (operation) in the pour (forward) direction.

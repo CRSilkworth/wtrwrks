@@ -19,6 +19,7 @@ class Concatenate(ta.Tank):
   func_name = 'concatenate'
   slot_keys = ['a_list', 'axis']
   tube_keys = ['target', 'axis', 'indices', 'dtypes']
+  pass_through_keys = ['axis']
 
   def _pour(self, a_list, axis):
     """Execute the Concatenate tank (operation) in the pour (forward) direction.

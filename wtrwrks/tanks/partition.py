@@ -19,6 +19,7 @@ class Partition(ta.Tank):
   func_name = 'partition'
   slot_keys = ['a', 'indices']
   tube_keys = ['target', 'indices', 'missing_cols', 'missing_array']
+  pass_through_keys = ['indices']
 
   def _pour(self, a, indices):
     """Execute the Partition tank (operation) in the pour (forward) direction.

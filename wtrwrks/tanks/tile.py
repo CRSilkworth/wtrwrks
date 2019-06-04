@@ -20,6 +20,7 @@ class Tile(ta.Tank):
   func_name = 'tile'
   slot_keys = ['a', 'reps']
   tube_keys = ['target', 'old_shape', 'reps']
+  pass_through_keys = ['reps']
 
   def _pour(self, a, reps):
     """Execute the Flatten tank (operation) in the pour (forward) direction.
