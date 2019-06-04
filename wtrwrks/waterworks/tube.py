@@ -95,7 +95,6 @@ class Tube(wp.WaterworkPart):
   def __str__(self):
     """Get a string of the name of the tube."""
     return self.name
-  #   return str((str(self.tank), str(self.key)))
 
   def __sub__(self, other):
     """Define an add tank (operation) between two tubes."""
@@ -128,8 +127,11 @@ class Tube(wp.WaterworkPart):
     """Set the value stored in the tube."""
     self.val = val
 
-  def set_plug(self, plug):
+  def set_plug(self, plug, downstream=True):
     """Plug up the tap with a function."""
+    if self.downstream_tube is not None and downstream:
+      self = self.downstream_tube
+
     if self.name not in self.waterwork.taps:
       raise ValueError("Can only plug taps. " + str(self) + " is not a tap.")
 
@@ -169,6 +171,8 @@ class Tube(wp.WaterworkPart):
       del tu.waterwork.taps[old_name]
       tu.waterwork.taps[tu.name] = tu
 
-  def unplug(self):
+  def unplug(self, downstream=True):
     """Remove the plug function from a tap."""
+    if self.downstream_tube is not None and downstream:
+      self = self.downstream_tube
     self.plug = None

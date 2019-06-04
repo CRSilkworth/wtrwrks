@@ -1115,6 +1115,7 @@ def merge_equal(*args, **kwargs):
     test_equal = temp_test_equal
 
   tank = MergeEqualTyped(waterwork=waterwork, name=name, **kwargs)
+  tank.waterwork.merge_tubes(tank.get_tubes()['target'], *args)
 
   if slot_plugs is not None:
     for key in slot_plugs:

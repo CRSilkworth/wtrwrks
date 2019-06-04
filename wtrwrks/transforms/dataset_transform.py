@@ -371,12 +371,12 @@ class DatasetTransform(tr.Transform):
       self._pre('missing_cols'): np.zeros(shape, dtype=np.object),
       self._pre('missing_array'): np.zeros(shape, dtype=np.object),
     }
-    tap_dict[self._pre('Partition_0/tubes/indices')] = np.array([self.transform_col_ranges[k] for k in sorted(self.transform_col_ranges)])
-    tap_dict[self._pre('Transpose_0/tubes/axes')] = [1, 0]
+    # tap_dict[self._pre('Partition_0/tubes/indices')] = np.array([self.transform_col_ranges[k] for k in sorted(self.transform_col_ranges)])
+    # tap_dict[self._pre('Transpose_0/tubes/axes')] = [1, 0]
     for num, _ in enumerate(self):
       num += 1
       transp_key = 'Transpose_' + str(num) + '/tubes/axes'
-      tap_dict[self._pre(transp_key)] = [1, 0]
+      # tap_dict[self._pre(transp_key)] = [1, 0]
 
     for name in sorted(self.transforms):
       trans = self.transforms[name]

@@ -43,6 +43,7 @@ class EffectiveLength(ta.Tank):
     )
 
     """
+    print a
     zero = (np.array(a) == default_val)
 
     all_zero = np.all(zero, axis=-1)

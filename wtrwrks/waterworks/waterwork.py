@@ -52,6 +52,7 @@ class Waterwork(object):
     self.slots = {}
     self.tanks = {}
     self.taps = {}
+    self.merged = {}
     self.name = name
 
     if from_file is not None:
@@ -356,6 +357,25 @@ class Waterwork(object):
     r_dict = {k: v for k, v in self.funnels.iteritems() if v.plug is None}
     return r_dict
 
+  def merge_tubes(self, target, *args):
+    self.merged[target] = set()
+    for arg in args:
+
+      if arg.downstream_tube is not None and arg.downstream_tube != target:
+        self.merged[target].add(arg.downstream_tube)
+        arg.downstream_tube.downstream_tube = target
+
+        if arg.downstream_tube in self.merged:
+          for equal_arg in self.merged[arg.downstream_tube]:
+            equal_arg.downstream_tube = target
+            self.merged[target].add(equal_arg)
+
+          if arg.downstream_tube != target:
+            del self.merged[arg.downstream_tube]
+
+      self.merged[target].add(arg)
+      arg.downstream_tube = target
+
   def pour(self, funnel_dict=None, key_type='tube', return_plugged=False):
     """Run all the operations of the waterwork in the pour (or forward) direction.
 
@@ -480,7 +500,7 @@ class Waterwork(object):
           logging.warn("%s has downstream_tube %s. Setting that value instead.", tu_obj.name, tu_obj.downstream_tube.name)
           tu_obj = tu_obj.downstream_tube
         if tu_obj.plug is not None:
-          raise ValueError(str(tu_obj) + ' has a plug. Cannot set the value of a funnel with a plug.')
+          raise ValueError(str(tu_obj) + ' has a plug. Cannot set the value of a tap which is plugged.')
 
         stand_tap_dict[tu_obj.name] = val
         tu_obj.set_val(val)

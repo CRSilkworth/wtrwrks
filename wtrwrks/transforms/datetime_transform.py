@@ -148,9 +148,9 @@ class DateTimeTransform(n.Transform):
       'nats': pour_outputs['nats'],
       'replaced_vals': np.full(pour_outputs['nums'].shape, 'NaT', dtype=self.input_dtype),
       'diff': pour_outputs['diff'],
-      'dtn/tubes/zero_datetime': self.zero_datetime,
-      'dtn/tubes/time_unit': self.time_unit,
-      'dtn/tubes/num_units': self.num_units,
+      # 'dtn/tubes/zero_datetime': self.zero_datetime,
+      # 'dtn/tubes/time_unit': self.time_unit,
+      # 'dtn/tubes/num_units': self.num_units,
       'Replace_0/tubes/replace_with_shape': (num_nats,),
     }
     # If any normalization was done

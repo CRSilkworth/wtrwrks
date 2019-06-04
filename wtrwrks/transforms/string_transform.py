@@ -255,10 +255,7 @@ class StringTransform(n.Transform):
     tap_dict = {
       'indices': pour_outputs['indices'],
       'missing_vals': pour_outputs['missing_vals'],
-      ('CatToIndex_0', 'cat_to_index_map'): self.word_to_index,
       ('CatToIndex_0', 'input_dtype'): self.input_dtype,
-      ('Tokenize_0', 'detokenizer'): self.word_detokenizer,
-      ('Tokenize_0', 'tokenizer'): self.word_tokenizer,
       ('Tokenize_0', 'diff'): pour_outputs['tokenize_diff']
     }
 
@@ -273,12 +270,10 @@ class StringTransform(n.Transform):
     if self.lemmatize:
       u_dict = {
         ('Lemmatize_0', 'diff'): pour_outputs['lemmatize_diff'],
-        ('Lemmatize_0', 'lemmatizer'): self.lemmatizer
       }
       tap_dict.update(u_dict)
 
     # Find all the empty strings and locations of the unknown values.
-    empties = pour_outputs['indices'][pour_outputs['indices'] == -1]
     mask = pour_outputs['indices'] == self.unk_index
 
     # Add in the information needed to get back the missing_vals
@@ -286,7 +281,6 @@ class StringTransform(n.Transform):
       ('CatToIndex_0', 'missing_vals'): np.full(pour_outputs['indices'].shape, '', dtype=np.unicode),
       ('Replace_0', 'mask'): mask,
       ('Replace_0', 'replace_with_shape'): (1,),
-      ('IsIn_0', 'b'): self.index_to_word + ['']
     }
     tap_dict.update(u_dict)
 

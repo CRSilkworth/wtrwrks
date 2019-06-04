@@ -174,7 +174,6 @@ class CatTransform(n.Transform):
         'Sub_0/tubes/smaller_size_array': self.mean,
         'Sub_0/tubes/a_is_smaller': False,
         'missing_vals': pour_outputs['missing_vals'],
-        'CatToIndex_0/tubes/cat_to_index_map': self.cat_val_to_index,
         'CatToIndex_0/tubes/input_dtype': self.input_dtype
       }
     else:
@@ -183,7 +182,6 @@ class CatTransform(n.Transform):
         'one_hots': pour_outputs['one_hots'],
         'indices': pour_outputs['indices'],
         'missing_vals': pour_outputs['missing_vals'],
-        'CatToIndex_0/tubes/cat_to_index_map': self.cat_val_to_index,
         'CatToIndex_0/tubes/input_dtype': self.input_dtype
       }
     return self._pre(tap_dict, prefix)

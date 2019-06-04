@@ -93,6 +93,7 @@ class Partition(ta.Tank):
     """
     # Get the total length of the partitioned dimension. Handling the empty
     # array case.
+    indices = np.array(indices)
     if target or missing_cols:
       max_index = np.max(np.concatenate([indices[:, 1] - 1, missing_cols.flatten()]))
     else:
