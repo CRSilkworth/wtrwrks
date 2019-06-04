@@ -139,29 +139,35 @@ class Tube(wp.WaterworkPart):
       func_plug = plug
     self.plug = func_plug
 
-  def set_name(self, name):
+  def set_name(self, name, downstream=True):
     """Set the name of the tube within the waterwork."""
-    old_name = self.name
-    self.name = name
+    # If it has a downstream tube, then actually set that name. Unless
+    # downstream is set to false
+    tu = self
+    if self.downstream_tube is not None and downstream:
+      tu = self.downstream_tube
 
-    full_name_space = self.name_space._get_name_string()
+    old_name = tu.name
+    tu.name = name
+
+    full_name_space = tu.name_space._get_name_string()
     if full_name_space:
       full_name_space = full_name_space + '/'
 
     if type(name) not in (str, unicode):
       raise TypeError("'name' must be of type str or unicode. Got " + str(type(name)))
-    elif not self.name.startswith(full_name_space):
-      self.name = os.path.join(self.name_space._get_name_string(), self.name)
+    elif not tu.name.startswith(full_name_space):
+      tu.name = os.path.join(tu.name_space._get_name_string(), tu.name)
 
-    if self.name in self.waterwork.tubes:
-      raise ValueError(self.name + " already defined as tube. Choose a different name.")
+    if tu.name in tu.waterwork.tubes:
+      raise ValueError(tu.name + " already defined as tube. Choose a different name.")
 
-    del self.waterwork.tubes[old_name]
-    self.waterwork.tubes[self.name] = self
+    del tu.waterwork.tubes[old_name]
+    tu.waterwork.tubes[tu.name] = tu
 
-    if old_name in self.waterwork.taps:
-      del self.waterwork.taps[old_name]
-      self.waterwork.taps[self.name] = self
+    if old_name in tu.waterwork.taps:
+      del tu.waterwork.taps[old_name]
+      tu.waterwork.taps[tu.name] = tu
 
   def unplug(self):
     """Remove the plug function from a tap."""

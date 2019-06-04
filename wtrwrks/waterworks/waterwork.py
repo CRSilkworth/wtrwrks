@@ -476,6 +476,9 @@ class Waterwork(object):
     for tap, val in tap_dict.iteritems():
       tu_obj = self.maybe_get_tube(tap)
       if tu_obj is not None:
+        if tu_obj.downstream_tube is not None:
+          logging.warn("%s has downstream_tube %s. Setting that value instead.", tu_obj.name, tu_obj.downstream_tube.name)
+          tu_obj = tu_obj.downstream_tube
         if tu_obj.plug is not None:
           raise ValueError(str(tu_obj) + ' has a plug. Cannot set the value of a funnel with a plug.')
 

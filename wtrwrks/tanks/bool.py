@@ -133,7 +133,6 @@ class LogicalNot(ta.Tank):
     )
 
     """
-    a = np.array(a)
     return {'target': np.logical_not(a)}
 
   def _pump(self, target):

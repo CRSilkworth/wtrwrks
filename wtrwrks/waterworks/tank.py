@@ -118,11 +118,10 @@ class Tank(wp.WaterworkPart):
       self._handle_merge()
 
     if self.pass_through_keys is not None:
-      import wtrwrks.tanks.tank_defs as td
       for key in self.pass_through_keys:
         slot = self.slots[key]
-        if slot.tube is not empty:
-          td.merge_equal(self.tubes[key], slot.tube)
+        if slot.plug is not None:
+          self.tubes[key].plug = slot.plug
 
   def __hash__(self):
     """Uniquely identify the tank among other tanks in the waterwork."""

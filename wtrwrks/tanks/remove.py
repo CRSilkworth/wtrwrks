@@ -71,12 +71,11 @@ class Remove(ta.Tank):
     )
 
     """
-    if target.dtype.type == np.unicode_:
-      size = max(target.dtype.itemsize, removed.dtype.itemsize)
-      dtype = '|U' + str(size)
-    elif target.dtype.type == np.string_:
-      size = max(target.dtype.itemsize, removed.dtype.itemsize)
-      dtype = '|S' + str(size)
+    if target.dtype.type in (np.unicode_, np.string_):
+      if target.dtype.itemsize > removed.dtype.itemsize:
+        dtype = target.dtype.itemsize
+      else:
+        dtype = removed.dtype.itemsize
     else:
       dtype = target.dtype
 

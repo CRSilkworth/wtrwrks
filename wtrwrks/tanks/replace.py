@@ -49,12 +49,14 @@ class Replace(ta.Tank):
     )
 
     """
+    self.a = a
     # Cast the replace_with values to an array.
     replace_with = np.array(replace_with)
     target = ut.maybe_copy(a)
 
     # Save the values that are going to be replaced.
     replaced_vals = af.empty_array_like(a)
+
     replaced_vals[mask] = target[mask]
 
     # Replace the values with the values found in replace_with.
@@ -96,6 +98,8 @@ class Replace(ta.Tank):
 
     """
     a = ut.maybe_copy(target)
+    if replaced_vals.dtype.itemsize > a.dtype.itemsize:
+      a = a.astype(replaced_vals.dtype)
     replace_with = a[mask]
 
     a[mask] = replaced_vals[mask]
@@ -115,5 +119,6 @@ class Replace(ta.Tank):
     else:
       # Otherwise the replace_with_shape is actually the replace_with values.
       replace_with = replace_with_shape[0]
+
     a = a.astype(replaced_vals.dtype.type)
     return {'a': a, 'mask': mask, 'replace_with': replace_with}

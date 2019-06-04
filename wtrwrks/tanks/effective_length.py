@@ -78,4 +78,5 @@ class EffectiveLength(ta.Tank):
     )
 
     """
+
     return {'a': ut.maybe_copy(a), 'default_val': default_val}

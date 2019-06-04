@@ -52,6 +52,7 @@ class BertRandomInsert(ta.Tank):
     np.random.seed(random_seed)
     sepped_array = []
     max_row_len = a.shape[1] + 3
+
     for row_num in xrange(a.shape[0]):
       sep_index = np.random.choice(np.where(ends[row_num])[0])
       last_sent_index = np.where(ends[row_num])[0][-1]
@@ -90,7 +91,6 @@ class BertRandomInsert(ta.Tank):
 
     target = np.array(target)
     removed = np.array(removed)
-    # if self.name == 'Pack_1':
 
     return {'target': target, 'removed': removed, 'num_tries': num_tries, 'ends': ends, 'random_seed': random_seed}
 

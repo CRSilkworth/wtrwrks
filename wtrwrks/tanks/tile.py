@@ -47,6 +47,7 @@ class Tile(ta.Tank):
     a = np.array(a)
     old_shape = a.shape
     target = np.tile(a, reps)
+
     return {'target': target, 'old_shape': old_shape, 'reps': reps}
 
   def _pump(self, target, old_shape, reps):
