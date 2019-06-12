@@ -4,7 +4,7 @@ from wtrwrks.waterworks.empty import empty
 import wtrwrks.tanks.tank_defs as td
 import wtrwrks.read_write.tf_features as feat
 import numpy as np
-import warnings
+import logging
 import tensorflow as tf
 
 
@@ -341,7 +341,7 @@ class CatTransform(n.Transform):
           zero_std_cat_vals.append(self.index_to_cat_val[index])
 
         if verbose:
-          warnings.warn("WARNING: " + self.name + " has zero-valued stds at " + str(zero_std_cat_vals) + " replacing with 1's")
+          logging.warn("WARNING: " + self.name + " has zero-valued stds at " + str(zero_std_cat_vals) + " replacing with 1's")
 
         self.std[self.std == 0] = 1.0
 

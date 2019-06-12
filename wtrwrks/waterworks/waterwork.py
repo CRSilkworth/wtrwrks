@@ -567,7 +567,7 @@ class Waterwork(object):
     save_dict = self._save_dict()
     d.save_to_file(save_dict, file_name)
 
-  def write_examples(self, array, file_name):
+  def write_examples(self, funnel_dict, file_name):
     """Pours the array then writes the examples to tfrecords. It creates one example per 'row', i.e. axis=0 of the arrays. All arrays must have the same axis=0 dimension and must be of a type that can be written to a tfrecord
 
     Parameters
@@ -579,7 +579,7 @@ class Waterwork(object):
 
     """
     writer = tf.python_io.TFRecordWriter(file_name)
-    tap_dict = self.pour(array)
+    tap_dict = self.pour(funnel_dict)
 
     att_dict = {}
 
