@@ -11,6 +11,7 @@ import dill as pickle
 import tensorflow as tf
 import numpy as np
 import logging
+import pathos.multiprocessing as mp
 
 
 class Waterwork(object):
@@ -136,6 +137,10 @@ class Waterwork(object):
       for tap_name in save_dict['taps']:
         self.taps[tap_name] = self.tubes[tap_name]
 
+    for key in save_dict['merged']:
+      tube = self.tubes[key]
+      self.merged[tube] = set([self.tubes[k] for k in save_dict['merged'][key]])
+
   def _pour_tank_order(self):
     """Get the order to calculate the tanks in the pour direction.
 
@@ -153,10 +158,15 @@ class Waterwork(object):
       tank = tanks.pop(0)
       sorted_tanks.append(tank)
 
+      # if tank.name == 'Clone_1':
+      #   print [str(t) for t in tank.get_tube_tanks()]
+      #   print [str(t) for t in tank.get_tube_tanks() - visited]
+
       child_tanks = tank.get_tube_tanks() - visited
       for child_tank in child_tanks:
         # If there are any tanks child_tank depnends on , that haven't been
         # visited, then continue.
+
         if child_tank.get_slot_tanks() - visited:
           continue
 
@@ -204,6 +214,7 @@ class Waterwork(object):
     save_dict['tanks'] = {}
     save_dict['slots'] = {}
     save_dict['tubes'] = {}
+    save_dict['merged'] = {}
 
     for key in self.tanks:
       tank = self.tanks[key]
@@ -216,6 +227,9 @@ class Waterwork(object):
     for key in self.tubes:
       tube = self.tubes[key]
       save_dict['tubes'][key] = tube._save_dict()
+
+    for key in self.merged:
+      save_dict['merged'][key] = sorted([t.name for t in self.merged[key]])
 
     return save_dict
 
@@ -360,8 +374,13 @@ class Waterwork(object):
   def merge_tubes(self, target, *args):
     self.merged[target] = set()
     for arg in args:
+      if arg in self.merged:
+        for other_arg in self.merged[arg]:
+          other_arg.downstream_tube = target
+          self.merged[target].add(other_arg)
+        del self.merged[arg]
 
-      if arg.downstream_tube is not None and arg.downstream_tube != target:
+      elif arg.downstream_tube is not None and arg.downstream_tube != target:
         self.merged[target].add(arg.downstream_tube)
         arg.downstream_tube.downstream_tube = target
 
@@ -375,6 +394,82 @@ class Waterwork(object):
 
       self.merged[target].add(arg)
       arg.downstream_tube = target
+
+  def multi_pour(self, funnel_dicts, key_type='tube', return_plugged=False):
+    """Run all the operations of the waterwork in the pour (or forward) direction as several processes. The number of processes is determined by the size of the list funnel_dicts. Each element of the list is independently processed by first copying the water work, creating a processs, running the full pour on the funnel_dict and returning a list of tap_dicts.
+
+    Parameters
+    ----------
+    funnel_dicts : list of dicts(
+      keys - Slot objects or Placeholder objects. The 'funnels' (i.e. unconnected slots) of the waterwork.
+      values - valid input data types
+    )
+      The inputs to the waterwork's full pour functions. There is exactly one funnel_dict for every process.
+    key_type : str ('tube', 'tuple', 'name')
+      The type of keys to return in the return dictionary. Can either be the tube objects themselves (tube), the tank, output key pair (tuple) or the name (str) of the tube.
+
+    Returns
+    -------
+    list of dicts(
+      keys - Tube objects, (or tuples if tuple_keys set to True). The 'taps' (i.e. unconnected tubes) of the waterwork.
+    )
+        The list of tap dicts, outputted by each pour process
+
+    """
+    tap_dicts = []
+
+    # For whatever reason even dill can't properly pickle a waterwork sometimes
+    # In order to get around this, the waterwork is broken down via the
+    # save_dict function and passed as a argument to pool.map. It is then
+    # Reconstructed by the recon_and_pour, then the pours are executed
+    # independently.
+    all_args = [(self._save_dict(), f, key_type, return_plugged) for f in funnel_dicts]
+
+    # Only do proper multiprocessing if more than one funnel_dict is passed.
+    if len(funnel_dicts) > 1:
+      pool = mp.ProcessingPool(num_threads=len(funnel_dicts))
+      tap_dicts = pool.map(recon_and_pour, all_args)
+    elif len(funnel_dicts) == 1:
+      tap_dicts.append(recon_and_pour(all_args[0]))
+    else:
+      logging.warn("funnel_dicts is empty, returning empty list.")
+
+    return tap_dicts
+
+  def multi_write_examples(self, funnel_dicts, file_name, file_num_offset=0):
+    """Pours the arrays then writes the examples to tfrecords in a multithreading manner. It creates one example per 'row', i.e. axis=0 of the arrays. All arrays must have the same axis=0 dimension and must be of a type that can be written to a tfrecord
+
+    Parameters
+    ----------
+    funnel_dicts : list of dicts(
+      keys - Slot objects or Placeholder objects. The 'funnels' (i.e. unconnected slots) of the waterwork.
+      values - valid input data types
+    )
+      The inputs to the waterwork's full pour functions. There is exactly one funnel_dict for every process.
+    file_name : str
+      The name of the tfrecord file to write to. An extra '_<num>' will be added to the name.
+    file_num_offset : int
+      A number that controls what number will be appended to the file name (so that files aren't overwritten.)
+
+    """
+    if not file_name.endswith('.tfrecord'):
+      raise ValueError("file_name must end in '.tfrecord'")
+    file_names = [file_name.replace('.tfrecord', '_' + str(file_num_offset + i)) for i in xrange(len(funnel_dicts))]
+    # For whatever reason even dill can't properly pickle a waterwork sometimes
+    # In order to get around this, the waterwork is broken down via the
+    # save_dict function and passed as a argument to pool.map. It is then
+    # Reconstructed by the recon_and_pour, then the pours are executed
+    # independently.
+    all_args = [(self._save_dict(), f, fn) for f, fn in zip(funnel_dicts, file_names)]
+
+    # Only do proper multiprocessing if more than one funnel_dict is passed.
+    if len(funnel_dicts) > 1:
+      pool = mp.ProcessingPool(num_threads=len(funnel_dicts))
+      pool.map(recon_and_write, all_args)
+    elif len(funnel_dicts) == 1:
+      recon_and_write(all_args[0])
+    else:
+      logging.warn("funnel_dicts is empty, not writing anything.")
 
   def pour(self, funnel_dict=None, key_type='tube', return_plugged=False):
     """Run all the operations of the waterwork in the pour (or forward) direction.
@@ -567,19 +662,22 @@ class Waterwork(object):
     save_dict = self._save_dict()
     d.save_to_file(save_dict, file_name)
 
-  def write_examples(self, array, file_name):
+  def write_examples(self, funnel_dict, file_name):
     """Pours the array then writes the examples to tfrecords. It creates one example per 'row', i.e. axis=0 of the arrays. All arrays must have the same axis=0 dimension and must be of a type that can be written to a tfrecord
 
     Parameters
     ----------
-    array : np.ndarray
-      The array to transform to examples, then write to disk.
+    funnel_dict : dict(
+      keys - Slot objects or Placeholder objects. The 'funnels' (i.e. unconnected slots) of the waterwork.
+      values - valid input data types
+    )
+        The inputs to the waterwork's full pour function.
     file_name : str
       The name of the tfrecord file to write to.
 
     """
     writer = tf.python_io.TFRecordWriter(file_name)
-    tap_dict = self.pour(array)
+    tap_dict = self.pour(funnel_dict)
 
     att_dict = {}
 
@@ -663,3 +761,26 @@ class Waterwork(object):
       tap_dict[key] = tap_dict[key].astype(dtype_dict[key])
 
     return self.pump(tap_dict, key_type=key_type)
+
+
+def recon_and_pour(args):
+  save_dict = args[0]
+  funnel_dict = args[1]
+  key_type = args[2]
+  return_plugged = args[3]
+
+  ww = Waterwork()
+  ww._from_save_dict(save_dict)
+
+  return ww.pour(funnel_dict, key_type, return_plugged)
+
+
+def recon_and_write(args):
+  save_dict = args[0]
+  funnel_dict = args[1]
+  file_name = args[2]
+
+  ww = Waterwork()
+  ww._from_save_dict(save_dict)
+
+  ww.write_examples(funnel_dict, file_name)
