@@ -20,8 +20,8 @@ class Replace(ta.Tank):
 
   func_name = 'replace'
   slot_keys = ['a', 'mask', 'replace_with']
-  tube_keys = ['target', 'mask', 'replaced_vals', 'replace_with_shape']
-  pass_through_keys = ['mask']
+  tube_keys = ['target', 'mask', 'replaced_vals', 'replace_with']
+  pass_through_keys = ['mask', 'replace_with']
 
   def _pour(self, a, mask, replace_with):
     """Execute the Replace tank (operation) in the pour (forward) direction.
@@ -49,7 +49,7 @@ class Replace(ta.Tank):
     )
 
     """
-    self.a = a
+    self.mask = mask
     # Cast the replace_with values to an array.
     replace_with = np.array(replace_with)
     target = ut.maybe_copy(a)
@@ -62,16 +62,9 @@ class Replace(ta.Tank):
     # Replace the values with the values found in replace_with.
     target[mask] = replace_with
 
-    # If the mask is all false then save the actual replace_with values, since
-    # that information would otherwise be lost. Otherwise just save the shape.
-    if mask.any():
-      replace_with_shape = replace_with.shape
-    else:
-      replace_with_shape = (replace_with,)
+    return {'target': target, 'mask': mask, 'replaced_vals': replaced_vals, 'replace_with': replace_with}
 
-    return {'target': target, 'mask': mask, 'replaced_vals': replaced_vals, 'replace_with_shape': replace_with_shape}
-
-  def _pump(self, target, mask, replaced_vals, replace_with_shape):
+  def _pump(self, target, mask, replaced_vals, replace_with):
     """Execute the Replace tank (operation) in the pump (backward) direction.
 
     Parameters
@@ -103,22 +96,6 @@ class Replace(ta.Tank):
     replace_with = a[mask]
 
     a[mask] = replaced_vals[mask]
-
-    if mask.any():
-      # If the replace_with had any shape then find the number of elements.
-      # Otherwise it's just a scalar and has one element
-      if replace_with_shape:
-        num_elements = np.prod(replace_with_shape)
-      else:
-        num_elements = 1
-
-      # If there was only one element then just save the replace_with value
-      # as the first element. Reshape it so it matches it's former shape.
-      if num_elements == 1:
-        replace_with = replace_with.flatten()[0].reshape(replace_with_shape)
-    else:
-      # Otherwise the replace_with_shape is actually the replace_with values.
-      replace_with = replace_with_shape[0]
 
     a = a.astype(replaced_vals.dtype.type)
     return {'a': a, 'mask': mask, 'replace_with': replace_with}

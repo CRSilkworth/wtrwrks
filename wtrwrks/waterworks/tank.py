@@ -1,7 +1,7 @@
 """Tank definition."""
 import wtrwrks.waterworks.globs as gl
 import wtrwrks.waterworks.waterwork_part as wp
-from wtrwrks.waterworks.empty import empty
+from wtrwrks.waterworks.empty import Empty, empty
 import wtrwrks.waterworks.slot as sl
 import wtrwrks.waterworks.tube as tu
 import os
@@ -104,7 +104,7 @@ class Tank(wp.WaterworkPart):
 
       # If data is directly inputted into the slot, then create a placeholder
       # with it's value set to the data. And set it as plugged to that value by # default.
-      if type(input_dict[key]) is not tu.Tube and input_dict[key] is not empty:
+      if type(input_dict[key]) is not tu.Tube and type(input_dict[key]) is not Empty:
         self.slots[key].set_val(input_dict[key])
         self.slots[key].set_plug(input_dict[key], obj_is_callable=callable(input_dict[key]))
         self.slots[key].tube = empty
@@ -121,7 +121,7 @@ class Tank(wp.WaterworkPart):
       import wtrwrks.tanks.tank_defs as td
       for key in self.pass_through_keys:
         slot = self.slots[key]
-        if slot.tube is not empty:
+        if type(slot.tube) is not Empty:
           td.merge_equal(slot.tube, self.tubes[key])
         if slot.plug is not None:
           self.tubes[key].plug = slot.plug
@@ -165,7 +165,7 @@ class Tank(wp.WaterworkPart):
     # Otherwise return True.
     all_slots_filled = True
     for key in input_dict:
-      if input_dict[key] is empty:
+      if type(input_dict[key]) is Empty:
         all_slots_filled = False
         break
       if (
@@ -176,7 +176,7 @@ class Tank(wp.WaterworkPart):
       if type(input_dict[key]) is list or type(input_dict[key]) is tuple:
         break_out = False
         for val in input_dict[key]:
-          if val is empty:
+          if type(val) is Empty:
             all_slots_filled = False
             break_out = True
           if (
@@ -261,7 +261,7 @@ class Tank(wp.WaterworkPart):
       if type(val) is sl.Slot:
         raise ValueError("Cannot pass slot as argument to " + str(type(self)))
 
-      if type(val) is tu.Tube or val is empty:
+      if type(val) is tu.Tube or type(val) is Empty:
         found_tube = True
         break
 
@@ -272,7 +272,7 @@ class Tank(wp.WaterworkPart):
     l_tubes, l_slots = td.tube_list(*iterable)
 
     for i, val in enumerate(iterable):
-      if type(val) is not tu.Tube and val is not empty:
+      if type(val) is not tu.Tube and type(val) is not Empty:
         l_slots['a' + str(i)].set_plug(val)
 
     return l_tubes['target']
@@ -281,7 +281,7 @@ class Tank(wp.WaterworkPart):
     for key in self.slots:
       slot = self.slots[key]
 
-      if slot.tube is not empty:
+      if type(slot.tube) is not Empty:
         slot.tube.downstream_tube = self.tubes['target']
 
   def _get_default_name(self, prefix=''):
@@ -333,7 +333,7 @@ class Tank(wp.WaterworkPart):
 
       # If the tube was already used for another tank, then it'll have to be
       # cloned.
-      if tube.slot is not empty:
+      if type(tube.slot) is not Empty:
 
         # Save the slot in order to connect it to the clone tube later.
         other_slot = tube.slot
@@ -391,8 +391,6 @@ class Tank(wp.WaterworkPart):
     save_dict = {}
     save_dict['func_name'] = self.func_name
     save_dict['name'] = self.name
-    # save_dict['slots'] = [s for s in self.get_slots()]
-    # save_dict['tubes'] = [t for t in self.get_tubes()]
 
     return save_dict
 
@@ -500,7 +498,7 @@ class Tank(wp.WaterworkPart):
     tanks = set()
     for slot_key in self.slots:
       slot = self.slots[slot_key]
-      if slot.tube is not empty:
+      if type(slot.tube) is not Empty:
         tanks.add(slot.tube.tank)
     return tanks
 
@@ -516,7 +514,7 @@ class Tank(wp.WaterworkPart):
     tanks = set()
     for tube_key in self.tubes:
       tube = self.tubes[tube_key]
-      if tube.slot is not empty:
+      if type(tube.slot) is not Empty:
         tanks.add(tube.slot.tank)
     return tanks
 

@@ -19,6 +19,7 @@ class TestBertRandomInsert(th.TestTank):
       ['k', 'l', 'm', 'n', 'o', 'p', 'q', 'y', 'u', 'j'],
       ['aaaaaaaaa', '', '', '', '', '', '', '', '', ''],
     ])
+    segment_ids = np.array([[0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1], [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1], [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
     ends = np.array([
       [0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
       [0, 1, 0, 1, 0, 0, 0, 1, 0, 0],
@@ -30,6 +31,7 @@ class TestBertRandomInsert(th.TestTank):
       [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
       [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     ])
+    is_random_next = np.array([False, True, False, True, True, True, False, False, True])
     removed = np.array([['[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]'], ['[NA]', '[NA]', '[NA]', '[NA]', 'c', 'dd', 'e', 'f', 'g', 'h', '[SEP]', '', ''], ['[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]'], ['[NA]', '[NA]', '[NA]', 'bb', 'c', 'd', 'ff', 'gg', '[SEP]', '', '', '', ''], ['[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', 'ee', '[SEP]', '', '', '', '', ''], ['[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[SEP]', '', '', ''], ['[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]'], ['[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]', '[NA]'], ['[NA]', '[NA]', '[NA]', '[SEP]', '', '', '', '', '', '', '', '', '']])
 
     target = np.array([
@@ -57,7 +59,9 @@ class TestBertRandomInsert(th.TestTank):
         'removed': removed,
         'ends': ends,
         'num_tries': 10,
-        'random_seed': 0
+        'random_seed': 0,
+        'segment_ids': segment_ids,
+        'is_random_next': is_random_next
       },
     )
 

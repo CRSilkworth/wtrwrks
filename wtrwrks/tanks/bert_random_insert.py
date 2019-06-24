@@ -20,7 +20,7 @@ class BertRandomInsert(ta.Tank):
 
   func_name = 'bert_random_insert'
   slot_keys = ['a', 'ends', 'num_tries', 'random_seed']
-  tube_keys = ['target', 'removed', 'num_tries', 'ends', 'random_seed']
+  tube_keys = ['target', 'removed', 'num_tries', 'ends', 'random_seed', 'segment_ids', 'is_random_next']
   pass_through_keys = ['ends', 'num_tries', 'random_seed']
 
   def _pour(self, a, ends, num_tries, random_seed):
@@ -48,7 +48,6 @@ class BertRandomInsert(ta.Tank):
     )
 
     """
-    self.temp_ends = ends
     np.random.seed(random_seed)
     sepped_array = []
     max_row_len = a.shape[1] + 3
@@ -64,13 +63,16 @@ class BertRandomInsert(ta.Tank):
 
     target = []
     removed = []
+    segment_ids = []
+    is_random_next = []
     for row_num in xrange(len(sepped_array)):
       row = sepped_array[row_num]
 
+      sep_index = row.index('[SEP]')
+      segment_ids.append([0] * (sep_index + 1) + [1] * (max_row_len - sep_index - 1))
+
       removed_chunk = ['[NA]'] * max_row_len
       if np.random.rand() < 0.5:
-        sep_index = row.index('[SEP]')
-
         space_left = max_row_len - (sep_index + 1)
         chosen_chunk = None
         for _ in xrange(num_tries):
@@ -86,15 +88,21 @@ class BertRandomInsert(ta.Tank):
           row = row[:sep_index + 1] + chosen_chunk
           row = row + [''] * (max_row_len - len(row))
 
+          is_random_next.append(True)
+        else:
+          is_random_next.append(False)
+      else:
+        is_random_next.append(False)
       target.append(row)
       removed.append(removed_chunk)
-
+    segment_ids = np.array(segment_ids)
+    is_random_next = np.array(is_random_next)
     target = np.array(target)
     removed = np.array(removed)
 
-    return {'target': target, 'removed': removed, 'num_tries': num_tries, 'ends': ends, 'random_seed': random_seed}
+    return {'target': target, 'removed': removed, 'num_tries': num_tries, 'ends': ends, 'random_seed': random_seed, 'segment_ids': segment_ids, 'is_random_next': is_random_next}
 
-  def _pump(self, target, removed, num_tries, ends, random_seed):
+  def _pump(self, target, removed, num_tries, ends, random_seed, segment_ids, is_random_next):
     """Execute the Shape tank (operation) in the pump (backward) direction.
 
     Parameters
@@ -120,12 +128,12 @@ class BertRandomInsert(ta.Tank):
     )
 
     """
+
     mask = removed != '[NA]'
-    target[mask] = removed[mask]
-    a = []
-    for row_num in xrange(target.shape[0]):
-      row = target[row_num]
-      row = row[(row != '[CLS]') & (row != '[SEP]')]
-      a.append(row)
-    a = np.stack(a)
+    a = ut.maybe_copy(target)
+    a[mask] = removed[mask]
+
+    a = a[~np.isin(a, ['[CLS]', '[SEP]'])]
+    a = np.reshape(a, list(target.shape[:-1]) + [target.shape[-1] - 3])
+
     return {'a': a, 'num_tries': num_tries, 'ends': ends, 'random_seed': random_seed}

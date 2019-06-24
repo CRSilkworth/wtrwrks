@@ -125,4 +125,6 @@ class CatToIndex(ta.Tank):
     mask = target == -1
     cats[mask] = missing_vals[mask]
 
+    cats = cats.astype(input_dtype)
+
     return {'cats': cats, 'cat_to_index_map': cat_to_index_map}

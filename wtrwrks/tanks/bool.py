@@ -168,7 +168,7 @@ class Equals(ta.Tank):
   func_name = 'equals'
   slot_keys = ['a', 'b']
   tube_keys = ['target', 'a', 'b']
-
+  pass_through_keys = ['a', 'b']
   def _pour(self, a, b):
     """Execute the LogicalNot tank (operation) in the pour (forward) direction.
 
@@ -187,6 +187,7 @@ class Equals(ta.Tank):
     """
     a = np.array(a, copy=True)
     b = np.array(b, copy=True)
+
     return {'target': a == b, 'a': a, 'b': b}
 
   def _pump(self, target, a, b):

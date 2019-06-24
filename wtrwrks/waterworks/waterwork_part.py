@@ -38,14 +38,14 @@ class WaterworkPart(object):
 
     # Set the tank name. Check and make sure it's valid.
     self.name = name
+    pre = '' if self.name_space is None else self.name_space._get_name_string()
+
     if name is None:
-      self.name = self._get_default_name(
-        prefix=self.name_space._get_name_string()
-      )
+      self.name = self._get_default_name(prefix=pre)
     elif type(name) not in (str, unicode):
       raise TypeError("'name' must be of type str or unicode. Got " + str(type(name)))
-    elif not self.name.startswith(self.name_space._get_name_string()):
-      self.name = os.path.join(self.name_space._get_name_string(), self.name)
+    elif not self.name.startswith(pre):
+      self.name = os.path.join(pre, self.name)
 
   def _get_default_name(self):
     """Set a default name. Must be defined by subclass."""

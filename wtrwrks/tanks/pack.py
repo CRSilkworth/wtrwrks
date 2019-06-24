@@ -37,11 +37,11 @@ class Pack(ta.Tank):
   """
 
   func_name = 'pack'
-  slot_keys = ['a', 'lengths', 'default_val']
-  tube_keys = ['target', 'ends', 'row_map', 'default_val']
-  pass_through_keys = ['default_val']
+  slot_keys = ['a', 'lengths', 'default_val', 'max_group']
+  tube_keys = ['target', 'ends', 'row_map', 'default_val', 'max_group']
+  pass_through_keys = ['default_val', 'max_group']
 
-  def _pour(self, a, lengths, default_val):
+  def _pour(self, a, lengths, default_val, max_group):
     """
 
     Parameters
@@ -95,7 +95,7 @@ class Pack(ta.Tank):
       # until the total number of elements in that row is reached. Then start
       # a new group of rows.
       for row_num, num in enumerate(cur_lengths):
-        if num + tally > col_dim:
+        if num + tally > col_dim or len(rows) == max_group:
           grouped_rows.append(rows)
           grouped_row_lens.append(len(rows))
           slice_row_map.append(triplets)
@@ -138,7 +138,7 @@ class Pack(ta.Tank):
       all_pack_rows.append(pack_rows)
       all_ends.append(slice_ends)
     max_num_rows = max(pack_row_lens)
-    max_num_grouped = max(grouped_row_lens)
+    # max_group = max(grouped_row_lens)
 
     # Standardize the size of each newly created slice (pack_rows) so that they
     # can all be added to one array. pack_rows slice is filled with several
@@ -154,10 +154,10 @@ class Pack(ta.Tank):
       all_ends[slice_num] = np.concatenate([all_ends[slice_num], falses])
 
       for row_num in xrange(len(row_map[slice_num])):
-        row_map[slice_num][row_num] = row_map[slice_num][row_num] + [[-1, -1, -1]] * (max_num_grouped - len(row_map[slice_num][row_num]))
+        row_map[slice_num][row_num] = row_map[slice_num][row_num] + [[-1, -1, -1]] * (max_group - len(row_map[slice_num][row_num]))
 
       row_map[slice_num] = np.stack(row_map[slice_num])
-      minus_ones = -1 * np.ones([rows_to_add, max_num_grouped, 3], dtype=int)
+      minus_ones = -1 * np.ones([rows_to_add, max_group, 3], dtype=int)
       row_map[slice_num] = np.concatenate([row_map[slice_num], minus_ones])
 
     # Reshape the array so that you have an array with only the second to last
@@ -165,13 +165,13 @@ class Pack(ta.Tank):
     target = np.stack(target)
     target = target.reshape(outer_dims + [max_num_rows, col_dim])
 
-    row_map = np.stack(row_map).reshape(outer_dims + [max_num_rows, max_num_grouped, 3])
+    row_map = np.stack(row_map).reshape(outer_dims + [max_num_rows, max_group, 3])
 
     all_ends = np.stack(all_ends).reshape(outer_dims + [max_num_rows, col_dim])
 
-    return {'target': target, 'default_val': default_val, 'ends': all_ends, 'row_map': row_map}
+    return {'target': target, 'default_val': default_val, 'ends': all_ends, 'row_map': row_map, 'max_group': max_group}
 
-  def _pump(self, target, default_val, row_map, ends):
+  def _pump(self, target, default_val, row_map, ends, max_group):
     """Execute the Concatenate tank (operation) in the pump (backward) direction.
 
     Parameters
@@ -213,10 +213,6 @@ class Pack(ta.Tank):
       for packed_row_num in xrange(row_dim):
         packed_row = two_d_slice[packed_row_num]
         for row_num, b_index, e_index in cur_row_map[packed_row_num]:
-          # if self.name == 'Pack_2':
-            # if b_index == 36 and e_index == 36:
-              # print packed_row
-            # all_rows.add(row_num)
           if row_num == -1:
             break
 
@@ -233,4 +229,4 @@ class Pack(ta.Tank):
     a = np.stack(a)
     a = a.reshape(list(target.shape[:-2]) + [a_row_dim, col_dim])
 
-    return {'a': a, 'default_val': default_val, 'lengths': lengths}
+    return {'a': a, 'default_val': default_val, 'lengths': lengths, 'max_group': max_group}

@@ -47,7 +47,8 @@ class LowerCase(ta.Tank):
     target = np.char.lower(strings)
 
     diff = np.vectorize(di.get_diff_string)(target, strings)
-
+    self.target = target
+    self.diff = diff
     return {'target': target, 'diff': diff}
 
   def _pump(self, target, diff):
@@ -68,6 +69,7 @@ class LowerCase(ta.Tank):
     )
 
     """
+
     strings = np.vectorize(di.reconstruct)(target, diff)
 
     return {'strings': strings}

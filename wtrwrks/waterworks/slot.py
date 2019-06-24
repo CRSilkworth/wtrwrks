@@ -1,6 +1,6 @@
 """Slot definition."""
 import wtrwrks.waterworks.waterwork_part as wp
-from wtrwrks.waterworks.empty import empty
+from wtrwrks.waterworks.empty import empty, Empty
 import os
 
 class Slot(wp.WaterworkPart):
@@ -65,7 +65,7 @@ class Slot(wp.WaterworkPart):
   def _save_dict(self):
     save_dict = {}
     save_dict['key'] = self.key
-    save_dict['tube'] = None if self.tube is empty else self.tube.name
+    save_dict['tube'] = None if type(self.tube) is Empty else self.tube.name
     save_dict['name'] = self.name
     save_dict['tank'] = self.tank.name
     save_dict['plug'] = self.plug

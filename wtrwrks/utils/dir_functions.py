@@ -81,6 +81,9 @@ def maybe_create_dir(*args):
   str
     The new directory path
   """
+  if not args:
+    return './'
+
   full_dir = os.path.join(*args)
   if not os.path.isdir(full_dir):
       os.makedirs(full_dir)

@@ -255,6 +255,67 @@ class TestWaterwork(unittest.TestCase):
       ww.save_to_file(pickle_name)
       ww = wa.Waterwork(from_file=pickle_name)
 
+  def test_multi(self):
+    with wa.Waterwork() as ww:
+      add0_tubes, add0_slots = empty + empty
+
+      add0_slots['b'].set_plug(np.array([3, 4]))
+      add0_tubes['a_is_smaller'].set_plug(False)
+
+      add1_tubes, add1_slots = add0_tubes['target'] + empty
+
+      add1_slots['b'].set_plug(
+        lambda d: 0.5 * d['Add_0/slots/a'] + np.array([0.5, 1.0])
+      )
+      add1_tubes['a_is_smaller'].set_plug(
+        lambda d: not d['output_1'].any()
+      )
+
+      cl0_tubes, _ = td.clone(a=add0_tubes['smaller_size_array'])
+
+      add2_tubes, _ = td.add(a=cl0_tubes['a'], b=add1_tubes['smaller_size_array'])
+
+      add2_tubes['target'].set_plug(
+        lambda d: d['output_1'] + np.array([1, 2])
+      )
+
+      cl0_tubes['b'].set_name('output_1')
+
+    true_funnel_dict = {
+      ('Add_0', 'a'): np.array([1, 2])
+    }
+    funnel_dicts = [true_funnel_dict] * 3
+    tap_dicts = ww.multi_pour(funnel_dicts, key_type='str')
+    for tap_dict in tap_dicts:
+      # tap_dict = ww.pour(true_funnel_dict, key_type='str')
+
+      true_tap_dict = {
+          "output_1": np.array([3, 4]),
+          'Add_1/tubes/target': np.array([5, 8]),
+          'Add_2/tubes/a_is_smaller': False,
+          'Add_2/tubes/smaller_size_array': np.array([1, 2]),
+          'Add_2/tubes/a_is_smaller': False,
+          # 'Add_2/tubes/target': np.array([4, 6]),
+      }
+
+      self.assertEqual(set(tap_dict.keys()), set(true_tap_dict.keys()))
+      for tap in tap_dict:
+        th.assert_arrays_equal(self, tap_dict[tap], true_tap_dict[tap])
+
+      self.assertEqual(ww._pump_tank_order(), [ww.tanks[k] for k in ['Add_2', 'Add_1', 'Clone_0', 'Add_0']])
+
+    funnel_dicts = ww.multi_pump(tap_dicts, key_type='tuple')
+    for funnel_dict in funnel_dicts:
+      self.assertEqual(sorted(funnel_dict.keys()), sorted(true_funnel_dict.keys()))
+      for funnel in funnel_dict:
+        th.assert_arrays_equal(self, funnel_dict[funnel], true_funnel_dict[funnel])
+
+      ww.clear_vals()
+      for d in [ww.slots, ww.tubes]:
+        for key in d:
+          self.assertEqual(d[key].get_val(), None)
+      pickle_name = os.path.join(self.temp_dir, 'ww.pickle')
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -35,3 +35,19 @@ def empty_array_like(a, default_val=None):
 
   full_array = np.full(a.shape, default_val, dtype=dtype)
   return full_array
+
+
+def get_default_val(a):
+  dtype = a.dtype
+  # Choose different default values, and type for the returned array depending
+  # on the input_dtype
+  if dtype.type in (np.string_, np.unicode_):
+    default_val = ''
+  elif dtype in (np.int64, np.int32, np.float64, np.float32, np.timedelta64):
+    default_val = 0
+  elif dtype.type == np.datetime64:
+    default_val = '1970-01-01'
+  else:
+    default_val = None
+
+  return default_val

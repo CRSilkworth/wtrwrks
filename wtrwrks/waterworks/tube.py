@@ -1,6 +1,6 @@
 """Tube definition."""
 import wtrwrks.waterworks.waterwork_part as wp
-from wtrwrks.waterworks.empty import empty
+from wtrwrks.waterworks.empty import Empty, empty
 import os
 
 class Tube(wp.WaterworkPart):
@@ -108,10 +108,11 @@ class Tube(wp.WaterworkPart):
   def _save_dict(self):
     save_dict = {}
     save_dict['key'] = self.key
-    save_dict['slot'] = None if self.slot is empty else self.slot.name
+    save_dict['slot'] = None if type(self.slot) is Empty else self.slot.name
     save_dict['name'] = self.name
     save_dict['tank'] = self.tank.name
     save_dict['plug'] = self.plug
+    save_dict['downstream_tube'] = None if self.downstream_tube is None else self.downstream_tube.name
 
     return save_dict
 

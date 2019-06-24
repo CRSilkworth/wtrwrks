@@ -24,13 +24,16 @@ def _bytes_feat(value):
   """Wrapper for inserting bytes features into Example proto."""
   if isinstance(value, np.ndarray):
       dtype = value.dtype
-      value = value.tolist()
       if dtype.char == 'U':
-        value = [v.encode('utf-8') for v in value]
-  if not isinstance(value, list):
+        value = np.char.encode(value, encoding='utf-8').tolist()
+  elif not isinstance(value, list):
     if type(value) in (unicode, np.unicode_):
-      value = value.encode('utf-8')
+      value = np.char.encode(value, encoding='utf-8')
     value = [value]
+  else:
+    if dtype.char == 'U':
+      value = np.char.encode(value, encoding='utf-8').tolist()
+
   return tf.train.Feature(bytes_list=tf.train.BytesList(value=value))
 
 

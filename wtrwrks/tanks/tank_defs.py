@@ -10,6 +10,7 @@ import wtrwrks.tanks.cast as ct
 import wtrwrks.tanks.concatenate as co
 import wtrwrks.tanks.reduce as rd
 import wtrwrks.tanks.replace as rp
+import wtrwrks.tanks.random_replace as rr
 import wtrwrks.tanks.one_hot as oh
 import wtrwrks.tanks.transpose as tr
 import wtrwrks.tanks.pack as pc
@@ -27,6 +28,7 @@ import wtrwrks.tanks.flat_tokenize as ft
 import wtrwrks.tanks.replace_substring as rs
 import wtrwrks.tanks.random_choice as rc
 import wtrwrks.tanks.shape as sh
+import wtrwrks.tanks.getitem as gi
 import wtrwrks.tanks.reshape as rh
 import wtrwrks.tanks.remove as rm
 import wtrwrks.tanks.bert_random_insert as be
@@ -294,6 +296,60 @@ def clone(a=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, 
   return tank.get_tubes(), tank.get_slots()
 
 
+def clone_many(a=empty, num=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
+  """Copy an object in order to send it to two different tanks. Usually not performed explicitly but rather when a tube is put as input into two different slots. A clone operation is automatically created.
+
+  Parameters
+  ----------
+  a: object
+    The object to be cloned into two.
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    a: type of slot 'a'
+      The first of the two cloned objects.
+    b: type of slot 'a'
+      The second of the two cloned objects.
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Clone tank.
+  slots: dict(
+      a: object
+        The object to be cloned into two.
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Clone tank.
+
+  """
+  # return tank['a'], tank['b'], tank.get_slots()
+  keys = ['a' + str(i) for i in xrange(num)]
+
+  class CloneManyTyped(cl.CloneMany):
+    tube_keys = keys
+
+  tank = CloneManyTyped(a=a, num=num, waterwork=waterwork, name=name)
+
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+  if slot_names is not None:
+    for key in slot_names:
+      tank.get_slots()[key].set_name(slot_names[key])
+  if tube_names is not None:
+    for key in tube_names:
+      tank.get_tubes()[key].set_name(tube_names[key])
+
+  tubes = tank.get_tubes()
+  return [tubes[tube_key] for tube_key in keys], tank.get_slots()
+
+
 def concatenate(a_list=empty, axis=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
   """Concatenate a np.array from subarrays along one axis while saving the indices of the places where they were merged so that the process can be reversed.
 
@@ -499,6 +555,53 @@ def div(a=empty, b=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs
 
   """
   tank = dv.Div(a=a, b=b, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+  if slot_names is not None:
+    for key in slot_names:
+      tank.get_slots()[key].set_name(slot_names[key])
+  if tube_names is not None:
+    for key in tube_names:
+      tank.get_tubes()[key].set_name(tube_names[key])
+  return tank.get_tubes(), tank.get_slots()
+
+
+def do_nothing(a=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
+  """Copy an object in order to send it to two different tanks. Usually not performed explicitly but rather when a tube is put as input into two different slots. A clone operation is automatically created.
+
+  Parameters
+  ----------
+  a: object
+    The object to be cloned into two.
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    a: type of slot 'a'
+      The first of the two cloned objects.
+    b: type of slot 'a'
+      The second of the two cloned objects.
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Clone tank.
+  slots: dict(
+      a: object
+        The object to be cloned into two.
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Clone tank.
+
+  """
+  tank = cl.DoNothing(a=a, waterwork=waterwork, name=name)
+
+  # return tank['a'], tank['b'], tank.get_slots()
   if slot_plugs is not None:
     for key in slot_plugs:
       tank.get_slots()[key].set_plug(slot_plugs[key])
@@ -726,6 +829,56 @@ def flatten(a=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None
   return tank.get_tubes(), tank.get_slots()
 
 
+def getitem(a=empty, key=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
+  """Run __getitem__ on some object (e.g. a dictionary) to return some value.
+
+  Parameters
+  ----------
+  a: object
+    The object to getitem from.
+  key: hashable
+    The key to pass to the getitem
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target: object
+      The value returned from the __getitem__ call to 'a'.
+    a: object
+      The object to getitem from.
+    key: hashable
+      The key to pass to the getitem
+    A dictionary where the keys are the tube names and the values are the tube objects of the Transpose tank.
+  slots: dict(
+      a: object
+        The object to getitem from.
+      key: hashable
+        The key to pass to the getitem
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
+
+  """
+  tank = gi.GetItem(a=a, key=key, waterwork=waterwork, name=name)
+  # return tank['target'], tank['axes'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+  if slot_names is not None:
+    for key in slot_names:
+      tank.get_slots()[key].set_name(slot_names[key])
+  if tube_names is not None:
+    for key in tube_names:
+      tank.get_tubes()[key].set_name(tube_names[key])
+  return tank.get_tubes(), tank.get_slots()
+
+
 def half_width(strings=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
   """Convert any unicode (e.g. chinese, japanese, korean, etc.) characters in a array from full width to half width.
 
@@ -755,7 +908,7 @@ def half_width(strings=empty, waterwork=None, name=None, slot_plugs=None, tube_p
     A dictionary where the keys are the slot names and the values are the slot objects of the HalfWidth tank.
 
   """
-  tank = hw.HalfWidth(strings=strings)
+  tank = hw.HalfWidth(strings=strings, waterwork=waterwork, name=name)
   # return tank['target'], tank['diff'], tank.get_slots()
   if slot_plugs is not None:
     for key in slot_plugs:
@@ -1030,7 +1183,7 @@ def lower_case(strings=empty, waterwork=None, name=None, slot_plugs=None, tube_p
     A dictionary where the keys are the slot names and the values are the slot objects of the LowerCase tank.
 
   """
-  tank = lc.LowerCase(strings=strings)
+  tank = lc.LowerCase(strings=strings, waterwork=waterwork, name=name)
   if slot_plugs is not None:
     for key in slot_plugs:
       tank.get_slots()[key].set_plug(slot_plugs[key])
@@ -1116,7 +1269,6 @@ def merge_equal(*args, **kwargs):
 
   tank = MergeEqualTyped(waterwork=waterwork, name=name, **kwargs)
   tank.waterwork.merge_tubes(tank.get_tubes()['target'], *args)
-
   if slot_plugs is not None:
     for key in slot_plugs:
       tank.get_slots()[key].set_plug(slot_plugs[key])
@@ -1237,7 +1389,7 @@ def one_hot(indices=empty, depth=empty, waterwork=None, name=None, slot_plugs=No
   return tank.get_tubes(), tank.get_slots()
 
 
-def pack(a=empty, lengths=empty, default_val=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
+def pack(a=empty, lengths=empty, default_val=empty, max_group=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
   """More efficiently pack in the data of an array by overwriting the default_val's. The array must have rank at least equal to 2 The last dimension will be packed so that fewer default vals appear, and the next to last dimension with be shortened, any other dimensions are left unchanged.
   e.g.
 
@@ -1291,7 +1443,7 @@ def pack(a=empty, lengths=empty, default_val=empty, waterwork=None, name=None, s
     A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
 
   """
-  tank = pc.Pack(a=a, default_val=default_val, lengths=lengths, waterwork=waterwork, name=name)
+  tank = pc.Pack(a=a, default_val=default_val, lengths=lengths, max_group=max_group, waterwork=waterwork, name=name)
   if slot_plugs is not None:
     for key in slot_plugs:
       tank.get_slots()[key].set_plug(slot_plugs[key])
@@ -1517,6 +1669,67 @@ def random_choice(a=empty, shape=empty, p=None, waterwork=None, name=None, slot_
   """
   tank = rc.RandomChoice(a=a, shape=shape, p=p, waterwork=waterwork, name=name)
   # return tank['target'], tank['axes'], tank.get_slots()
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+  if slot_names is not None:
+    for key in slot_names:
+      tank.get_slots()[key].set_name(slot_names[key])
+  if tube_names is not None:
+    for key in tube_names:
+      tank.get_tubes()[key].set_name(tube_names[key])
+  return tank.get_tubes(), tank.get_slots()
+
+
+def random_replace(a=empty, replace_with=empty, prob=empty, max_replace=None, do_not_replace_vals=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
+  """Replace the values of an array with some other values specified by replace_with.
+
+  Parameters
+  ----------
+  a: np.ndarray
+    The array which has values that are to be replaced.
+  mask: np.ndarray of bools
+    An array of booleans whose True values denote which of array 'a's values are to be replaced.
+  replace_with: np.ndarray
+    The values to be used to replace the corresponding values in 'a'.
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target: np.ndarray of same type as 'a'
+      The array with the necessary values replaced.
+    mask: np.ndarray of bools
+      An array of booleans whose True values denote which of array 'a's values are to be replaced.
+    replaced_vals: np.ndarray of same type as 'a'
+      The values that were overwritten when they were replaced by the replace_with values.
+    replace_with_shape: list of ints
+      The original shape of the replace_with array.
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Replace tank.
+  slots: dict(
+      a: np.ndarray
+        The array which has values that are to be replaced.
+      mask: np.ndarray of bools
+        An array of booleans whose True values denote which of array 'a's values are to be replaced.
+      replace_with: np.ndarray
+        The values to be used to replace the corresponding values in 'a'.
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Replace tank.
+
+  """
+  if do_not_replace_vals is None:
+    do_not_replace_vals = []
+
+  tank = rr.RandomReplace(a=a, replace_with=replace_with, prob=prob, max_replace=max_replace, do_not_replace_vals=do_not_replace_vals, waterwork=waterwork, name=name)
+  # return tank['target'], tank['mask'], tank['replaced_vals'], tank['replace_with_shape'], tank.get_slots()
   if slot_plugs is not None:
     for key in slot_plugs:
       tank.get_slots()[key].set_plug(slot_plugs[key])
