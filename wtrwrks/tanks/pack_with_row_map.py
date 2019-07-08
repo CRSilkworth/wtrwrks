@@ -51,6 +51,8 @@ class PackWithRowMap(ta.Tank):
       The array to pack
     default_val: np.ndarray.dtype
       The value that will be allowed to be overwritten in the packing process.
+    row_map: np.ndarray
+      A mapping from the new rows to the original rows.
 
     Returns
     -------
@@ -59,8 +61,8 @@ class PackWithRowMap(ta.Tank):
         The packed version of the 'a' array. Has same dims except for the second to last dimension which is usually shorter.
       default_val: np.ndarray.dtype
         The value that will be allowed to be overwritten in the packing process.
-      is_default: np.ndarray of bools
-        An array which specifies which elements of the original 'a' have a value equal to 'defaul_val'
+      row_map: np.ndarray
+        A mapping from the new rows to the original rows.
     )
 
     """
@@ -96,8 +98,8 @@ class PackWithRowMap(ta.Tank):
       The packed version of the 'a' array. Has same dims except for the second to last dimension which is usually shorter.
     default_val: np.ndarray.dtype
       The value that will be allowed to be overwritten in the packing process.
-    is_default: np.ndarray of bools
-      An array which specifies which elements of the original 'a' have a value equal to 'defaul_val'
+    row_map: np.ndarray
+      A mapping from the new rows to the original rows.
 
     Returns
     -------
@@ -106,6 +108,8 @@ class PackWithRowMap(ta.Tank):
         The array to pack
       default_val: np.ndarray.dtype
         The value that will be allowed to be overwritten in the packing process.
+      row_map: np.ndarray
+        A mapping from the new rows to the original rows.
     )
 
     """

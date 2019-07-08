@@ -31,8 +31,6 @@ class RandomChoice(ta.Tank):
       The allowed values for to randomly select from
     shape: list of ints
       The shape of the outputted array of random values.
-    p: 1D np.ndarray of numbers 0 <= 0 <=1 that sum to one or None
-      The probability with which to select each value from 'a'
 
     Returns
     -------
@@ -41,8 +39,6 @@ class RandomChoice(ta.Tank):
         The randomly selected values
       a: 1D np.ndarray or int
         The allowed values for to randomly select from
-      p: 1D np.ndarray of numbers 0 <= 0 <=1 that sum to one or None
-        The probability with which to select each value from 'a'
     )
 
     """
@@ -59,8 +55,6 @@ class RandomChoice(ta.Tank):
       The randomly selected values
     a: 1D np.ndarray or int
       The allowed values for to randomly select from
-    p: 1D np.ndarray of numbers 0 <= 0 <=1 that sum to one or None
-      The probability with which to select each value from 'a'
 
     Returns
     -------
@@ -69,8 +63,6 @@ class RandomChoice(ta.Tank):
         The allowed values for to randomly select from
       shape: list of ints
         The shape of the outputted array of random values.
-      p: 1D np.ndarray of numbers 0 <= 0 <=1 that sum to one or None
-        The probability with which to select each value from 'a'
     )
 
     """

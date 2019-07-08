@@ -48,6 +48,10 @@ class Pack(ta.Tank):
     ----------
     a: np.ndarray
       The array to pack
+    lengths: np.ndarray
+      The of lengths of 'valid' data. The not valid data will be overwritten when it's packed together.
+    max_group: int
+      Maximum number of original rows of data packed into a single row.
     default_val: np.ndarray.dtype
       The value that will be allowed to be overwritten in the packing process.
 
@@ -56,10 +60,14 @@ class Pack(ta.Tank):
     dict(
       target: np.ndarray
         The packed version of the 'a' array. Has same dims except for the second to last dimension which is usually shorter.
+      ends: np.ndarray
+        The endpoints of all the original rows within the packed array.
+      row_map: np.ndarray
+        A mapping from the new rows to the original rows.
       default_val: np.ndarray.dtype
         The value that will be allowed to be overwritten in the packing process.
-      is_default: np.ndarray of bools
-        An array which specifies which elements of the original 'a' have a value equal to 'defaul_val'
+      max_group: int
+        Maximum number of original rows of data packed into a single row.
     )
 
     """
@@ -138,7 +146,6 @@ class Pack(ta.Tank):
       all_pack_rows.append(pack_rows)
       all_ends.append(slice_ends)
     max_num_rows = max(pack_row_lens)
-    # max_group = max(grouped_row_lens)
 
     # Standardize the size of each newly created slice (pack_rows) so that they
     # can all be added to one array. pack_rows slice is filled with several
@@ -178,16 +185,24 @@ class Pack(ta.Tank):
     ----------
     target: np.ndarray
       The packed version of the 'a' array. Has same dims except for the second to last dimension which is usually shorter.
+    ends: np.ndarray
+      The endpoints of all the original rows within the packed array.
+    row_map: np.ndarray
+      A mapping from the new rows to the original rows.
     default_val: np.ndarray.dtype
       The value that will be allowed to be overwritten in the packing process.
-    is_default: np.ndarray of bools
-      An array which specifies which elements of the original 'a' have a value equal to 'defaul_val'
+    max_group: int
+      Maximum number of original rows of data packed into a single row.
 
     Returns
     -------
     dict(
-      a: np.ndarray
+      a : np.ndarray
         The array to pack
+      lengths: np.ndarray
+        The of lengths of 'valid' data. The not valid data will be overwritten when it's packed together.
+      max_group: int
+        Maximum number of original rows of data packed into a single row.
       default_val: np.ndarray.dtype
         The value that will be allowed to be overwritten in the packing process.
     )

@@ -26,16 +26,14 @@ class Print(ta.Tank):
 
     Parameters
     ----------
-    a: np.ndarray
-      The array to get the shape of
+    kwargs:
+      The arguments to print.
 
     Returns
     -------
     dict(
-      target: list of ints
-        The shape of the array.
-      a: np.ndarray
-        The array to get the shape of
+      kwargs:
+        The original arguments
     )
 
     """
@@ -48,16 +46,14 @@ class Print(ta.Tank):
 
     Parameters
     ----------
-    target: list of ints
-      The shape of the array.
-    a: np.ndarray
-      The array to get the shape of
+    kwargs:
+      The orignal arguments.
 
     Returns
     -------
     dict(
-      a: np.ndarray
-        The array to get the shape of
+      kwargs:
+        The aruments to print.
     )
 
     """

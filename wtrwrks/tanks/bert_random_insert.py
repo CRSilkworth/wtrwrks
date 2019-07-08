@@ -34,6 +34,9 @@ class BertRandomInsert(ta.Tank):
       An array of the same shape as 'a' which marks the end of a sentence with a True.
     num_tries: int
       The number of times to try and find a random sentences to replace the second part of the 'a' array.
+    random_seed: int
+      The random seed.
+
     Returns
     -------
     dict(
@@ -45,6 +48,12 @@ class BertRandomInsert(ta.Tank):
         An array of the same shape as 'a' which marks the end of a sentence with a True.
       num_tries: int
         The number of times to try and find a random sentences to replace the second part of the 'a' array.
+      segment_ids: np.ndarray
+        An array of zeros and ones with the same shape as 'a' which says whether the token is part of the first sentence or the second.
+      is_random_next: np.ndarray
+        An array of bools which says whether the second sentence was replaced with a random sentence.
+      random_seed: int
+        The random seed.
     )
 
     """
@@ -115,6 +124,12 @@ class BertRandomInsert(ta.Tank):
       An array of the same shape as 'a' which marks the end of a sentence with a True.
     num_tries: int
       The number of times to try and find a random sentences to replace the second part of the 'a' array.
+    segment_ids: np.ndarray
+      An array of zeros and ones with the same shape as 'a' which says whether the token is part of the first sentence or the second.
+    is_random_next: np.ndarray
+      An array of bools which says whether the second sentence was replaced with a random sentence.
+    random_seed: int
+      The random seed.
 
     Returns
     -------
@@ -125,6 +140,8 @@ class BertRandomInsert(ta.Tank):
         An array of the same shape as 'a' which marks the end of a sentence with a True.
       num_tries: int
         The number of times to try and find a random sentences to replace the second part of the 'a' array.
+      random_seed: int
+        The random seed.
     )
 
     """

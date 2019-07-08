@@ -69,11 +69,4 @@ class GetItem(ta.Tank):
     """
     return {'a': ut.maybe_copy(a), 'key': key}
 
-  # def _save_dict(self):
-  #   save_dict = {}
-  #   save_dict['func_name'] = self.func_name
-  #   save_dict['name'] = self.name
-  #   # save_dict['slots'] = [s for s in self.get_slots()]
-  #   # save_dict['tubes'] = [t for t in self.get_tubes()]
-  #   save_dict['kwargs'] = {'num_entries': len(self.tube_keys)}
-  #   return save_dict
+  
