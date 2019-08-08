@@ -229,7 +229,7 @@ class MultiCatToIndex(CatToIndex):
       cats_list.append(pump_dict['cats'])
 
     if cats.dtype.type in (np.string_, np.unicode_):
-      itemsize = np.max([c.dtype.itemsize for c in cats_list])
+      itemsize = np.max([c.dtype.itemsize for c in cats_list] + [1])
       dtype = str(cats.dtype)[:2]
       cats = cats.astype(dtype + str(itemsize))
 
