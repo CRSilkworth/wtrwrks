@@ -56,6 +56,11 @@ class StringTransform(n.Transform):
 
   attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'input_shape': None, 'index_to_word': None, 'word_to_index': None, 'max_sent_len': None, 'word_tokenizer': lambda a: a.split(), 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'unk_index': None, 'word_detokenizer': lambda a: ' '.join(a), 'max_vocab_size': None}
 
+  attribute_dict.update({k: v for k, v in n.Transform.attribute_dict.iteritem() if k not in attribute_dict})
+
+  required_params = set(['max_sent_len'])
+  required_params.update(n.Transform.required_params)
+
   def __len__(self):
     return self.max_sent_len
 
@@ -185,36 +190,6 @@ class StringTransform(n.Transform):
       array_keys.append('lemmatize_diff')
     return array_keys
 
-  def _alter_pour_outputs(self, pour_outputs, prefix=''):
-    """Create a list of dictionaries for each example from the outputs of the pour method.
-
-    Parameters
-    ----------
-    pour_outputs : dict
-      The outputs of the _extract_pour_outputs method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    list of dicts of features
-      The example dictionaries which contain tf.train.Features.
-
-    """
-    pour_outputs = self._nopre(pour_outputs, prefix)
-
-    # Find the locations of all the missing values. i.e. those that have been
-    # replace by the unknown token.
-    # mask = pour_outputs['indices'] == self.unk_index
-    # missing_vals = pour_outputs['missing_vals']
-
-    # Convert the 1D missing vals array into a full array of the same size as
-    # the indices array. This is so it can be easily separated into individual
-    # rows that be put into separate examples.
-    # pour_outputs['missing_vals'] = self._full_missing_vals(mask, missing_vals)
-    pour_outputs = self._pre(pour_outputs, prefix)
-    return pour_outputs
-
   def _get_funnel_dict(self, array=None, prefix=''):
     """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
 
@@ -295,30 +270,6 @@ class StringTransform(n.Transform):
 
     return self._pre(tap_dict, prefix)
 
-  def _parse_examples(self, arrays_dict, prefix=''):
-    """Convert the list of example_dicts into the original outputs that came from the pour method.
-
-    Parameters
-    ----------
-    example_dicts: list of dicts of arrays
-      The example dictionaries which the arrays associated with a single example.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary of all the values outputted by the pour method.
-
-    """
-    pour_outputs = self._nopre(arrays_dict, prefix)
-
-    # mask = pour_outputs['indices'] == self.unk_index
-    # pour_outputs['missing_vals'] = pour_outputs['missing_vals'][mask].flatten()
-
-    pour_outputs = self._pre(pour_outputs, prefix)
-    return pour_outputs
-
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""
     save_dict = {}
@@ -345,23 +296,42 @@ class StringTransform(n.Transform):
     if self.word_tokenizer is None:
       raise ValueError("No tokenizer set for this Transform. Must supply one as input into pour.")
 
-  def calc_global_values(self, array, verbose=True):
+  def _start_calc(self):
+    # Create the mapping from category values to index in the vector and
+    # vice versa
+    self.all_words = {}
+
+  def _finish_calc(self):
+    if self.index_to_word is None:
+      # Sort the dict by the number of times the words appear
+      sorted_words = sorted(self.all_words.items(), key=operator.itemgetter(1), reverse=True)
+
+      # Pull out the first 'max_vocab_size' words
+      corrected_vocab_size = self.max_vocab_size - 1
+      sorted_words = [w for w, c in sorted_words[:corrected_vocab_size]]
+
+      # Create the mapping from category values to index in the vector and
+      # vice versa
+      self.index_to_word = sorted(sorted_words)
+      self.index_to_word = ['[UNK]'] + self.index_to_word
+    else:
+      self.max_vocab_size = len(self.index_to_word)
+
+    self.word_to_index = {
+      word: num for num, word in enumerate(self.index_to_word)
+    }
+
+  def _calc_global_values(self, array):
     """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
 
     Parameters
     ----------
     array : np.ndarray
       The entire dataset.
-    verbose : bool
-      Whether or not to print out warnings.
 
     """
-    self.input_dtype = array.dtype
-    self.input_shape = array.shape
-
     if self.index_to_word is None:
       # Get all the words and the number of times they appear
-      all_words = {}
       strings = array.flatten()
       if self.lower_case:
         strings = np.char.lower(strings)
@@ -373,34 +343,8 @@ class StringTransform(n.Transform):
         # Tokenize each request, add the tokens to the set of all words
         tokens = self.word_tokenizer(string)
         for token_num, token in enumerate(tokens):
-          all_words.setdefault(token, 0)
-          all_words[token] += 1
-
-      # Sort the dict by the number of times the words appear
-      sorted_words = sorted(all_words.items(), key=operator.itemgetter(1), reverse=True)
-
-      # Pull out the first 'max_vocab_size' words
-      corrected_vocab_size = self.max_vocab_size - 1
-      sorted_words = [w for w, c in sorted_words[:corrected_vocab_size]]
-
-      # Create the mapping from category values to index in the vector and
-      # vice versa
-      self.index_to_word = sorted(sorted_words)
-      self.index_to_word = ['__UNK__'] + self.index_to_word
-    else:
-      self.max_vocab_size = len(self.index_to_word)
-
-    self.word_to_index = {
-      word: num for num, word in enumerate(self.index_to_word)
-    }
-
-    if self.max_sent_len is None:
-      max_len = None
-      for string in array.flatten():
-        cur_len = len(self.word_tokenizer(string))
-        if max_len is None or cur_len > max_len:
-          max_len = cur_len
-      self.max_sent_len = max_len
+          self.all_words.setdefault(token, 0)
+          self.all_words[token] += 1
 
   def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.
@@ -470,5 +414,3 @@ class StringTransform(n.Transform):
       for r_tube_key in return_tubes:
         r_tubes.append(ww.maybe_get_tube(r_tube_key))
       return r_tubes
-
-    

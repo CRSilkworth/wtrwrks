@@ -55,6 +55,11 @@ class MultiLingualStringTransform(n.Transform):
 
   attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'input_shape': None, 'index_to_word_maps': None, 'word_to_index_maps': None, 'max_sent_len': None, 'word_tokenizers': None, 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'unk_index': None, 'word_detokenizers': None, 'max_vocab_size': None}
 
+  attribute_dict.update({k: v for k, v in n.Transform.attribute_dict.iteritem() if k not in attribute_dict})
+
+  required_params = set(['word_tokenizers', 'word_detokenizers'])
+  required_params.update(n.Transform.required_params)
+
   def __len__(self):
     return self.max_sent_len
 
@@ -299,30 +304,6 @@ class MultiLingualStringTransform(n.Transform):
 
     return self._pre(tap_dict, prefix)
 
-  def _parse_examples(self, arrays_dict, prefix=''):
-    """Convert the list of example_dicts into the original outputs that came from the pour method.
-
-    Parameters
-    ----------
-    example_dicts: list of dicts of arrays
-      The example dictionaries which the arrays associated with a single example.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary of all the values outputted by the pour method.
-
-    """
-    pour_outputs = self._nopre(arrays_dict, prefix)
-
-    # mask = pour_outputs['indices'] == self.unk_index
-    # pour_outputs['missing_vals'] = pour_outputs['missing_vals'][mask].flatten()
-
-    pour_outputs = self._pre(pour_outputs, prefix)
-    return pour_outputs
-
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""
     save_dict = {}
@@ -353,20 +334,46 @@ class MultiLingualStringTransform(n.Transform):
     if self.max_sent_len is None:
       raise ValueError("Must specify a max_sent_len.")
 
-  def calc_global_values(self, array, verbose=True):
+  def _start_calc(self):
+    # Create the mapping from category values to index in the vector and
+    # vice versa
+    self.all_words = {l: {} for l in self.word_tokenizers}
+
+  def _finish_calc(self):
+    if self.index_to_word_maps is None:
+      for language in sorted(self.word_tokenizers):
+        # Sort the dict by the number of times the words appear
+        sorted_words = sorted(self.all_words[language].items(), key=operator.itemgetter(1), reverse=True)
+
+        # Pull out the first 'max_vocab_size' words
+        corrected_vocab_size = self.max_vocab_size - 1
+        sorted_words = [w for w, c in sorted_words[:corrected_vocab_size]]
+
+        # Create the mapping from category values to index in the vector and
+        # vice versa
+        self.index_to_word_maps[language] = ['[UNK]'] + sorted(sorted_words)
+    else:
+      self.max_vocab_size = len(self.index_to_word)
+      for language in sorted(self.word_tokenizers):
+        token = self.index_to_word_maps[language][0]
+        if token != '[UNK]':
+          raise ValueError("First element of the every index_to_word_map must be the '[UNK]' token. Got {} for {}".format(token, language))
+
+    self.word_to_index_maps = {}
+    for language in sorted(self.word_tokenizers):
+      self.word_to_index_maps[language] = {
+        word: num for num, word in enumerate(self.index_to_word_maps[language])
+      }
+
+  def _calc_global_values(self, array):
     """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
 
     Parameters
     ----------
     array : np.ndarray
       The entire dataset.
-    verbose : bool
-      Whether or not to print out warnings.
 
     """
-    self.input_dtype = array.dtype
-    self.input_shape = array.shape
-
     if len(array.shape) < 2 or array.shape[1] != 2:
       raise ValueError("Array must have exactly two columns. The first being the string, and the second being the language.")
 
@@ -377,7 +384,7 @@ class MultiLingualStringTransform(n.Transform):
 
     if self.index_to_word_maps is None:
       self.index_to_word_maps = {}
-      for language in self.word_tokenizers:
+      for language in sorted(self.word_tokenizers):
         mask = array[:, 1: 2] == language
         lang_array = array[:, 0: 1][mask]
 
@@ -386,7 +393,6 @@ class MultiLingualStringTransform(n.Transform):
           continue
 
         # Get all the words and the number of times they appear
-        all_words = {}
         strings = lang_array.flatten()
         if self.lower_case:
           strings = np.char.lower(strings)
@@ -400,29 +406,13 @@ class MultiLingualStringTransform(n.Transform):
           # Tokenize each request, add the tokens to the set of all words
           tokens = word_tokenizer(string)
           for token_num, token in enumerate(tokens):
-            all_words.setdefault(token, 0)
-            all_words[token] += 1
+            self.all_words[language].setdefault(token, 0)
+            self.all_words[language][token] += 1
 
-        # Sort the dict by the number of times the words appear
-        sorted_words = sorted(all_words.items(), key=operator.itemgetter(1), reverse=True)
-
-        # Pull out the first 'max_vocab_size' words
-        corrected_vocab_size = self.max_vocab_size - 1
-        sorted_words = [w for w, c in sorted_words[:corrected_vocab_size]]
-
-        # Create the mapping from category values to index in the vector and
-        # vice versa
-        self.index_to_word_maps[language] = sorted(sorted_words)
-        self.index_to_word_maps[language] = ['__UNK__'] + self.index_to_word_maps[language]
-        self.unk_index = 0
     else:
       self.max_vocab_size = max([len(v) for v in self.index_to_word_maps.items()])
 
-    self.word_to_index_maps = {}
-    for language in self.word_tokenizers:
-      self.word_to_index_maps[language] = {
-        word: num for num, word in enumerate(self.index_to_word_maps[language])
-      }
+
 
   def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.

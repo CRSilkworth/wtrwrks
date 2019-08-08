@@ -35,7 +35,8 @@ class Transform(object):
 
   """
 
-  attribute_dict = {'name': ''}
+  attribute_dict = {'name': '', 'cols': None, 'num_examples': None}
+  required_params = set(['name'])
 
   def __init__(self, from_file=None, save_dict=None, **kwargs):
     """Define a transform using a dictionary, file, or by setting the attribute values in kwargs
@@ -93,12 +94,8 @@ class Transform(object):
       r_dict[key] = np.stack(r_dict[key])
     return r_dict
 
-  def _extract_pour_outputs(self, tap_dict, prefix=''):
-    raise NotImplementedError()
-
-  def _extract_pump_outputs(self, funnel_dict, prefix=''):
-    raise NotImplementedError()
-
+  def _finish_calc(self):
+    return
   def _from_save_dict(self, save_dict):
     """Reconstruct the transform object from the dictionary of attributes."""
     for key in self.attribute_dict:
@@ -203,8 +200,8 @@ class Transform(object):
         r_d[key] = d[key]
     return r_d
 
-  def _parse_examples(self, example_dicts, prefix=''):
-    raise NotImplementedError()
+  def _parse_examples(self, arrays_dict, prefix=''):
+    return arrays_dict
 
   def _pre(self, d, prefix=''):
     """Add the name and some additional prefix to the keys in a dictionary or to a string directly.
@@ -284,7 +281,7 @@ class Transform(object):
     invalid_keys = sorted(set(kwargs.keys()) - attribute_set)
 
     if invalid_keys:
-      raise TypeError("{} got unexpected keyword argument {}".format(self.__name__, invalid_keys[0]))
+      raise TypeError("{} got unexpected keyword argument {}".format(self.__class__.__name__, invalid_keys[0]))
 
     for key in self.attribute_dict:
       if key in kwargs:
@@ -292,12 +289,50 @@ class Transform(object):
       else:
         setattr(self, key, self.attribute_dict[key])
 
-    if '/' in self.name:
-      raise ValueError("Cannot give Transform a name with '/'. Got " + str(self.name))
+    for key in sorted(self.required_params):
+      if key not in kwargs:
+        raise TypeError("Must supply '{}' as an argument".format(key))
 
-  def _shape_def(self, prefix=''):
-    raise NotImplementedError()
+  def _start_calc(self):
+    self.num_examples = 0.
+  def _finish_calc(self):
+    return
 
+  def calc_global_values(self, array=None, array_iter=None, df=None, df_iter=None):
+    num_none = np.sum([array is None, array_iter is None, df is None, df_iter is None])
+    if num_none != 1:
+      raise ValueError("Must supply exactly one array, array_iter, df, df_iter.")
+
+    is_df = df is not None or df_iter is not None
+
+    if array is not None:
+      data_iter = [array]
+    elif data_iter is not None:
+      data_iter = array_iter
+    elif df is not None:
+      data_iter = [df]
+    else:
+      data_iter = df_iter
+
+    self._start_calc()
+    for data_num, data in enumerate(data_iter):
+      if data_num == 0:
+        if is_df:
+          self.cols = data.columns
+        else:
+          self.cols = [self.name + '_' + str(d) for d in data.shape[1:]]
+
+      data = data.values if is_df else data
+
+      if data_num == 0:
+        if self.input_dtype is not None:
+          self.input_dtype = data.dtype
+
+        if len(data.shape) != 2:
+          raise ValueError("Only rank 2 arrays are supported for transforms. Got {}".format(len(data.shape)))
+
+      self._calc_global_values(data)
+    self._finish_calc()
   def define_waterwork(self, array=None, return_tubes=None):
     raise NotImplementedError()
 
@@ -316,9 +351,6 @@ class Transform(object):
     dataset = self._get_dataset(file_name_pattern, batch_size, num_epochs, num_steps, keep_features, drop_features, add_tensors, num_threads, shuffle_buffer_size, random_seed)
 
     return dataset_iter.make_initializer(dataset)
-
-  def get_schema_dict(self):
-    raise NotImplementedError()
 
   def get_placeholder(self, funnel_key, with_batch=True, batch=None):
     att_dict = self._get_array_attributes()
@@ -450,7 +482,7 @@ class Transform(object):
         tap_dicts.append(pour_func(array))
     return tap_dicts
 
-  def multi_write_examples(self, array_iter, file_name, file_num_offset=0, batch_size=1, num_threads=1, skip_fails=False, skip_keys=None, use_threading=False, serialize_func=None, prefix=''):
+  def write_examples(self, array_iter, file_name, file_num_offset=0, batch_size=1, num_threads=1, skip_fails=False, skip_keys=None, use_threading=False, serialize_func=None, prefix=''):
     """Pours the arrays then writes the examples to tfrecords in a multithreading manner. It creates one example per 'row', i.e. axis=0 of the arrays. All arrays must have the same axis=0 dimension and must be of a type that can be written to a tfrecord
 
     Parameters
@@ -471,7 +503,6 @@ class Transform(object):
       cls = self.__class__
 
       def serialize_func(array):
-        jpype.attachThreadToJVM()
         trans = cls(save_dict=save_dict)
         example_dicts = trans.pour_examples(array, prefix)
 
@@ -683,28 +714,6 @@ class Transform(object):
     """Save the transform object to disk."""
     save_dict = self._save_dict()
     d.save_to_file(save_dict, path)
-
-  def write_examples(self, array, file_name):
-    """Pours the array then writes the examples to tfrecords.
-
-    Parameters
-    ----------
-    array : np.ndarray
-      The array to transform to examples, then write to disk.
-    file_name : str
-      The name of the tfrecord file to write to.
-
-    """
-    example_dicts = self.pour_examples(array)
-    writer = tf.python_io.TFRecordWriter(file_name)
-
-    for feature_dict in example_dicts:
-      example = tf.train.Example(
-        features=tf.train.Features(feature=feature_dict)
-      )
-      writer.write(example.SerializeToString())
-
-    writer.close()
 
 
 def is_lambda(obj):

@@ -34,7 +34,16 @@ class CatTransform(n.Transform):
 
   """
 
-  attribute_dict = {'norm_mode': None, 'norm_axis': 0, 'name': '', 'valid_cats': None, 'mean': None, 'std': None, 'dtype': np.float64, 'input_dtype': None, 'input_shape': None, 'index_to_cat_val': None, 'cat_val_to_index': None}
+  attribute_dict = {'norm_mode': None, 'norm_axis': 0, 'name': '', 'mean': None, 'std': None, 'dtype': np.float64, 'input_dtype': None, 'input_shape': None, 'index_to_cat_val': None, 'cat_val_to_index': None}
+  attribute_dict.update({k: v for k, v in n.Transform.attribute_dict.iteritem() if k not in attribute_dict})
+
+  required_params = set(['index_to_cat_val'])
+  required_params.update(n.Transform.required_params)
+  def __init__(self, from_file=None, save_dict=None, **kwargs):
+    super(CatTransform, self).__init__(from_file, save_dict, **kwargs)
+
+    if len(self.index_to_cat_val) != len(set(self.index_to_cat_val)):
+      raise ValueError("All elements of index_to_cat_val must be unique")
 
   def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""
@@ -78,50 +87,6 @@ class CatTransform(n.Transform):
     """
     array_key = self._pre('CatToIndex_0/slots/cats', prefix)
     return funnel_dict[array_key]
-
-  def _alter_pour_outputs(self, pour_outputs, prefix=''):
-    """Create a list of dictionaries for each example from the outputs of the pour method.
-
-    Parameters
-    ----------
-    pour_outputs : dict
-      The outputs of the _extract_pour_outputs method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    list of dicts of features
-      The example dictionaries which contain tf.train.Features.
-
-    """
-    pour_outputs = self._nopre(pour_outputs, prefix)
-    # Find the locations of all the missing values. i.e. those that have been
-    # replace by the unknown token.
-    # mask = pour_outputs['indices'] == -1
-
-    # Convert the 1D missing vals array into a full array of the same size as
-    # the indices array. This is so it can be easily separated into individual
-    # rows that be put into separate examples.
-    # missing_vals = pour_outputs['missing_vals']
-    # full_missing_vals = self._full_missing_vals(mask, missing_vals)
-    # pour_outputs['missing_vals'] = full_missing_vals
-
-    # att_dict = self._nopre(self._get_array_attributes(prefix), prefix)
-    #
-    # # Create an example dict for each row of indices.
-    # num_examples = pour_outputs['indices'].shape[0]
-    # example_dicts = []
-    # for row_num in xrange(num_examples):
-    #   example_dict = {}
-    #   for key in pour_outputs:
-    #     flat = pour_outputs[key][row_num].flatten()
-    #     example_dict[key] = att_dict[key]['feature_func'](flat)
-    #
-    #   example_dict = self._pre(example_dict, prefix)
-    #   example_dicts.append(example_dict)
-    pour_outputs = self._pre(pour_outputs, prefix)
-    return pour_outputs
 
   def _get_funnel_dict(self, array=None, prefix=''):
     """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
@@ -187,45 +152,6 @@ class CatTransform(n.Transform):
       }
     return self._pre(tap_dict, prefix)
 
-  def _parse_examples(self, arrays_dict, prefix=''):
-    """Convert the list of example_dicts into the original outputs that came from the pour method.
-
-    Parameters
-    ----------
-    example_dicts: list of dicts of arrays
-      The example dictionaries which the arrays associated with a single example.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary of all the values outputted by the pour method.
-
-    """
-    pour_outputs = {}
-    pour_outputs = self._nopre(arrays_dict, prefix)
-
-    # missing_vals = pour_outputs['missing_vals'][pour_outputs['indices'] == -1]
-    # pour_outputs['missing_vals'] = missing_vals.tolist()
-
-    pour_outputs = self._pre(pour_outputs, prefix)
-    return pour_outputs
-
-  def _setattributes(self, **kwargs):
-    """Set the actual attributes of the Transform and do some value checks to make sure they valid inputs.
-
-    Parameters
-    ----------
-    **kwargs :
-      The keyword arguments that set the values of the attributes defined in the attribute_dict.
-
-    """
-    super(CatTransform, self)._setattributes(**kwargs)
-
-    if self.norm_mode not in (None, 'mean_std'):
-      raise ValueError(self.norm_mode + " not a valid norm mode.")
-
   def _get_array_attributes(self, prefix=''):
     """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
 
@@ -267,36 +193,41 @@ class CatTransform(n.Transform):
     att_dict = self._pre(att_dict, prefix)
     return att_dict
 
-  def calc_global_values(self, array, verbose=True):
+  def _start_calc(self):
+    # Create the mapping from category values to index in the vector and
+    # vice versa
+    self.cat_val_to_index = {}
+    for unique_num, unique in enumerate(self.index_to_cat_val):
+      cat_val = self.index_to_cat_val[unique_num]
+      self.cat_val_to_index[cat_val] = unique_num
+
+    self.num_examples = 0.
+
+  def _finish_calc(self):
+    if self.norm_mode == 'mean_std':
+      self.std = np.sqrt(self.var)
+      # If there are any standard deviations of 0, replace them with 1's,
+      # print out a warning.
+      if len(self.std[self.std == 0]):
+        zero_std_cat_vals = []
+        for index in np.where(self.std == 0.0)[0]:
+          zero_std_cat_vals.append(self.index_to_cat_val[index])
+
+        logging.warn(self.name + " has zero-valued stds at " + str(zero_std_cat_vals) + " replacing with 1's")
+
+        self.std[self.std == 0] = 1.0
+
+  def _calc_global_values(self, array):
     """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
 
     Parameters
     ----------
     array : np.ndarray
       The entire dataset.
-    verbose : bool
-      Whether or not to print out warnings.
-
     """
-    # Set the input dtype
-    self.input_dtype = array.dtype
-    self.input_shape = array.shape
 
-    # Pull out the relevant column
-
-    # Get all the unique category values
-    if self.valid_cats is not None:
-      uniques = sorted(set(self.valid_cats))
-    else:
-      uniques = sorted(set(np.unique(array)))
-
-    # Create the mapping from category values to index in the vector and
-    # vice versa
-    self.index_to_cat_val = uniques
-    self.cat_val_to_index = {}
-    for unique_num, unique in enumerate(uniques):
-      cat_val = self.index_to_cat_val[unique_num]
-      self.cat_val_to_index[cat_val] = unique_num
+    batch_size = float(array.shape[0])
+    total_examples = self.num_examples + batch_size
 
     if self.norm_mode == 'mean_std':
       if not self.index_to_cat_val:
@@ -312,7 +243,7 @@ class CatTransform(n.Transform):
         default_val = self.index_to_cat_val[1]
       array[~valid_cats] = default_val
 
-      one_hots = np.zeros(list(array.shape) + [len(uniques)], dtype=np.float64)
+      one_hots = np.zeros(list(array.shape) + [len(self.index_to_cat_val)], dtype=np.float64)
 
       # Convert the category values to indices, using the cat_vat_to_index.
       indices = np.vectorize(self.cat_val_to_index.get)(array)
@@ -331,20 +262,15 @@ class CatTransform(n.Transform):
       one_hots[~valid_cats] = 0
 
       # Get the mean and standard deviation of the one_hots.
-      self.mean = np.mean(one_hots, axis=self.norm_axis)
-      self.std = np.std(one_hots, axis=self.norm_axis)
+      if self.mean is None:
+        self.mean = np.mean(one_hots, axis=self.norm_axis)
+        self.var = np.var(one_hots, axis=self.norm_axis)
+      else:
+        self.mean = (self.num_examples / total_examples) * self.mean + (batch_size / total_examples) * np.mean(one_hots, axis=self.norm_axis)
+        self.var = np.var(one_hots, axis=self.norm_axis)
 
-      # If there are any standard deviations of 0, replace them with 1's,
-      # print out a warning.
-      if len(self.std[self.std == 0]):
-        zero_std_cat_vals = []
-        for index in np.where(self.std == 0.0)[0]:
-          zero_std_cat_vals.append(self.index_to_cat_val[index])
+    self.num_examples += batch_size
 
-        if verbose:
-          logging.warn("WARNING: " + self.name + " has zero-valued stds at " + str(zero_std_cat_vals) + " replacing with 1's")
-
-        self.std[self.std == 0] = 1.0
 
   def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.

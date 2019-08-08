@@ -38,6 +38,11 @@ class DatasetTransform(tr.Transform):
   """
   attribute_dict = {'name': '', 'transforms': None, 'transform_col_ranges': None, 'input_dtype': None, 'input_shape': None, 'params': None}
 
+  attribute_dict.update({k: v for k, v in n.Transform.attribute_dict.iteritem() if k not in attribute_dict})
+
+  required_params = set()
+  required_params.update(n.Transform.required_params)
+
   def __getitem__(self, key):
     """Return the transform corresponding to key"""
     return self.transforms[key]
@@ -181,47 +186,21 @@ class DatasetTransform(tr.Transform):
     self.transforms[name] = transform
     self.transform_col_ranges[name] = col_ranges
 
-  def calc_global_values(self, array):
-    """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
-
-    Parameters
-    ----------
-    array : np.ndarray
-      The entire dataset.
-    verbose : bool
-      Whether or not to print out warnings.
-
-    """
-    self.input_dtype = array.dtype
-    self.input_shape = array.shape
-    all_ranges = []
+  def _start_calc(self):
     for key in self:
       trans = self.transforms[key]
+      trans._start_calc()
+    self.num_examples = 0.
 
-      # Get the slice definition of the transform.
-      col_range = self.transform_col_ranges[key]
-      all_ranges.append(col_range[0])
-      all_ranges.append(col_range[1])
-
-      # Get the subarrays and cast them to valid dtypes.
-      subarray = array[:, col_range[0]: col_range[1]]
-      if isinstance(trans, nt.NumTransform):
-        subarray = subarray.astype(np.float64)
-      elif isinstance(trans, dt.DateTimeTransform):
-        subarray = subarray.astype(np.datetime64)
-      elif isinstance(trans, st.StringTransform):
-        subarray = subarray.astype(np.unicode)
-      elif isinstance(trans, mlst.MultiLingualStringTransform):
-        subarray = subarray.astype(np.unicode)
-      elif isinstance(trans, ct.CatTransform):
-        subarray = subarray.astype(np.unicode)
-
-      # Calculate the global values for this transform.
-      self.transforms[key].calc_global_values(subarray)
+  def _finish_calc(self):
+    # Run the finsh calc of it's constituents
+    for key in self:
+      trans = self.transforms[key]
+      trans._finish_calc()
 
     # Verify that all the columns were used from the array, otherwise throw
     # an error.
-    all_ranges = set(range(array.shape[1]))
+    all_ranges = set(range(self.cols))
     for key in self:
       col_range = self.transform_col_ranges[key]
       for index in xrange(col_range[0], col_range[1]):
@@ -230,6 +209,27 @@ class DatasetTransform(tr.Transform):
 
     if all_ranges:
       raise ValueError("Must use all columns in array. Columns " + str(sorted(all_ranges)) + " are unused. Either remove them from the array or all additional transforms which use them.")
+
+  def _calc_global_values(self, array):
+    """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
+
+    Parameters
+    ----------
+    array : np.ndarray
+      The entire dataset.
+    """
+    for key in self:
+      trans = self.transforms[key]
+
+      # Get the slice definition of the transform.
+      col_range = self.transform_col_ranges[key]
+
+      # Get the subarrays and cast them to valid dtypes.
+      subarray = array[:, col_range[0]: col_range[1]]
+      subarray = subarray.astype(trans.input_dtype)
+
+      # Calculate the global values for this transform.
+      self.transforms[key]._calc_global_values(subarray)
 
   def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.

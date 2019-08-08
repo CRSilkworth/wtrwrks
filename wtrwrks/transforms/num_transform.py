@@ -45,6 +45,11 @@ class NumTransform(n.Transform):
 
   attribute_dict = {'norm_mode': None, 'norm_axis': None, 'fill_nan_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': None, 'input_dtype': None, 'input_shape': None}
 
+  attribute_dict.update({k: v for k, v in n.Transform.attribute_dict.iteritem() if k not in attribute_dict})
+
+  required_params = set([])
+  required_params.update(n.Transform.required_params)
+
   def _extract_pour_outputs(self, tap_dict, prefix='', **kwargs):
     """Pull out all the values from tap_dict that cannot be explicitly reconstructed from the transform itself. These are the values that will need to be fed back to the transform into run the tranform in the pump direction.
 
@@ -225,7 +230,31 @@ class NumTransform(n.Transform):
     att_dict = self._pre(att_dict, prefix)
     return att_dict
 
-  def calc_global_values(self, array, verbose=True):
+  def _finish_calc(self):
+    if self.norm_mode == 'mean_std':
+      self.std = np.sqrt(self.var)
+      # If there are any standard deviations of 0, replace them with 1's,
+      # print out a warning.
+      if len(self.std[self.std == 0]):
+        zero_std_cat_vals = []
+        for index in np.where(self.std == 0.0)[0]:
+          zero_std_cat_vals.append(self.index_to_cat_val[index])
+
+        logging.warn(self.name + " has zero-valued stds at " + str(zero_std_cat_vals) + " replacing with 1's")
+
+        self.std[self.std == 0] = 1.0
+    elif self.norm_mode == 'min_max':
+      # Test to make sure that min and max are not equal. If they are replace
+      # with default values.
+      if (self.min == self.max).any():
+        if self.max.shape:
+          self.max[self.max == self.min] = self.max[self.max == self.min] + 1
+        else:
+          self.max = self.max + 1
+
+        logging.warn("NumTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")
+
+  def _calc_global_values(self, array, verbose=True):
     """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
 
     Parameters
@@ -236,11 +265,9 @@ class NumTransform(n.Transform):
       Whether or not to print out warnings.
 
     """
-    # Set the input dtype
-    self.input_dtype = array.dtype
-    if self.dtype is None:
-      self.dtype = array.dtype
-    self.input_shape = array.shape
+
+    batch_size = float(array.shape[0])
+    total_examples = self.num_examples + batch_size
 
     array = array.astype(self.dtype)
 
@@ -250,27 +277,24 @@ class NumTransform(n.Transform):
       self.mean = np.mean(array, axis=self.norm_axis)
       self.std = np.std(array, axis=self.norm_axis)
 
-      # If any of the standard deviations are 0, replace them with 1's and
-      # print out a warning
-      if (self.std == 0).any():
-        logging.warn("NumTransform " + self.name + " has a zero-valued std, replacing with 1.")
-        self.std[self.std == 0.] = 1.0
+      if self.mean is None:
+        self.mean = np.mean(array, axis=self.norm_axis)
+        self.var = np.var(array, axis=self.norm_axis)
+      else:
+        self.mean = (self.num_examples / total_examples) * self.mean + (batch_size / total_examples) * np.mean(array, axis=self.norm_axis)
+        self.var = np.var(array, axis=self.norm_axis)
 
     elif self.norm_mode == 'min_max':
       # Find the means and standard deviations of each column
       array[np.isnan(array)] = self.fill_nan_func(array)
-      self.min = np.min(array, axis=self.norm_axis)
-      self.max = np.max(array, axis=self.norm_axis)
 
-      # Test to make sure that min and max are not equal. If they are replace
-      # with default values.
-      if (self.min == self.max).any():
-        if self.max.shape:
-          self.max[self.max == self.min] = self.max[self.max == self.min] + 1
-        else:
-          self.max = self.max + 1
+      if self.min is None:
+        self.min = np.min(array, axis=self.norm_axis)
+        self.max = np.max(array, axis=self.norm_axis)
+      else:
+        self.min = np.minimum(self.min, np.min(array, axis=self.norm_axis))
+        self.max = np.maximum(self.max, np.max(array, axis=self.norm_axis))
 
-        logging.warn("NumTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")
 
   def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.

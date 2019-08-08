@@ -33,6 +33,11 @@ class DateTimeTransform(n.Transform):
   """
   attribute_dict = {'norm_mode': None, 'norm_axis': None, 'num_units': 1, 'time_unit': 'D', 'fill_nat_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': np.float64, 'input_dtype': None, 'input_shape': None, 'zero_datetime': datetime.datetime(1970, 1, 1)}
 
+  attribute_dict.update({k: v for k, v in n.Transform.attribute_dict.iteritem() if k not in attribute_dict})
+
+  required_params = set([])
+  required_params.update(n.Transform.required_params)
+
   def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""
     assert self.input_dtype is not None, ("Run calc_global_values before attempting to get the length.")
@@ -204,8 +209,6 @@ class DateTimeTransform(n.Transform):
     pour_outputs.update(arrays_dict)
     pour_outputs[self._pre('nats', prefix)] = pour_outputs[self._pre('nats', prefix)].astype(bool)
     return pour_outputs
-    pour_outputs = {'nums': [], 'nats': [], 'diff': []}
-    shape = self.input_shape[1:]
 
   def _setattributes(self, **kwargs):
     """Set the actual attributes of the Transform and do some value checks to make sure they valid inputs.
@@ -264,53 +267,20 @@ class DateTimeTransform(n.Transform):
     att_dict = self._pre(att_dict, prefix)
     return att_dict
 
-  def calc_global_values(self, array, verbose=True):
-    """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
-
-    Parameters
-    ----------
-    array : np.ndarray
-      The entire dataset.
-    verbose : bool
-      Whether or not to print out warnings.
-
-    """
-    array = array.astype(np.datetime64)
-    # Get the inputted dtype
-    self.input_dtype = array.dtype
-    self.input_shape = array.shape
-
+  def _finish_calc(self):
     if self.norm_mode == 'mean_std':
-      # Find the means and standard deviations of each column
-      array[np.isnat(array)] = self.fill_nat_func(array)
-      temp_array = (array - self.zero_datetime)/np.timedelta64(self.num_units, self.time_unit)
-      temp_array = temp_array.astype(self.dtype)
+      self.std = np.sqrt(self.var)
+      # If there are any standard deviations of 0, replace them with 1's,
+      # print out a warning.
+      if len(self.std[self.std == 0]):
+        zero_std_cat_vals = []
+        for index in np.where(self.std == 0.0)[0]:
+          zero_std_cat_vals.append(self.index_to_cat_val[index])
 
-      if not len(temp_array):
-        raise ValueError("Inputted col_array has no non nan values.")
+        logging.warn(self.name + " has zero-valued stds at " + str(zero_std_cat_vals) + " replacing with 1's")
 
-      self.mean = np.mean(temp_array, axis=self.norm_axis)
-      self.std = np.std(temp_array, axis=self.norm_axis)
-
-      # If any of the standard deviations are 0, replace them with 1's and
-      # print out a warning
-      if (self.std == 0).any():
-        logging.warn("DatetimeTransform " + self.name + " has a zero-valued std, replacing with 1.")
         self.std[self.std == 0] = 1.0
-
     elif self.norm_mode == 'min_max':
-      # Find the means and standard deviations of each column
-      # temp_col_array = col_array[~np.isnat(col_array)]
-      array[np.isnat(array)] = self.fill_nat_func(array)
-      temp_array = (array - self.zero_datetime)/np.timedelta64(self.num_units, self.time_unit)
-      temp_array = temp_array.astype(self.dtype)
-
-      if not len(temp_array):
-        raise ValueError("Inputted col_array has no non nan values.")
-
-      self.min = np.min(temp_array, axis=self.norm_axis)
-      self.max = np.max(temp_array, axis=self.norm_axis)
-
       # Test to make sure that min and max are not equal. If they are replace
       # with default values.
       if (self.min == self.max).any():
@@ -320,6 +290,50 @@ class DateTimeTransform(n.Transform):
           self.max = self.max + 1
 
         logging.warn("DatetimeTransform " + self.name + " the same values for min and max, replacing with " + str(self.min) + " " + str(self.max) + " respectively.")
+
+  def _calc_global_values(self, array):
+    """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
+
+    Parameters
+    ----------
+    array : np.ndarray
+      The entire dataset.
+    """
+    array = array.astype(np.datetime64)
+
+    batch_size = float(array.shape[0])
+    total_examples = self.num_examples + batch_size
+
+    # Get the inputted dtype
+    if self.norm_mode == 'mean_std':
+      # Find the means and standard deviations of each column
+      array[np.isnat(array)] = self.fill_nat_func(array)
+      temp_array = (array - self.zero_datetime)/np.timedelta64(self.num_units, self.time_unit)
+      temp_array = temp_array.astype(self.dtype)
+
+      if self.mean is None:
+        self.mean = np.mean(temp_array, axis=self.norm_axis)
+        self.var = np.var(temp_array, axis=self.norm_axis)
+      else:
+        self.mean = (self.num_examples / total_examples) * self.mean + (batch_size / total_examples) * np.mean(temp_array, axis=self.norm_axis)
+        self.var = np.var(temp_array, axis=self.norm_axis)
+
+    elif self.norm_mode == 'min_max':
+      # Find the means and standard deviations of each column
+      # temp_col_array = col_array[~np.isnat(col_array)]
+      array[np.isnat(array)] = self.fill_nat_func(array)
+      temp_array = (array - self.zero_datetime)/np.timedelta64(self.num_units, self.time_unit)
+      temp_array = temp_array.astype(self.dtype)
+
+      if self.min is None:
+        self.min = np.min(temp_array, axis=self.norm_axis)
+        self.max = np.max(temp_array, axis=self.norm_axis)
+      else:
+        self.min = np.minimum(self.min, np.min(temp_array, axis=self.norm_axis))
+        self.max = np.maximum(self.max, np.max(temp_array, axis=self.norm_axis))
+
+    self.num_examples += batch_size
+
 
   def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.
