@@ -91,8 +91,10 @@ class Replace(ta.Tank):
 
     """
     a = ut.maybe_copy(target)
+
     if replaced_vals.dtype.itemsize > a.dtype.itemsize:
       a = a.astype(replaced_vals.dtype)
+
     replace_with = a[mask]
 
     a[mask] = replaced_vals[mask]

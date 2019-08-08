@@ -7,6 +7,7 @@ import wtrwrks.transforms.cat_transform as ct
 import wtrwrks.transforms.datetime_transform as dt
 import wtrwrks.transforms.num_transform as nt
 import wtrwrks.transforms.string_transform as st
+import wtrwrks.transforms.multi_lingual_string_transform as mlst
 from wtrwrks.waterworks.empty import empty
 import os
 import numpy as np
@@ -35,7 +36,7 @@ class DatasetTransform(tr.Transform):
     The slice defintions that split up an full dataset array into subarrays which are fed to the sub transforms found in the 'transforms' dictionary.
 
   """
-  attribute_dict = {'name': '', 'transforms': None, 'transform_col_ranges': None}
+  attribute_dict = {'name': '', 'transforms': None, 'transform_col_ranges': None, 'input_dtype': None, 'input_shape': None, 'params': None}
 
   def __getitem__(self, key):
     """Return the transform corresponding to key"""
@@ -136,6 +137,9 @@ class DatasetTransform(tr.Transform):
       self.transforms = {}
       self.transform_col_ranges = {}
 
+    if self.params is None:
+      self.params = {}
+
   def _get_array_attributes(self, prefix=''):
     """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
 
@@ -207,6 +211,8 @@ class DatasetTransform(tr.Transform):
         subarray = subarray.astype(np.datetime64)
       elif isinstance(trans, st.StringTransform):
         subarray = subarray.astype(np.unicode)
+      elif isinstance(trans, mlst.MultiLingualStringTransform):
+        subarray = subarray.astype(np.unicode)
       elif isinstance(trans, ct.CatTransform):
         subarray = subarray.astype(np.unicode)
 
@@ -275,6 +281,9 @@ class DatasetTransform(tr.Transform):
           cast, _ = td.cast(part, np.datetime64, name='-'.join([name, 'cast']))
           part = cast['target']
         elif isinstance(trans, st.StringTransform):
+          cast, _ = td.cast(part, np.unicode, name='-'.join([name, 'cast']))
+          part = cast['target']
+        elif isinstance(trans, mlst.MultiLingualStringTransform):
           cast, _ = td.cast(part, np.unicode, name='-'.join([name, 'cast']))
           part = cast['target']
         elif isinstance(trans, ct.CatTransform):
@@ -398,6 +407,11 @@ class DatasetTransform(tr.Transform):
         tank_name = os.path.join(self.name, '-'.join([name, 'cast']))
         tap_dict[os.path.join(tank_name, 'tubes', 'diff')] = np.array([], dtype=np.unicode)
         tap_dict[os.path.join(tank_name, 'tubes', 'input_dtype')] = input_dtype
+      elif isinstance(trans, mlst.MultiLingualStringTransform):
+        input_dtype = trans.input_dtype
+        tank_name = os.path.join(self.name, '-'.join([name, 'cast']))
+        tap_dict[os.path.join(tank_name, 'tubes', 'diff')] = np.array([], dtype=np.unicode)
+        tap_dict[os.path.join(tank_name, 'tubes', 'input_dtype')] = input_dtype
       elif isinstance(trans, ct.CatTransform):
         input_dtype = trans.input_dtype
         tank_name = os.path.join(self.name, '-'.join([name, 'cast']))
@@ -411,11 +425,48 @@ class DatasetTransform(tr.Transform):
         if not output_name.startswith(prefix):
           continue
         kwargs[output_name] = pour_outputs[output_name]
+      temp_tap_dict = trans._get_tap_dict(kwargs, prefix=self.name)
       tap_dict.update(
-        trans._get_tap_dict(kwargs, prefix=self.name)
+        temp_tap_dict
       )
 
     # Run the waterwork in the pump direction.
     funnel_dict = ww.pump(tap_dict, key_type='str')
 
     return funnel_dict[os.path.join(self.name, 'input')]
+
+  # def get_schema_dict(self, max_len=256):
+  #   schema_dict = {}
+  #   for name in sorted(self.transforms):
+  #     trans = self.transforms[name]
+  #     # Depending on the type of transform, cast the subarray to its valid
+  #     # type.
+  #     type_str = 'VARCHAR({})'.format(max_len)
+  #     if isinstance(trans, nt.NumTransform):
+  #       type_str = 'FLOAT'
+  #       if trans.input_dtype in (int, np.int32, np.int64):
+  #         type_str = 'INTEGER'
+  #     elif isinstance(trans, dt.DateTimeTransform):
+  #       type_str = 'TIMESTAMP'
+  #     elif isinstance(trans, st.StringTransform):
+  #       type_str = 'VARCHAR({})'.format(max_len)
+  #     elif isinstance(trans, mlst.MultiLingualStringTransform):
+  #       type_str = 'VARCHAR({})'.format(max_len)
+  #     elif isinstance(trans, ct.CatTransform):
+  #       type_str = 'VARCHAR({})'.format(max_len)
+  #       if trans.input_dtype in (int, np.int32, np.int64):
+  #         type_str = 'INTEGER'
+  #       elif trans.input_dtype in (np.float32, np.float64, float):
+  #         type_str = 'FLOAT'
+  #     size = np.prod(trans.input_shape[1:])
+  #     col_name = trans.name
+  #
+  #     if isinstance(trans, mlst.MultiLingualStringTransform):
+  #       schema_dict[col_name] = type_str
+  #     elif size > 1:
+  #       for col_num in xrange(size):
+  #         schema_dict[col_name + '_' + str(col_num)] = type_str
+  #     else:
+  #       schema_dict[col_name] = type_str
+  #
+  #   return schema_dict

@@ -128,3 +128,112 @@ class CatToIndex(ta.Tank):
     cats = cats.astype(input_dtype)
 
     return {'cats': cats, 'cat_to_index_map': cat_to_index_map}
+
+
+class MultiCatToIndex(CatToIndex):
+  """The CatToIndex class where the cats input is an numpy array. Handles any rank for 'cats'
+
+  Attributes
+  ----------
+  slot_keys : list of str
+    The tank's (operation's) argument keys. They define the names of the inputs to the tank.
+  tube_keys : dict(
+    keys - strs. The tank's (operation's) output keys. THey define the names of the outputs of the tank
+    values - types. The types of the arguments outputs.
+  )
+    The tank's (operation's) output keys and their corresponding types.
+
+  """
+  func_name = 'multi_cat_to_index'
+  slot_keys = ['cats', 'cat_to_index_maps', 'selector']
+  tube_keys = ['target', 'cat_to_index_maps', 'missing_vals', 'input_dtype', 'selector']
+  pass_through_keys = ['cat_to_index_maps', 'selector']
+
+  def _pour(self, cats, selector, cat_to_index_maps):
+    """Execute the mapping in the pour (forward) direction .
+
+    Parameters
+    ----------
+    cats : np.ndarray
+      The categorical values to be mapped to indices
+    cat_to_index_map : dict
+      The map from categorical values to indices.
+
+    Returns
+    -------
+    dict(
+      'target': int, float, other non array type
+        The result of the sum of 'a' and 'b'.
+      'missing_vals': list
+        The list of all the cats that were not found in cat_to_index_map.
+      'cat_to_index_map' : dict
+        The map from categorical values to indices.
+    )
+
+    """
+    target = -1 * np.ones(cats.shape, dtype=int)
+    missing_vals = af.empty_array_like(cats)
+
+    uniques = np.unique(selector)
+    for unique in uniques:
+      cat_to_index_map = cat_to_index_maps[unique]
+      mask = selector == unique
+
+      selected_cats = cats[mask]
+      pour_dict = super(MultiCatToIndex, self)._pour(selected_cats, cat_to_index_map)
+
+      target[mask] = pour_dict['target']
+      missing_vals[mask] = pour_dict['missing_vals']
+    return {'target': target, 'missing_vals': missing_vals, 'cat_to_index_maps': cat_to_index_map, 'selector': selector, 'input_dtype': cats.dtype}
+
+  def _pump(self, target, selector, missing_vals, cat_to_index_maps, input_dtype):
+    """Execute the mapping in the pump (backward) direction .
+
+    Parameters
+    ----------
+    target: np.ndarray
+      The result of the sum of 'a' and 'b'.
+    missing_vals: list
+      The list of all the cats that were not found in cat_to_index_map.
+    cat_to_index_map : dict
+      The map from categorical values to indices.
+
+
+    Returns
+    -------
+    dict(
+      'cats' : np.ndarray
+        The categorical values to be mapped to indices
+      'cat_to_index_map' : dict
+        The map from categorical values to indices.
+    )
+
+    """
+    cats = af.empty_array_like(missing_vals)
+
+    uniques = np.unique(selector)
+    masks = []
+    cats_list = []
+    itemsize = None
+
+    for unique in uniques:
+      cat_to_index_map = cat_to_index_maps[unique]
+      mask = selector == unique
+
+      selected_target = target[mask]
+      selected_missing_vals = missing_vals[mask]
+
+      pump_dict = super(MultiCatToIndex, self)._pump(selected_target, selected_missing_vals,  cat_to_index_map, input_dtype)
+
+      masks.append(mask)
+      cats_list.append(pump_dict['cats'])
+
+    if cats.dtype.type in (np.string_, np.unicode_):
+      itemsize = np.max([c.dtype.itemsize for c in cats_list])
+      dtype = str(cats.dtype)[:2]
+      cats = cats.astype(dtype + str(itemsize))
+
+    for c, mask in zip(cats_list, masks):
+      cats[mask] = c
+
+    return {'cats': cats, 'cat_to_index_maps': cat_to_index_maps, 'selector': selector}

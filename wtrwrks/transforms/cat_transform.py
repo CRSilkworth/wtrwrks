@@ -34,7 +34,7 @@ class CatTransform(n.Transform):
 
   """
 
-  attribute_dict = {'norm_mode': None, 'norm_axis': 0, 'name': '', 'valid_cats': None, 'mean': None, 'std': None, 'dtype': np.float64, 'input_dtype': None, 'index_to_cat_val': None, 'cat_val_to_index': None}
+  attribute_dict = {'norm_mode': None, 'norm_axis': 0, 'name': '', 'valid_cats': None, 'mean': None, 'std': None, 'dtype': np.float64, 'input_dtype': None, 'input_shape': None, 'index_to_cat_val': None, 'cat_val_to_index': None}
 
   def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""
@@ -159,6 +159,7 @@ class CatTransform(n.Transform):
     The dictionary with all taps filled with values necessary in order to run the pump method.
 
     """
+    pour_outputs = super(CatTransform, self)._get_tap_dict(pour_outputs, prefix)
     pour_outputs = self._nopre(pour_outputs, prefix)
     mvs = -1 * np.ones(pour_outputs['indices'].shape)
     dtype = pour_outputs['one_hots'].dtype

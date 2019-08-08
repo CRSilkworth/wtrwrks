@@ -209,3 +209,25 @@ class Equals(ta.Tank):
     a = np.array(a, copy=True)
     b = np.array(b, copy=True)
     return {'a': a, 'b': b}
+
+
+class MultiIsIn(ta.Tank):
+  func_name = 'multi_isin'
+  slot_keys = ['a', 'bs', 'selector']
+  tube_keys = ['target', 'a', 'bs', 'selector']
+  pass_through_keys = ['a', 'bs', 'selector']
+
+  def _pour(self, a, bs, selector):
+    if a.shape != selector.shape:
+      raise ValueError("Shape of a and selector must match. Got {} and {}".format(a.shape, selector.shape))
+
+    uniques = np.unique(selector)
+    target = np.zeros(a.shape, dtype=bool)
+    for unique in uniques:
+      mask = selector == unique
+      target[mask] = np.isin(a[mask], bs[unique])
+
+    return {'target': target, 'a': ut.maybe_copy(a), 'bs': ut.maybe_copy(bs), 'selector': ut.maybe_copy(selector)}
+
+  def _pump(self, target, a, bs, selector):
+    return {'a': ut.maybe_copy(a), 'bs': ut.maybe_copy(bs), 'selector': ut.maybe_copy(selector)}

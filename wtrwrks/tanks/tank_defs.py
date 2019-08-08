@@ -1339,6 +1339,133 @@ def mul(a=empty, b=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs
   return tank.get_tubes(), tank.get_slots()
 
 
+def multi_cat_to_index(cats=empty, selector=empty, cat_to_index_maps=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
+  """Convert an array of values drawn from a set of categories into an index according to the map cat_to_index_map, while keeping track of the values that aren't found in the map. Any values not found in the map are given -1 as an index.
+
+  Parameters
+  ----------
+  cats: np.ndarray
+    The array with all the category values to map to indices.
+  cat_to_index_map: dict
+    The mapping from category value to index. Must be one to one and contain all indices from zero to len(cat_to_index_map) - 1
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target: np.ndarray of ints
+      The indices of all the corresponding category values from 'cats'.
+    cat_to_index_map: dict
+      The mapping from category value to index. Must be one to one and contain all indices from zero to len(cat_to_index_map) - 1
+    missing_vals: list of category values
+      All the category values from 'cats' which were not found in cat_to_index_map.
+    input_dtype: a numpy dtype
+      The dtype of the inputted 'cats' array.
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the CatToIndex tank.
+  slots: dict(
+      cats: np.ndarray
+        The array with all the category values to map to indices.
+      cat_to_index_map: dict
+        The mapping from category value to index. Must be one to one and contain all indices from zero to len(cat_to_index_map) - 1
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the CatToIndex tank.
+
+  """
+  tank = cti.MultiCatToIndex(cats=cats, selector=selector, cat_to_index_maps=cat_to_index_maps, waterwork=waterwork, name=name)
+
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+  if slot_names is not None:
+    for key in slot_names:
+      tank.get_slots()[key].set_name(slot_names[key])
+  if tube_names is not None:
+    for key in tube_names:
+      tank.get_tubes()[key].set_name(tube_names[key])
+  return tank.get_tubes(), tank.get_slots()
+
+
+def multi_isin(a=empty, bs=empty, selector=empty, type_dict=None, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
+  tank = bo.MultiIsIn(a=a, bs=bs, selector=selector, waterwork=waterwork, name=name)
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+  return tank.get_tubes(), tank.get_slots()
+
+
+def multi_tokenize(strings=empty, selector=empty, tokenizers=empty, max_len=empty, detokenizers=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
+  """Tokenize an array of strings according to the supplied tokenizer function, keeping the original shape of the array of strings but adding an additional 'token' dimension.
+
+  Parameters
+  ----------
+  strings: np.ndarray of strings
+    The array of strings to tokenize.
+  tokenizer: func
+    Function which converts a string into a list of strings.
+  detokenizer: func
+    Function which takens in a list of tokens and returns a string. Not strictly necessary but it makes the tube 'diff' much smaller if it's close to the real method of detokenizing.
+  max_len: int
+    The maximum number of tokens. Defines the size of the added dimension.
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target: np.ndarray
+      The array of tokenized strings. Will have rank = rank('a') + 1 where the last dimesion will have size max_len.
+    tokenizer: func
+      Function which converts a string into a list of strings.
+    detokenizer: func
+      Function which takens in a list of tokens and returns a string. Not strictly necessary but it makes the tube 'diff' much smaller if it's close to the real method of detokenizing.
+    diff: np.ndarray of strings
+      The array of strings which define the differences between the original string and the string that has been tokenized then detokenized.
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Tokenize tank.
+  slots: dict(
+      strings: np.ndarray of strings
+        The array of strings to tokenize.
+      tokenizer: func
+        Function which converts a string into a list of strings.
+      detokenizer: func
+        Function which takens in a list of tokens and returns a string. Not strictly necessary but it makes the tube 'diff' much smaller if it's close to the real method of detokenizing.
+      max_len: int
+        The maximum number of tokens. Defines the size of the added dimension.
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Tokenize tank.
+
+  """
+  tank = to.MultiTokenize(strings=strings, selector=selector, tokenizers=tokenizers, max_len=max_len, detokenizers=detokenizers, waterwork=waterwork, name=name)
+
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+  if slot_names is not None:
+    for key in slot_names:
+      tank.get_slots()[key].set_name(slot_names[key])
+  if tube_names is not None:
+    for key in tube_names:
+      tank.get_tubes()[key].set_name(tube_names[key])
+  return tank.get_tubes(), tank.get_slots()
+
+
 def one_hot(indices=empty, depth=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
   """Convert an array of indices of rank n to an array of 1's and 0's of rank n+1, where there is a 1 in the location specified by the index and zeros everywhere else.
 

@@ -38,7 +38,7 @@ class DocumentTransform(n.Transform):
     The shape of the original inputted array.
 
   """
-  attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'sent_tokenizer': None, 'sent_detokenizer': lambda a: ''.join(a), 'string_transform': None, 'max_doc_len': None, 'keep_dims': True}
+  attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'input_shape': None, 'sent_tokenizer': None, 'sent_detokenizer': lambda a: ''.join(a), 'string_transform': None, 'max_doc_len': None, 'keep_dims': True}
 
   def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""
@@ -179,6 +179,7 @@ class DocumentTransform(n.Transform):
     The dictionary with all taps filled with values necessary in order to run the pump method.
 
     """
+    pour_outputs = super(DocumentTransform, self)._get_tap_dict(pour_outputs, prefix)
     tap_dict = self.string_transform._get_tap_dict(pour_outputs, os.path.join(prefix, self.name))
     if not self.keep_dims:
       tap_dict[self._pre('FlatTokenize_0/tubes/shape', prefix)] = self.input_shape

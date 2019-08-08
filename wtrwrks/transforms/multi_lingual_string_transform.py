@@ -8,12 +8,11 @@ import tensorflow as tf
 import operator
 import unicodedata
 
-
 def _half_width(string):
   return unicodedata.normalize('NFKC', unicode(string))
 
 
-class StringTransform(n.Transform):
+class MultiLingualStringTransform(n.Transform):
   """Object that transforms raw strings into vectorized data with all the necessary data needed in order to completely reconstruct the original strings.
 
   Parameters
@@ -54,7 +53,7 @@ class StringTransform(n.Transform):
 
   """
 
-  attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'input_shape': None, 'index_to_word': None, 'word_to_index': None, 'max_sent_len': None, 'word_tokenizer': lambda a: a.split(), 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'unk_index': None, 'word_detokenizer': lambda a: ' '.join(a), 'max_vocab_size': None}
+  attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'input_shape': None, 'index_to_word_maps': None, 'word_to_index_maps': None, 'max_sent_len': None, 'word_tokenizers': None, 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'unk_index': None, 'word_detokenizers': None, 'max_vocab_size': None}
 
   def __len__(self):
     return self.max_sent_len
@@ -75,7 +74,7 @@ class StringTransform(n.Transform):
       Dictionay of only those tap dict values which are can't be inferred from the Transform itself.
 
     """
-    r_dict = {k: tap_dict[self._pre(k, prefix)] for k in ['indices', 'missing_vals', 'tokenize_diff']}
+    r_dict = {k: tap_dict[self._pre(k, prefix)] for k in ['indices', 'missing_vals', 'tokenize_diff', 'languages']}
     if self.lower_case:
       r_dict['lower_case_diff'] = tap_dict[self._pre('lower_case_diff', prefix)]
     if self.half_width:
@@ -130,8 +129,12 @@ class StringTransform(n.Transform):
 
       if key == 'tokenize_diff':
         shape = [size]
+
+      elif key == 'languages':
+        shape = [1]
       else:
         shape = [size * self.max_sent_len]
+
       feature_dict[key] = tf.FixedLenFeature(shape, dtype)
 
     feature_dict = self._pre(feature_dict, prefix)
@@ -155,14 +158,14 @@ class StringTransform(n.Transform):
     array_keys = self._get_array_keys()
 
     # Get the original array's shape, except for the batch dim.
-    shape = list(self.input_shape[1:])
+    shape = [1]
 
     att_dict = {}
     for key in array_keys:
 
       # Add a max_sent_len dim to the tokenize_diff array since it has a
       # diff for each token, otherwise give it input array's shape.
-      cur_shape = shape if key == 'tokenize_diff' else shape + [self.max_sent_len]
+      cur_shape = shape if key in ('tokenize_diff', 'languages') else shape + [self.max_sent_len]
 
       att_dict[key] = {
         'shape': list(cur_shape),
@@ -176,7 +179,7 @@ class StringTransform(n.Transform):
 
   def _get_array_keys(self):
     """Get the relevant list of keys for this instance of the string transform"""
-    array_keys = ['indices', 'tokenize_diff', 'missing_vals']
+    array_keys = ['indices', 'tokenize_diff', 'missing_vals', 'languages']
     if self.lower_case:
       array_keys.append('lower_case_diff')
     if self.half_width:
@@ -258,14 +261,15 @@ class StringTransform(n.Transform):
     The dictionary with all taps filled with values necessary in order to run the pump method.
 
     """
-    pour_outputs = super(StringTransform, self)._get_tap_dict(pour_outputs, prefix)
+    pour_outputs = super(MultiLingualStringTransform, self)._get_tap_dict(pour_outputs, prefix)
     pour_outputs = self._nopre(pour_outputs, prefix)
     # Set all the tap values that are common across all string transforms.
     tap_dict = {
       'indices': pour_outputs['indices'],
       'missing_vals': pour_outputs['missing_vals'],
-      ('CatToIndex_0', 'input_dtype'): self.input_dtype,
-      ('Tokenize_0', 'diff'): pour_outputs['tokenize_diff']
+      'languages': pour_outputs['languages'],
+      ('MultiCatToIndex_0', 'input_dtype'): self.input_dtype,
+      ('MultiTokenize_0', 'diff'): pour_outputs['tokenize_diff']
     }
 
     # Set the taps associated with the optional additional operation of the
@@ -287,7 +291,7 @@ class StringTransform(n.Transform):
 
     # Add in the information needed to get back the missing_vals
     u_dict = {
-      ('CatToIndex_0', 'missing_vals'): np.full(pour_outputs['indices'].shape, '', dtype=np.unicode),
+      ('MultiCatToIndex_0', 'missing_vals'): np.full(pour_outputs['indices'].shape, '', dtype=np.unicode),
       ('Replace_0', 'mask'): mask,
       # ('Replace_0', 'replace_with_shape'): (1,),
     }
@@ -336,14 +340,18 @@ class StringTransform(n.Transform):
       The keyword arguments that set the values of the attributes defined in the attribute_dict.
 
     """
-    super(StringTransform, self)._setattributes(**kwargs)
+    super(MultiLingualStringTransform, self)._setattributes(**kwargs)
 
-    if self.index_to_word is None and self.max_vocab_size is None:
-      raise ValueError("Must supply index_to_word mapping or a max_vocab_size.")
-    if self.unk_index is None:
+    if self.index_to_word_maps is None and self.max_vocab_size is None:
+      raise ValueError("Must supply index_to_word_maps mapping or a max_vocab_size.")
+    if self.unk_index is None and self.index_to_word_maps is not None:
       raise ValueError("Must specify an unk_index. The index to assign the unknown words.")
-    if self.word_tokenizer is None:
-      raise ValueError("No tokenizer set for this Transform. Must supply one as input into pour.")
+    if self.word_tokenizers is None:
+      raise ValueError("No tokenizers set for this Transform. Must supply one per language.")
+    if self.word_detokenizers is None:
+      raise ValueError("No detokenizers set for this Transform. Must supply one per language.")
+    if self.max_sent_len is None:
+      raise ValueError("Must specify a max_sent_len.")
 
   def calc_global_values(self, array, verbose=True):
     """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
@@ -359,48 +367,62 @@ class StringTransform(n.Transform):
     self.input_dtype = array.dtype
     self.input_shape = array.shape
 
-    if self.index_to_word is None:
-      # Get all the words and the number of times they appear
-      all_words = {}
-      strings = array.flatten()
-      if self.lower_case:
-        strings = np.char.lower(strings)
+    if len(array.shape) < 2 or array.shape[1] != 2:
+      raise ValueError("Array must have exactly two columns. The first being the string, and the second being the language.")
 
-      if self.half_width:
-        strings = np.vectorize(_half_width)(strings)
+    languages = np.unique(array[:, 1])
+    for language in languages:
+      if language not in self.word_tokenizers or language not in self.word_detokenizers:
+        raise ValueError("All languages must appear in both word_tokenizers and word_detokenizers. {} not found".format(language))
 
-      for string in strings:
-        # Tokenize each request, add the tokens to the set of all words
-        tokens = self.word_tokenizer(string)
-        for token_num, token in enumerate(tokens):
-          all_words.setdefault(token, 0)
-          all_words[token] += 1
+    if self.index_to_word_maps is None:
+      self.index_to_word_maps = {}
+      for language in self.word_tokenizers:
+        mask = array[:, 1: 2] == language
+        lang_array = array[:, 0: 1][mask]
 
-      # Sort the dict by the number of times the words appear
-      sorted_words = sorted(all_words.items(), key=operator.itemgetter(1), reverse=True)
+        if not lang_array.size:
+          self.index_to_word_maps[language] = []
+          continue
 
-      # Pull out the first 'max_vocab_size' words
-      corrected_vocab_size = self.max_vocab_size - 1
-      sorted_words = [w for w, c in sorted_words[:corrected_vocab_size]]
+        # Get all the words and the number of times they appear
+        all_words = {}
+        strings = lang_array.flatten()
+        if self.lower_case:
+          strings = np.char.lower(strings)
 
-      # Create the mapping from category values to index in the vector and
-      # vice versa
-      self.index_to_word = sorted(sorted_words)
-      self.index_to_word = ['__UNK__'] + self.index_to_word
+        if self.half_width:
+          strings = np.vectorize(_half_width)(strings)
+
+        word_tokenizer = self.word_tokenizers[language]
+
+        for string in strings:
+          # Tokenize each request, add the tokens to the set of all words
+          tokens = word_tokenizer(string)
+          for token_num, token in enumerate(tokens):
+            all_words.setdefault(token, 0)
+            all_words[token] += 1
+
+        # Sort the dict by the number of times the words appear
+        sorted_words = sorted(all_words.items(), key=operator.itemgetter(1), reverse=True)
+
+        # Pull out the first 'max_vocab_size' words
+        corrected_vocab_size = self.max_vocab_size - 1
+        sorted_words = [w for w, c in sorted_words[:corrected_vocab_size]]
+
+        # Create the mapping from category values to index in the vector and
+        # vice versa
+        self.index_to_word_maps[language] = sorted(sorted_words)
+        self.index_to_word_maps[language] = ['__UNK__'] + self.index_to_word_maps[language]
+        self.unk_index = 0
     else:
-      self.max_vocab_size = len(self.index_to_word)
+      self.max_vocab_size = max([len(v) for v in self.index_to_word_maps.items()])
 
-    self.word_to_index = {
-      word: num for num, word in enumerate(self.index_to_word)
-    }
-
-    if self.max_sent_len is None:
-      max_len = None
-      for string in array.flatten():
-        cur_len = len(self.word_tokenizer(string))
-        if max_len is None or cur_len > max_len:
-          max_len = cur_len
-      self.max_sent_len = max_len
+    self.word_to_index_maps = {}
+    for language in self.word_tokenizers:
+      self.word_to_index_maps[language] = {
+        word: num for num, word in enumerate(self.index_to_word_maps[language])
+      }
 
   def define_waterwork(self, array=empty, return_tubes=None):
     """Get the waterwork that completely describes the pour and pump transformations.
@@ -416,17 +438,27 @@ class StringTransform(n.Transform):
       The waterwork with all the tanks (operations) added, and names set.
 
     """
+    splits, splits_slots = td.split(array, [1], axis=1)
+    splits_slots['a'].unplug()
+    splits_slots['a'].set_name('input')
+
+    splits, _ = td.iter_list(splits['target'], 2)
+
     # Tokenize the full strings into words
-    tokens, tokens_slots = td.tokenize(strings=array, tokenizer=self.word_tokenizer, detokenizer=self.word_detokenizer, max_len=self.max_sent_len)
-    tokens_slots['strings'].unplug()
+    tokens, tokens_slots = td.multi_tokenize(
+      strings=splits[0],
+      selector=splits[1],
+      tokenizers=self.word_tokenizers,
+      detokenizers=self.word_detokenizers,
+      max_len=self.max_sent_len
+    )
 
     # Set the names of various tubes and slots to make it easier to reference
     # them in further downstream.
     tokens['diff'].set_name('tokenize_diff')
     tokens_slots['max_len'].set_name('max_sent_len')
-    tokens_slots['strings'].set_name('input')
-    tokens_slots['tokenizer'].set_name('tokenizer')
-    tokens_slots['detokenizer'].set_name('detokenizer')
+    tokens_slots['tokenizers'].set_name('tokenizers')
+    tokens_slots['detokenizers'].set_name('detokenizers')
 
     # lower_case the strings, and set the diff strings of the tank to
     # 'lower_case_dff' for easier referencing.
@@ -447,22 +479,48 @@ class StringTransform(n.Transform):
       tokens['diff'].set_name('lemmatize_diff')
       tokens_slots['lemmatizer'].set_name('lemmatizer')
 
+    languages, _ = td.clone(splits[1])
+    languages['b'].set_name('languages')
+
+    dim_size, _ = td.dim_size(languages['a'], axis=0)
+    shape, _ = td.tube_list(dim_size['target'], 1, 1)
+    tile, _ = td.reshape(
+      languages['a'], shape['target'],
+      tube_plugs={
+        'old_shape': lambda z: (z[self._pre('languages')].shape[0], 1)
+      }
+    )
+    tile, _ = td.tile(
+      tile['target'], (1, 1, self.max_sent_len),
+      tube_plugs={
+        'old_shape': lambda z: (z[self._pre('languages')].shape[0], 1, 1)
+      }
+    )
+
     # Find all the strings which are not in the list of known words and
     # replace them with the 'unknown token'.
-    isin, isin_slots = td.isin(tokens['target'], self.index_to_word + [''])
+    maps_with_empty_strings = {k: v + [''] for k, v in self.index_to_word_maps.iteritems()}
+    isin, isin_slots = td.multi_isin(tokens['target'], maps_with_empty_strings, tile['target'])
+
     mask, _ = td.logical_not(isin['target'])
-    tokens, _ = td.replace(isin['a'], mask['target'], self.index_to_word[self.unk_index])
+    tokens, _ = td.replace(isin['a'], mask['target'], '__UNK__')
 
     # Keep track values that were overwritten with a 'unknown token'
     tokens['replaced_vals'].set_name('missing_vals')
-    isin_slots['b'].set_name('index_to_word')
+    isin_slots['bs'].set_name('index_to_word_maps')
 
     # Convert the tokens into indices.
-    indices, indices_slots = td.cat_to_index(tokens['target'], self.word_to_index)
+    indices, indices_slots = td.multi_cat_to_index(
+      tokens['target'], tile['target'], self.word_to_index_maps,
+      tube_plugs={
+        'selector': lambda z: np.tile(np.reshape(z[self._pre('languages')], (z[self._pre('languages')].shape[0], 1, 1)), (1, 1, self.max_sent_len)),
+      }
+    )
 
     # Set the names of the slots and tubes of this tank for easier referencing
     indices['target'].set_name('indices')
-    indices_slots['cat_to_index_map'].set_name('word_to_index')
+    # indices['selector'].set_name('languages')
+    indices_slots['cat_to_index_maps'].set_name('word_to_index_maps')
 
     if return_tubes is not None:
       ww = indices['target'].waterwork
@@ -470,5 +528,3 @@ class StringTransform(n.Transform):
       for r_tube_key in return_tubes:
         r_tubes.append(ww.maybe_get_tube(r_tube_key))
       return r_tubes
-
-    

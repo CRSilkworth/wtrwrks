@@ -32,7 +32,7 @@ class ChainTransform(tr.Transform):
     A list that stores which of the preceding transforms' outputs will be fed as an input into the next transform. The first value is always 'None'.
 
   """
-  attribute_dict = {'name': '', 'transforms': None, 'transform_order': None, 'tap_keys': None}
+  attribute_dict = {'name': '', 'transforms': None, 'transform_order': None, 'tap_keys': None, 'input_dtype': None, 'input_shape': None}
 
   def __getitem__(self, key):
     """Return the transform corresponding to key"""

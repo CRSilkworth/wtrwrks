@@ -38,7 +38,7 @@ class DocumentToSentenceTransform(n.Transform):
     The shape of the original inputted array.
 
   """
-  attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'sent_tokenizer': None, 'sent_detokenizer': lambda a: ''.join(a), 'max_doc_len': None, 'keep_dims': True}
+  attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'input_shape': None, 'sent_tokenizer': None, 'sent_detokenizer': lambda a: ''.join(a), 'max_doc_len': None, 'keep_dims': True}
 
   def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""
@@ -134,6 +134,7 @@ class DocumentToSentenceTransform(n.Transform):
     The dictionary with all taps filled with values necessary in order to run the pump method.
 
     """
+    pour_outputs = super(DocumentToSentenceTransform, self)._get_tap_dict(pour_outputs, prefix)
     tap_dict = {}
     tap_dict[self._pre('sentences', prefix)] = pour_outputs[self._pre('sentences', prefix)]
     if not self.keep_dims:

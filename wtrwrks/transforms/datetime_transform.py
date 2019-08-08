@@ -31,7 +31,7 @@ class DateTimeTransform(n.Transform):
     The list of attributes that need to be saved in order to fully reconstruct the transform object.
 
   """
-  attribute_dict = {'norm_mode': None, 'norm_axis': None, 'num_units': 1, 'time_unit': 'D', 'fill_nat_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': np.float64, 'input_dtype': None, 'zero_datetime': datetime.datetime(1970, 1, 1)}
+  attribute_dict = {'norm_mode': None, 'norm_axis': None, 'num_units': 1, 'time_unit': 'D', 'fill_nat_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': np.float64, 'input_dtype': None, 'input_shape': None, 'zero_datetime': datetime.datetime(1970, 1, 1)}
 
   def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""
@@ -113,18 +113,28 @@ class DateTimeTransform(n.Transform):
       The dictionary with all funnels filled with values necessary in order to run the pour method.
 
     """
-    if self.fill_nat_func is None:
-      fill_nat_func = lambda a: np.full(a[np.isnat(a)].shape, self.zero_datetime)
-    else:
-      fill_nat_func = self.fill_nat_func
-
-    funnel_dict = {
-      'Replace_0/slots/replace_with': fill_nat_func(array)
-    }
     if array is not None:
-      funnel_dict['IsNat_0/slots/a'] = array
-
+      funnel_dict = {
+        'Replace_0/slots/replace_with': self.fill_nat_func(array),
+        'IsNat_0/slots/a': array
+      }
+    else:
+      funnel_dict = {
+        'Replace_0/slots/replace_with': np.array([])
+      }
     return self._pre(funnel_dict, prefix)
+    # if self.fill_nat_func is None:
+    #   fill_nat_func = lambda a: np.full(a[np.isnat(a)].shape, self.zero_datetime)
+    # else:
+    #   fill_nat_func = self.fill_nat_func
+    #
+    # funnel_dict = {
+    #   'Replace_0/slots/replace_with': fill_nat_func(array)
+    # }
+    # if array is not None:
+    #   funnel_dict['IsNat_0/slots/a'] = array
+    #
+    # return self._pre(funnel_dict, prefix)
 
   def _get_tap_dict(self, pour_outputs, prefix=''):
     """Construct a dictionary where the keys are the names of the tubes, and the values are either values from the Transform itself, or are taken from the supplied pour_outputs dictionary.
@@ -141,6 +151,7 @@ class DateTimeTransform(n.Transform):
     The dictionary with all taps filled with values necessary in order to run the pump method.
 
     """
+    pour_outputs = super(DateTimeTransform, self)._get_tap_dict(pour_outputs, prefix)
     pour_outputs = self._nopre(pour_outputs, prefix)
     num_nats = len(np.where(pour_outputs['nats'])[0])
     tap_dict = {
@@ -151,7 +162,7 @@ class DateTimeTransform(n.Transform):
       # 'dtn/tubes/zero_datetime': self.zero_datetime,
       # 'dtn/tubes/time_unit': self.time_unit,
       # 'dtn/tubes/num_units': self.num_units,
-      'Replace_0/tubes/replace_with_shape': (num_nats,),
+      # 'Replace_0/tubes/replace_with_shape': (num_nats,),
     }
     # If any normalization was done
     if self.norm_mode == 'mean_std' or self.norm_mode == 'min_max':

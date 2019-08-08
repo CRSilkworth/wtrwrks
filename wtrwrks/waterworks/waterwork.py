@@ -714,7 +714,12 @@ class Waterwork(object):
       kwargs = {k: tank.slots[k].get_val() for k in tank.slots}
 
       logging.debug("Inputting kwargs to pour - %s", {k: v for k, v in kwargs.iteritems()})
-      tube_dict = tank.pour(**kwargs)
+
+      try:
+        tube_dict = tank.pour(**kwargs)
+      except:
+        logging.exception("Failure in pour of tank %s", tank.name)
+        raise
 
       for key in tube_dict:
         slot = tank.tubes[key].slot
@@ -804,7 +809,12 @@ class Waterwork(object):
       kwargs = {k: tank.tubes[k].get_val() for k in tank.tubes}
 
       logging.debug("Inputting kwargs to pour - %s", {k: v for k, v in kwargs.iteritems()})
-      slot_dict = tank.pump(**kwargs)
+
+      try:
+        slot_dict = tank.pump(**kwargs)
+      except:
+        logging.exception("Failure in pump of tank %s", tank.name)
+        raise
 
       for key in slot_dict:
         tube = tank.slots[key].tube

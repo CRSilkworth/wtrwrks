@@ -43,7 +43,7 @@ class NumTransform(n.Transform):
 
   """
 
-  attribute_dict = {'norm_mode': None, 'norm_axis': None, 'fill_nan_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': None, 'input_dtype': None}
+  attribute_dict = {'norm_mode': None, 'norm_axis': None, 'fill_nan_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': None, 'input_dtype': None, 'input_shape': None}
 
   def _extract_pour_outputs(self, tap_dict, prefix='', **kwargs):
     """Pull out all the values from tap_dict that cannot be explicitly reconstructed from the transform itself. These are the values that will need to be fed back to the transform into run the tranform in the pump direction.
@@ -97,11 +97,15 @@ class NumTransform(n.Transform):
       The dictionary with all funnels filled with values necessary in order to run the pour method.
 
     """
-    funnel_dict = {
-      'Replace_0/slots/replace_with': self.fill_nan_func(array)
-    }
     if array is not None:
-      funnel_dict['IsNan_0/slots/a'] = array
+      funnel_dict = {
+        'Replace_0/slots/replace_with': self.fill_nan_func(array),
+        'IsNan_0/slots/a': array
+      }
+    else:
+      funnel_dict = {
+        'Replace_0/slots/replace_with': np.array([])
+      }
     return self._pre(funnel_dict, prefix)
 
   def _get_tap_dict(self, pour_outputs, prefix=''):
@@ -119,6 +123,7 @@ class NumTransform(n.Transform):
     The dictionary with all taps filled with values necessary in order to run the pump method.
 
     """
+    pour_outputs = super(NumTransform, self)._get_tap_dict(pour_outputs, prefix)
     pour_outputs = self._nopre(pour_outputs, prefix)
 
     num_nans = len(np.where(pour_outputs['nans'])[0])
@@ -126,7 +131,8 @@ class NumTransform(n.Transform):
       'nums': pour_outputs['nums'],
       'nans': pour_outputs['nans'],
       'replaced_vals': np.full(pour_outputs['nums'].shape, np.nan, dtype=self.input_dtype),
-      'Replace_0/tubes/replace_with_shape': (num_nans,),
+      'Replace_0/tubes/replace_with': np.array([])
+      # 'Replace_0/tubes/replace_with_shape': (num_nans,),
     }
     # If there was a norm mode set then add in all the additional information.
     if self.norm_mode == 'mean_std' or self.norm_mode == 'min_max':

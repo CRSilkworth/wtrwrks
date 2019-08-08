@@ -23,7 +23,7 @@ class Tile(ta.Tank):
   pass_through_keys = ['reps']
 
   def _pour(self, a, reps):
-    """Execute the Flatten tank (operation) in the pour (forward) direction.
+    """Execute the Tile tank (operation) in the pour (forward) direction.
 
     Parameters
     ----------
@@ -51,7 +51,7 @@ class Tile(ta.Tank):
     return {'target': target, 'old_shape': old_shape, 'reps': reps}
 
   def _pump(self, target, old_shape, reps):
-    """Execute the Flatten tank (operation) in the pump (backward) direction.
+    """Execute the Tile tank (operation) in the pump (backward) direction.
 
     Parameters
     ----------

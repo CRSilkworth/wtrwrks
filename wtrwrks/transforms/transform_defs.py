@@ -2,6 +2,7 @@ import cat_transform
 import num_transform
 import datetime_transform
 import string_transform
+import multi_lingual_string_transform
 import dataset_transform
 import document_transform
 import doc_to_sentence_transform
@@ -10,6 +11,7 @@ CatTransform = cat_transform.CatTransform
 NumTransform = num_transform.NumTransform
 DateTimeTransform = datetime_transform.DateTimeTransform
 StringTransform = string_transform.StringTransform
+MultiLingualStringTransform = multi_lingual_string_transform.MultiLingualStringTransform
 DatasetTransform = dataset_transform.DatasetTransform
 DocumentTransform = document_transform.DocumentTransform
 DocumentToSentenceTransform = doc_to_sentence_transform.DocumentToSentenceTransform
