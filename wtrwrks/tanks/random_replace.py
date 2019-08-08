@@ -40,17 +40,24 @@ class RandomReplace(ta.Tank):
       Values to skip when randomly replacing.
     max_replace: int
       The maximum number of allowed replacements in the last dimension.
+
     Returns
     -------
     dict(
       target: np.ndarray of same type as 'a'
         The array with the necessary values replaced.
-      mask: np.ndarray of bools
+      mask_mask: np.ndarray of bools
         An array of booleans whose True values denote which of array 'a's values were replaced.
+      mask_positions: np.ndarray of bools
+        The positions of the masked values
+      prob: 0 <= float <= 1
+        The probability that each value is replaced
       replaced_vals: np.ndarray of same type as 'a'
         The values that were overwritten when they were replaced by the replace_with values.
-      replace_with_shape: list of ints
-        The original shape of the replace_with array.
+      do_not_replace_vals: np.ndarray
+        Values to skip when randomly replacing.
+      max_replace: int <= a.shape[-1]
+        The maximum allowed replacements along the last dimension.
     )
 
     """
@@ -97,22 +104,34 @@ class RandomReplace(ta.Tank):
     ----------
     target: np.ndarray of same type as 'a'
       The array with the necessary values replaced.
-    mask: np.ndarray of bools
-      An array of booleans whose True values denote which of array 'a's values are to be replaced.
+    mask_mask: np.ndarray of bools
+      An array of booleans whose True values denote which of array 'a's values were replaced.
+    mask_positions: np.ndarray of bools
+      The positions of the masked values
+    prob: 0 <= float <= 1
+      The probability that each value is replaced
     replaced_vals: np.ndarray of same type as 'a'
       The values that were overwritten when they were replaced by the replace_with values.
-    replace_with_shape: list of ints
-      The original shape of the replace_with array.
+    do_not_replace_vals: np.ndarray
+      Values to skip when randomly replacing.
+    max_replace: int <= a.shape[-1]
+      The maximum allowed replacements along the last dimension.
 
     Returns
     -------
     dict(
       a: np.ndarray
         The array which has values that are to be replaced.
-      mask: np.ndarray of bools
-        An array of booleans whose True values denote which of array 'a's values are to be replaced.
       replace_with: np.ndarray
-        The values to be used to replace the corresponding values in 'a'.
+        The value to be used to replace the corresponding values in 'a'.
+      prob: 0 <= float <= 1
+        The probability that each value is replaced
+      max_replace: int <= a.shape[-1]
+        The maximum allowed replacements along the last dimension.
+      do_not_replace_vals: np.ndarray
+        Values to skip when randomly replacing.
+      max_replace: int
+        The maximum number of allowed replacements in the last dimension.
     )
 
     """

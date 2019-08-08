@@ -21,20 +21,18 @@ class DoNothing(ta.Tank):
   tube_keys = ['target']
 
   def _pour(self, a):
-    """Execute the Clone tank (operation) in the pour (forward) direction.
+    """Execute the DoNothing tank (operation) in the pour (forward) direction.
 
     Parameters
     ----------
     a: object
-      The object to be cloned into two.
+      The object to be added to the waterwork.
 
     Returns
     -------
     dict(
-      a: type of slot 'a'
-        The first of the two cloned objects.
-      b: type of slot 'a'
-        The second of the two cloned objects.
+      target: object
+        The object to be added to the waterwork.
     )
 
     """
@@ -45,16 +43,14 @@ class DoNothing(ta.Tank):
 
     Parameters
     ----------
-    a: type of slot 'a'
-      The first of the two cloned objects.
-    b: type of slot 'a'
-      The second of the two cloned objects.
+    target: object
+      The object to be added to the waterwork.
 
     Returns
     -------
     dict(
       a: object
-        The object to be cloned into two.
+        The object to be added to the waterwork.
     )
 
     """
@@ -118,7 +114,7 @@ class Clone(ta.Tank):
 
 
 class CloneMany(ta.Tank):
-  """The defintion of the Clone tank. Contains the implementations of the _pour and _pump methods, as well as which slots and tubes the waterwork objects will look for.
+  """Clone an object many times (rather than just once).
 
   Attributes
   ----------
@@ -146,10 +142,13 @@ class CloneMany(ta.Tank):
     Returns
     -------
     dict(
-      a: type of slot 'a'
-        The first of the two cloned objects.
-      b: type of slot 'a'
-        The second of the two cloned objects.
+      a0: object
+        zeroth clone
+      a1: object
+        first clone,
+      .
+      .
+      .
     )
 
     """
@@ -164,10 +163,13 @@ class CloneMany(ta.Tank):
 
     Parameters
     ----------
-    a: type of slot 'a'
-      The first of the two cloned objects.
-    b: type of slot 'a'
-      The second of the two cloned objects.
+    a0: object
+      zeroth clone
+    a1: object
+      first clone,
+    .
+    .
+    .
 
     Returns
     -------
@@ -185,7 +187,7 @@ class CloneMany(ta.Tank):
 
 
 class MergeEqual(ta.Tank):
-  """Merge several equal objects into a single object.
+  """Merge several equal objects into a single object. All tubes must have equal values, otherwise you will get unexpected results. (Opposite of clone_many)
 
   Attributes
   ----------
@@ -201,20 +203,23 @@ class MergeEqual(ta.Tank):
   test_equal = None
 
   def _pour(self, **kwargs):
-    """Execute the Clone tank (operation) in the pour (forward) direction.
+    """Execute the MergeEqual tank (operation) in the pour (forward) direction.
 
     Parameters
     ----------
-    a: object
-      The object to be cloned into two.
+    a0: object
+      zeroth equal object
+    a1: object
+      first equal object,
+    .
+    .
+    .
 
     Returns
     -------
     dict(
-      a: type of slot 'a'
-        The first of the two cloned objects.
-      b: type of slot 'a'
-        The second of the two cloned objects.
+      a: type of slot 'a'target: object
+        The merged object. Simply takes the value of the first in the list.
     )
 
     """
@@ -229,16 +234,19 @@ class MergeEqual(ta.Tank):
 
     Parameters
     ----------
-    a: type of slot 'a'
-      The first of the two cloned objects.
-    b: type of slot 'a'
-      The second of the two cloned objects.
+    target: object
+      The merged object. Simply takes the value of the first in the list.
 
     Returns
     -------
     dict(
-      a: object
-        The object to be cloned into two.
+      a0: object
+        zeroth equal object
+      a1: object
+        first equal object,
+      .
+      .
+      .
     )
 
     """

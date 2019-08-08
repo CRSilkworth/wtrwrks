@@ -1,5 +1,5 @@
 
-def batcher(iterable, batch_size):
+def batcher(iterable, batch_size=None):
   if type(iterable) in (list, tuple):
     iterable = (i for i in iterable)
 

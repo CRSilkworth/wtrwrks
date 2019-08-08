@@ -29,6 +29,8 @@ class DimSize(ta.Tank):
     ----------
     a: np.ndarray
       The array to get the shape of
+    axis: int
+      The axis to get the dim_size from.
 
     Returns
     -------
@@ -37,6 +39,8 @@ class DimSize(ta.Tank):
         The shape of the array.
       a: np.ndarray
         The array to get the shape of
+      axis: int
+        The axis to get the dim_size from.
     )
 
     """
@@ -51,12 +55,16 @@ class DimSize(ta.Tank):
       The shape of the array.
     a: np.ndarray
       The array to get the shape of
+    axis: int
+      The axis to get the dim_size from.
 
     Returns
     -------
     dict(
       a: np.ndarray
         The array to get the shape of
+      axis: int
+        The axis to get the dim_size from.
     )
 
     """

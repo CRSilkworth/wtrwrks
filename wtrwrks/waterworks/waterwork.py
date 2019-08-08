@@ -2,6 +2,7 @@ import wtrwrks.waterworks.globs as gl
 import wtrwrks.waterworks.waterwork_part as wp
 import wtrwrks.waterworks.name_space as ns
 import wtrwrks.utils.dir_functions as d
+import wtrwrks.utils.multi as mu
 import wtrwrks.utils.batch_functions as b
 from wtrwrks.waterworks.empty import Empty, empty
 import wtrwrks.read_write.tf_features as feat
@@ -417,42 +418,7 @@ class Waterwork(object):
       self.merged[target].add(arg)
       arg.downstream_tube = target
 
-  def multi_pour(self, funnel_dict_iter, num_threads=1, key_type='tube', return_plugged=False, use_threading=False, pour_func=None):
-    """Run all the operations of the waterwork in the pour (or forward) direction as several processes. The number of processes is determined by the size of the list funnel_dicts. Each element of the list is independently processed by first copying the water work, creating a processs, running the full pour on the funnel_dict and returning a list of tap_dicts.
-
-    Parameters
-    ----------
-    funnel_dicts : list of dicts(
-      keys - Slot objects or Placeholder objects. The 'funnels' (i.e. unconnected slots) of the waterwork.
-      values - valid input data types
-    )
-      The inputs to the waterwork's full pour functions. There is exactly one funnel_dict for every process.
-    key_type : str ('tube', 'tuple', 'name')
-      The type of keys to return in the return dictionary. Can either be the tube objects themselves (tube), the tank, output key pair (tuple) or the name (str) of the tube.
-
-    Returns
-    -------
-    list of dicts(
-      keys - Tube objects, (or tuples if tuple_keys set to True). The 'taps' (i.e. unconnected tubes) of the waterwork.
-    )
-        The list of tap dicts, outputted by each pour process
-
-    """
-    # all_args = itertools.izip(inf_gen(self._save_dict()), funnel_dict_iter, inf_gen(key_type), inf_gen(return_plugged))
-
-    if num_threads != 1:
-      if not use_threading:
-        pool = mp.ProcessPool(num_threads)
-      else:
-        pool = mp.ThreadPool(num_threads)
-
-    tap_dicts = []
-
-    # Really convoluted way of getting around annoying pickling restrictions.
-    # Even with dill, things that require a JVM will fail. You can get around
-    # this by creating your own function which constructs the waterwork in
-    # this function itself so that things it is made up of won't need to be
-    # pickled.
+  def multi_pour(self, funnel_dict_iter, key_type='tube', return_plugged=False, num_threads=1, use_threading=False, batch_size=None, pour_func=None):
     if pour_func is None:
       save_dict = self._save_dict()
 
@@ -463,106 +429,34 @@ class Waterwork(object):
         tap_dict = ww.pour(funnel_dict, key_type, return_plugged)
         return tap_dict
 
-    # If multithreading run pool.map, otherwise just run recon_and_pour
-    if num_threads != 1:
-      tap_dicts = pool.map(pour_func, funnel_dict_iter)
+    tap_dicts = []
+    for batch_num, batch in enumerate(b.batcher(funnel_dict_iter, batch_size)):
+      tap_dicts.extend(
+        mu.multi_map(pour_func, batch, num_threads, use_threading)
+      )
 
-      # processingpool carries over information. Need to terminate a restart
-      # to prevent memory leaks.
-      pool.terminate()
-      if not use_threading:
-        pool.restart()
-    else:
-      # for args in all_args:
-      #   tap_dicts.append(recon_and_pour(args))
-      for funnel_dict in funnel_dict_iter:
-        tap_dicts.append(pour_func(funnel_dict))
     return tap_dicts
 
-  def multi_map(self, func, iterable, num_threads=1, use_threading=False):
-    out_list = []
-    if num_threads != 1:
-      if not use_threading:
-        pool = mp.ProcessingPool(num_threads)
-      else:
-        pool = mp.ThreadPool(num_threads)
+  def multi_pump(self, tap_dict_iter, key_type='slot', return_plugged=False, num_threads=1, use_threading=False, batch_size=None, pump_func=None):
+    if pump_func is None:
+      save_dict = self._save_dict()
 
-    # If multithreading run pool.map, otherwise just run recon_and_pour
-    if num_threads != 1:
-      out_list = pool.map(func, iterable)
+      def pump_func(tap_dict):
+        ww = Waterwork()
+        ww._from_save_dict(save_dict)
 
-      # processingpool carries over information. Need to terminate a restart
-      # to prevent memory leaks.
-      pool.terminate()
-      if not use_threading:
-        pool.restart()
-    else:
-      for element in iterable:
-        out_list.append(func(element))
-    return out_list
-
-  def multi_pump(self, tap_dict_iter, num_threads=1, key_type='slot', return_plugged=False, use_threading=False):
-    """Run all the operations of the waterwork in the pour (or forward) direction as several processes. The number of processes is determined by the size of the list tap_dicts. Each element of the list is independently processed by first copying the water work, creating a processs, running the full pour on the funnel_dict and returning a list of funnel_dicts.
-
-    Parameters
-    ----------
-    tap_dict : list of dict(
-      keys - Tube objects. The 'taps' (i.e. unconnected tubes) of the waterwork.
-    )
-        The inputs of the waterwork's full pump function. There is exactly one funnel_dict for every process.
-    key_type : str ('tube', 'tuple', 'name')
-      The type of keys to return in the return dictionary. Can either be the tube objects themselves (tube), the tank, output key pair (tuple) or the name (str) of the tube.
-
-    Returns
-    -------
-    list of dict(
-      keys - Slot objects. The 'funnels' (i.e. unconnected slots) of the waterwork.
-      values - valid input data types
-    )
-        The list of funnel dicts, outputted by each pump process
-
-    """
-    all_args = itertools.izip(inf_gen(self._save_dict()), tap_dict_iter, inf_gen(key_type), inf_gen(return_plugged))
-
-    if num_threads != 1:
-      if not use_threading:
-        pool = mp.ProcessPool(num_threads)
-      else:
-        pool = mp.ThreadPool(num_threads)
+        funnel_dict = ww.pump(tap_dict, key_type, return_plugged)
+        return funnel_dict
 
     funnel_dicts = []
-
-    # If multithreading run pool.map, otherwise just run recon_and_pump
-    if num_threads != 1:
-      funnel_dicts = pool.map(recon_and_pump, all_args)
-
-      # processingpool carries over information. Need to terminate a restart
-      # to prevent memory leaks.
-      pool.terminate()
-      if not use_threading:
-        pool.restart()
-    else:
-      for args in all_args:
-        funnel_dicts.append(recon_and_pump(args))
+    for batch_num, batch in enumerate(b.batcher(tap_dict_iter, batch_size)):
+      funnel_dicts.extend(
+        mu.multi_map(pump_func, batch, num_threads, use_threading)
+      )
 
     return funnel_dicts
 
-  def multi_write_examples(self, funnel_dict_iter, file_name, file_num_offset=0, batch_size=1, num_threads=1, skip_fails=False, skip_keys=None, use_threading=False, serialize_func=None):
-    """Pours the arrays then writes the examples to tfrecords in a multithreading manner. It creates one example per 'row', i.e. axis=0 of the arrays. All arrays must have the same axis=0 dimension and must be of a type that can be written to a tfrecord
-
-    Parameters
-    ----------
-    funnel_dicts : list of dicts(
-      keys - Slot objects or Placeholder objects. The 'funnels' (i.e. unconnected slots) of the waterwork.
-      values - valid input data types
-    )
-      The inputs to the waterwork's full pour functions. There is exactly one funnel_dict for every process.
-    file_name : str
-      The name of the tfrecord file to write to. An extra '_<num>' will be added to the name.
-    file_num_offset : int
-      A number that controls what number will be appended to the file name (so that files aren't overwritten.)
-
-    """
+  def multi_write_examples(self, funnel_dict_iter, file_name, num_threads=1, use_threading=False, batch_size=None, file_num_offset=0, skip_fails=False, skip_keys=None, serialize_func=None):
     if serialize_func is None:
       save_dict = self._save_dict()
 
@@ -597,12 +491,12 @@ class Waterwork(object):
       logging.info("Serializing batch %s", batch_num)
       if skip_fails:
         try:
-          all_serials = self.multi_map(serialize_func, batch, num_threads, use_threading)
+          all_serials = mu.multi_map(serialize_func, batch, num_threads, use_threading)
         except Exception:
           logging.warn("Batched %s failed. Skipping.", batch_num)
           continue
       else:
-        all_serials = self.multi_map(serialize_func, batch, num_threads, use_threading)
+        all_serials = mu.multi_map(serialize_func, batch, num_threads, use_threading)
       logging.info("Finished serializing batch %s", batch_num)
 
       file_num = file_num_offset + batch_num
@@ -1064,23 +958,6 @@ class Waterwork(object):
     writer.close()
 
     return file_name
-
-
-
-def recon_and_pour(args):
-  # jpype.attachThreadToJVM()
-  save_dict = args[0]
-  funnel_dict = args[1]
-  key_type = args[2]
-  return_plugged = args[3]
-
-  ww = Waterwork()
-  ww._from_save_dict(save_dict)
-
-  tap_dict = ww.pour(funnel_dict, key_type, return_plugged)
-
-  del ww
-  return tap_dict
 
 
 def recon_and_pump(args):

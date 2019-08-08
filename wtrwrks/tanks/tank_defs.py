@@ -98,6 +98,8 @@ def bert_random_insert(a=empty, ends=empty, num_tries=empty, random_seed=empty, 
     An array of the same shape as 'a' which marks the end of a sentence with a True.
   num_tries: int
     The number of times to try and find a random sentences to replace the second part of the 'a' array.
+  random_seed: int
+    The random seed.
 
   waterwork : Waterwork or None
     The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
@@ -115,6 +117,12 @@ def bert_random_insert(a=empty, ends=empty, num_tries=empty, random_seed=empty, 
       An array of the same shape as 'a' which marks the end of a sentence with a True.
     num_tries: int
       The number of times to try and find a random sentences to replace the second part of the 'a' array.
+    segment_ids: np.ndarray
+      An array of zeros and ones with the same shape as 'a' which says whether the token is part of the first sentence or the second.
+    is_random_next: np.ndarray
+      An array of bools which says whether the second sentence was replaced with a random sentence.
+    random_seed: int
+      The random seed.
   )
     A dictionary where the keys are the tube names and the values are the tube objects of the Add tank.
   slots: dict(
@@ -124,6 +132,8 @@ def bert_random_insert(a=empty, ends=empty, num_tries=empty, random_seed=empty, 
         An array of the same shape as 'a' which marks the end of a sentence with a True.
       num_tries: int
         The number of times to try and find a random sentences to replace the second part of the 'a' array.
+      random_seed: int
+        The random seed.
   )
     A dictionary where the keys are the slot names and the values are the slot objects of the Add tank.
 
@@ -302,7 +312,7 @@ def clone_many(a=empty, num=None, waterwork=None, name=None, slot_plugs=None, tu
   Parameters
   ----------
   a: object
-    The object to be cloned into two.
+    The object to be cloned.
 
   waterwork : Waterwork or None
     The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
@@ -312,15 +322,18 @@ def clone_many(a=empty, num=None, waterwork=None, name=None, slot_plugs=None, tu
   Returns
   -------
   tubes: dict(
-    a: type of slot 'a'
-      The first of the two cloned objects.
-    b: type of slot 'a'
-      The second of the two cloned objects.
+    a0: object
+      zeroth clone
+    a1: object
+      first clone,
+    .
+    .
+    .
   )
     A dictionary where the keys are the tube names and the values are the tube objects of the Clone tank.
   slots: dict(
       a: object
-        The object to be cloned into two.
+        The object to be cloned.
   )
     A dictionary where the keys are the slot names and the values are the slot objects of the Clone tank.
 
@@ -490,11 +503,15 @@ def dim_size(a=empty, axis=empty, waterwork=None, name=None, slot_plugs=None, tu
       The shape of the array.
     a: np.ndarray
       The array to get the shape of
+    axis: int
+      The axis to get the dim_size from.
   )
     A dictionary where the keys are the tube names and the values are the tube objects of the Transpose tank.
   slots: dict(
       a: np.ndarray
         The array to get the shape of
+      axis: int
+        The axis to get the dim_size from.
   )
     A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
 
@@ -1200,11 +1217,11 @@ def lower_case(strings=empty, waterwork=None, name=None, slot_plugs=None, tube_p
 
 
 def merge_equal(*args, **kwargs):
-  """Merge several equal objects into a single object.
+  """Merge several equal objects into a single object. All tubes must have equal values, otherwise you will get unexpected results. (Opposite of clone_many)
 
   Parameters
   ----------
-  l: list
+  args: list
     list of tube objects
   waterwork : Waterwork or None
     The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
@@ -1214,12 +1231,12 @@ def merge_equal(*args, **kwargs):
   Returns
   -------
   tubes: dict(
-    target:
-      The tube of the list.
+    target: object
+      The merged object. Simply takes the value of the first in the list.
   )
     A dictionary where the keys are the tube names and the values are the tube objects of the IterList tank.
   slots: dict(
-    l: list
+    args: list
       list of tube objects
   )
 
@@ -1540,8 +1557,12 @@ def pack(a=empty, lengths=empty, default_val=empty, max_group=empty, waterwork=N
 
   Parameters
   ----------
-  a: np.ndarray
+  a : np.ndarray
     The array to pack
+  lengths: np.ndarray
+    The of lengths of 'valid' data. The not valid data will be overwritten when it's packed together.
+  max_group: int
+    Maximum number of original rows of data packed into a single row.
   default_val: np.ndarray.dtype
     The value that will be allowed to be overwritten in the packing process.
 
@@ -1555,15 +1576,23 @@ def pack(a=empty, lengths=empty, default_val=empty, max_group=empty, waterwork=N
   tubes: dict(
     target: np.ndarray
       The packed version of the 'a' array. Has same dims except for the second to last dimension which is usually shorter.
+    ends: np.ndarray
+      The endpoints of all the original rows within the packed array.
+    row_map: np.ndarray
+      A mapping from the new rows to the original rows.
     default_val: np.ndarray.dtype
       The value that will be allowed to be overwritten in the packing process.
-    is_default: np.ndarray of bools
-      An array which specifies which elements of the original 'a' have a value equal to 'defaul_val'
+    max_group: int
+      Maximum number of original rows of data packed into a single row.
   )
     A dictionary where the keys are the tube names and the values are the tube objects of the Transpose tank.
   slots: dict(
       a: np.ndarray
         The array to pack
+      lengths: np.ndarray
+        The of lengths of 'valid' data. The not valid data will be overwritten when it's packed together.
+      max_group: int
+        Maximum number of original rows of data packed into a single row.
       default_val: np.ndarray.dtype
         The value that will be allowed to be overwritten in the packing process.
   )
@@ -1614,7 +1643,8 @@ def pack_with_row_map(a=empty, row_map=empty, default_val=empty, waterwork=None,
     The array to pack
   default_val: np.ndarray.dtype
     The value that will be allowed to be overwritten in the packing process.
-
+  row_map: np.ndarray
+    A mapping from the new rows to the original rows.
   waterwork : Waterwork or None
     The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
   name : str or None
@@ -1627,8 +1657,8 @@ def pack_with_row_map(a=empty, row_map=empty, default_val=empty, waterwork=None,
       The packed version of the 'a' array. Has same dims except for the second to last dimension which is usually shorter.
     default_val: np.ndarray.dtype
       The value that will be allowed to be overwritten in the packing process.
-    is_default: np.ndarray of bools
-      An array which specifies which elements of the original 'a' have a value equal to 'defaul_val'
+    row_map: np.ndarray
+      A mapping from the new rows to the original rows.
   )
     A dictionary where the keys are the tube names and the values are the tube objects of the Transpose tank.
   slots: dict(
@@ -1636,6 +1666,8 @@ def pack_with_row_map(a=empty, row_map=empty, default_val=empty, waterwork=None,
         The array to pack
       default_val: np.ndarray.dtype
         The value that will be allowed to be overwritten in the packing process.
+      row_map: np.ndarray
+        A mapping from the new rows to the original rows.
   )
     A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
 
@@ -1715,8 +1747,8 @@ def print_val(**kwargs):
 
   Parameters
   ----------
-  l: list
-    list of tube objects
+  kwargs:
+    The arguments to print.
   waterwork : Waterwork or None
     The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
   name : str or None
@@ -1725,13 +1757,13 @@ def print_val(**kwargs):
   Returns
   -------
   tubes: dict(
-    target:
-      The tube of the list.
+    kwargs:
+      The orignal arguments.
   )
     A dictionary where the keys are the tube names and the values are the tube objects of the IterList tank.
   slots: dict(
-    l: list
-      list of tube objects
+    kwargs:
+      The arguments to print.
   )
 
   """
@@ -1764,8 +1796,6 @@ def random_choice(a=empty, shape=empty, p=None, waterwork=None, name=None, slot_
     The allowed values for to randomly select from
   shape: list of ints
     The shape of the outputted array of random values.
-  p: 1D np.ndarray of numbers 0 <= 0 <=1 that sum to one or None
-    The probability with which to select each value from 'a'
 
   waterwork : Waterwork or None
     The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
@@ -1779,8 +1809,6 @@ def random_choice(a=empty, shape=empty, p=None, waterwork=None, name=None, slot_
       The randomly selected values
     a: 1D np.ndarray or int
       The allowed values for to randomly select from
-    p: 1D np.ndarray of numbers 0 <= 0 <=1 that sum to one or None
-      The probability with which to select each value from 'a'
   )
     A dictionary where the keys are the tube names and the values are the tube objects of the Transpose tank.
   slots: dict(
@@ -1788,8 +1816,6 @@ def random_choice(a=empty, shape=empty, p=None, waterwork=None, name=None, slot_
         The allowed values for to randomly select from
       shape: list of ints
         The shape of the outputted array of random values.
-      p: 1D np.ndarray of numbers 0 <= 0 <=1 that sum to one or None
-        The probability with which to select each value from 'a'
   )
     A dictionary where the keys are the slot names and the values are the slot objects of the Transpose tank.
 
@@ -1818,10 +1844,16 @@ def random_replace(a=empty, replace_with=empty, prob=empty, max_replace=None, do
   ----------
   a: np.ndarray
     The array which has values that are to be replaced.
-  mask: np.ndarray of bools
-    An array of booleans whose True values denote which of array 'a's values are to be replaced.
   replace_with: np.ndarray
-    The values to be used to replace the corresponding values in 'a'.
+    The value to be used to replace the corresponding values in 'a'.
+  prob: 0 <= float <= 1
+    The probability that each value is replaced
+  max_replace: int <= a.shape[-1]
+    The maximum allowed replacements along the last dimension.
+  do_not_replace_vals: np.ndarray
+    Values to skip when randomly replacing.
+  max_replace: int
+    The maximum number of allowed replacements in the last dimension.
 
   waterwork : Waterwork or None
     The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
@@ -1833,21 +1865,33 @@ def random_replace(a=empty, replace_with=empty, prob=empty, max_replace=None, do
   tubes: dict(
     target: np.ndarray of same type as 'a'
       The array with the necessary values replaced.
-    mask: np.ndarray of bools
-      An array of booleans whose True values denote which of array 'a's values are to be replaced.
+    mask_mask: np.ndarray of bools
+      An array of booleans whose True values denote which of array 'a's values were replaced.
+    mask_positions: np.ndarray of bools
+      The positions of the masked values
+    prob: 0 <= float <= 1
+      The probability that each value is replaced
     replaced_vals: np.ndarray of same type as 'a'
       The values that were overwritten when they were replaced by the replace_with values.
-    replace_with_shape: list of ints
-      The original shape of the replace_with array.
+    do_not_replace_vals: np.ndarray
+      Values to skip when randomly replacing.
+    max_replace: int <= a.shape[-1]
+      The maximum allowed replacements along the last dimension.
   )
     A dictionary where the keys are the tube names and the values are the tube objects of the Replace tank.
   slots: dict(
       a: np.ndarray
         The array which has values that are to be replaced.
-      mask: np.ndarray of bools
-        An array of booleans whose True values denote which of array 'a's values are to be replaced.
       replace_with: np.ndarray
-        The values to be used to replace the corresponding values in 'a'.
+        The value to be used to replace the corresponding values in 'a'.
+      prob: 0 <= float <= 1
+        The probability that each value is replaced
+      max_replace: int <= a.shape[-1]
+        The maximum allowed replacements along the last dimension.
+      do_not_replace_vals: np.ndarray
+        Values to skip when randomly replacing.
+      max_replace: int
+        The maximum number of allowed replacements in the last dimension.
   )
     A dictionary where the keys are the slot names and the values are the slot objects of the Replace tank.
 

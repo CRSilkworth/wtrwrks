@@ -14,6 +14,8 @@ def create_one_arg_bool_tank(np_func, class_name, func_name):
       A numpy function which operates on an array to give another array.
   class_name : str
       The name you'd like to have the Tank class called.
+  func_name : str
+    The name of function which actually creates the Tank. (e.g. the functions found in tank_def.py)
 
   Returns
   -------
@@ -66,7 +68,8 @@ def create_two_arg_bool_tank(np_func, class_name, func_name):
       A numpy function which operates on an array to give another array.
   class_name : str
       The name you'd like to have the Tank class called.
-
+  func_name : str
+    The name of function which actually creates the Tank. (e.g. the functions found in tank_def.py)
   Returns
   -------
   func
@@ -170,18 +173,24 @@ class Equals(ta.Tank):
   tube_keys = ['target', 'a', 'b']
   pass_through_keys = ['a', 'b']
   def _pour(self, a, b):
-    """Execute the LogicalNot tank (operation) in the pour (forward) direction.
+    """Test the equality of a and b.
 
     Parameters
     ----------
-    a: np.ndarray of bools
-      The array to take the logical not of.
+    a: object
+      The first object in the equal operation
+    b: object
+      The second object in the equal operation
 
     Returns
     -------
     dict(
-      target: np.ndarray of bools.
-        The negated array.
+      target: object.
+        The results of a == b
+      a: object
+        The first object in the equal operation
+      b: object
+        The second object in the equal operation
     )
 
     """
@@ -195,14 +204,20 @@ class Equals(ta.Tank):
 
     Parameters
     ----------
-    target: np.ndarray of bools.
-      The negated array.
+    target: object.
+      The results of a == b
+    a: object
+      The first object in the equal operation
+    b: object
+      The second object in the equal operation
 
     Returns
     -------
     dict(
-      a: np.ndarray of bools
-        The array to take the logical not of.
+      a: object
+        The first object in the equal operation
+      b: object
+        The second object in the equal operation
     )
 
     """

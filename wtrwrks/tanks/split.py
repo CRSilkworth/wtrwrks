@@ -4,6 +4,7 @@ import wtrwrks.waterworks.tank as ta
 import wtrwrks.tanks.utils as ut
 import numpy as np
 
+
 class Split(ta.Tank):
   """The defintion of the Split tank. Contains the implementations of the _pour and _pump methods, as well as which slots and tubes the waterwork objects will look for.
 
