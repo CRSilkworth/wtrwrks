@@ -78,6 +78,7 @@ class TestDateTimeTransform(th.TestTransform):
         return replace_with
 
       trans = n.DateTimeTransform(
+        name='',
         norm_mode='mean_std',
         fill_nat_func=fill
       )
@@ -141,6 +142,68 @@ class TestDateTimeTransform(th.TestTransform):
         norm_mode='min_max'
       )
       trans.calc_global_values(self.array[:, 0: 1])
+      target = np.array((self.array[:, 0: 1] - trans.zero_datetime) / np.timedelta64(1, 'D'), copy=True)
+      target = (target - trans.min)/(trans.max - trans.min)
+
+      for i in xrange(2):
+        self.pour_pump(
+          trans,
+          self.array[:, 0: 1],
+          {
+            'datetime/nums': target,
+            'datetime/nats': [[False], [False], [False], [False]],
+            'datetime/diff': np.array([[datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)]], dtype='timedelta64[us]')
+          },
+          test_type=False
+
+        )
+        trans = self.write_read(trans, self.temp_dir)
+
+    def test_df(self):
+      def fill(array):
+        mins = np.expand_dims(np.min(array, axis=0), axis=0)
+        mins = np.tile(mins, reps=[array.shape[0], 1])
+        replace_with = mins[np.isnat(array)]
+        return replace_with
+      trans = n.DateTimeTransform(
+        name='datetime',
+        fill_nat_func=fill,
+        norm_mode='min_max'
+      )
+      df = pd.DataFrame({'a': self.array[0]})
+      # trans.calc_global_values(self.array[:, 0: 1])
+      trans.calc_global_values(data=df)
+      target = np.array((self.array[:, 0: 1] - trans.zero_datetime) / np.timedelta64(1, 'D'), copy=True)
+      target = (target - trans.min)/(trans.max - trans.min)
+
+      for i in xrange(2):
+        self.pour_pump(
+          trans,
+          self.array[:, 0: 1],
+          {
+            'datetime/nums': target,
+            'datetime/nats': [[False], [False], [False], [False]],
+            'datetime/diff': np.array([[datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)], [datetime.timedelta(0)]], dtype='timedelta64[us]')
+          },
+          test_type=False
+
+        )
+        trans = self.write_read(trans, self.temp_dir)
+
+    def test_array_iter(self):
+      def fill(array):
+        mins = np.expand_dims(np.min(array, axis=0), axis=0)
+        mins = np.tile(mins, reps=[array.shape[0], 1])
+        replace_with = mins[np.isnat(array)]
+        return replace_with
+      trans = n.DateTimeTransform(
+        name='datetime',
+        fill_nat_func=fill,
+        norm_mode='min_max'
+      )
+      array_iter = [self.array[0: 2, 0: 1], self.array[2: 4, 0: 1]]
+      trans.calc_global_values(data_iter=array_iter)
+      # trans.calc_global_values(self.array[:, 0: 1])
       target = np.array((self.array[:, 0: 1] - trans.zero_datetime) / np.timedelta64(1, 'D'), copy=True)
       target = (target - trans.min)/(trans.max - trans.min)
 

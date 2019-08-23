@@ -38,8 +38,6 @@ class StringTransform(n.Transform):
     The maximum allowed number of words in a sentence. Also decides the inner most dimension of the outputted indices array.
   max_vocab_size : int
     The maximum allowed number of words in the vocabulary.
-  unk_index : int
-    The location of the 'unknown token' in the index_to_word mapping.
   word_tokenizer : func
     A function that takes in a string and splits it up into a list of words.
   word_detokenizer : func
@@ -54,93 +52,26 @@ class StringTransform(n.Transform):
 
   """
 
-  attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'input_shape': None, 'index_to_word': None, 'word_to_index': None, 'max_sent_len': None, 'word_tokenizer': lambda a: a.split(), 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'unk_index': None, 'word_detokenizer': lambda a: ' '.join(a), 'max_vocab_size': None}
+  attribute_dict = {'name': '', 'dtype': np.int64, 'input_shape': None, 'index_to_word': None, 'word_to_index': None, 'max_sent_len': None, 'word_tokenizer': lambda a: a.split(), 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'word_detokenizer': lambda a: ' '.join(a), 'max_vocab_size': None}
 
-  attribute_dict.update({k: v for k, v in n.Transform.attribute_dict.iteritem() if k not in attribute_dict})
+  for k, v in n.Transform.attribute_dict.iteritems():
+    if k in attribute_dict:
+      continue
+    attribute_dict[k] = v
 
   required_params = set(['max_sent_len'])
   required_params.update(n.Transform.required_params)
 
+  def __init__(self, from_file=None, save_dict=None, **kwargs):
+    super(StringTransform, self).__init__(from_file, save_dict, **kwargs)
+
+    if self.index_to_word is None and self.max_vocab_size is None:
+      raise ValueError("Must supply index_to_word mapping or a max_vocab_size.")
+    if self.word_tokenizer is None:
+      raise ValueError("No tokenizer set for this Transform. Must supply one as input into pour.")
+
   def __len__(self):
     return self.max_sent_len
-
-  def _extract_pour_outputs(self, tap_dict, prefix='', **kwargs):
-    """Pull out all the values from tap_dict that cannot be explicitly reconstructed from the transform itself. These are the values that will need to be fed back to the transform into run the tranform in the pump direction.
-
-    Parameters
-    ----------
-    tap_dict : dict
-      The dictionary outputted by the pour (forward) transform.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      Dictionay of only those tap dict values which are can't be inferred from the Transform itself.
-
-    """
-    r_dict = {k: tap_dict[self._pre(k, prefix)] for k in ['indices', 'missing_vals', 'tokenize_diff']}
-    if self.lower_case:
-      r_dict['lower_case_diff'] = tap_dict[self._pre('lower_case_diff', prefix)]
-    if self.half_width:
-      r_dict['half_width_diff'] = tap_dict[self._pre('half_width_diff', prefix)]
-    if self.lemmatize:
-      r_dict['lemmatize_diff'] = tap_dict[self._pre('lemmatize_diff', prefix)]
-    r_dict = self._pre(r_dict, prefix)
-    return r_dict
-
-  def _extract_pump_outputs(self, funnel_dict, prefix=''):
-    """Pull out the original array from the funnel_dict which was produced by running pump.
-
-    Parameters
-    ----------
-    funnel_dict : dict
-      The dictionary outputted by running the transform's pump method. The keys are the names of the funnels and the values are the values of the tubes.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    np.ndarray
-      The array reconstructed from the pump method.
-
-    """
-    return funnel_dict[self._pre('input', prefix)]
-
-  def _feature_def(self, num_cols=1, prefix=''):
-    """Get the dictionary that contain the FixedLenFeature information for each key found in the example_dicts. Needed in order to build ML input pipelines that read tfrecords.
-
-    Parameters
-    ----------
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary with keys equal to those that are found in the Transform's example dicts and values equal the FixedLenFeature defintion of the example key.
-
-    """
-    array_keys = self._get_array_keys()
-
-    size = np.prod(self.input_shape[1:])
-
-    feature_dict = {}
-    for key in array_keys:
-      if key == 'indices':
-        dtype = tf.int64
-      else:
-        dtype = tf.string
-
-      if key == 'tokenize_diff':
-        shape = [size]
-      else:
-        shape = [size * self.max_sent_len]
-      feature_dict[key] = tf.FixedLenFeature(shape, dtype)
-
-    feature_dict = self._pre(feature_dict, prefix)
-    return feature_dict
 
   def _get_array_attributes(self, prefix=''):
     """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
@@ -160,7 +91,7 @@ class StringTransform(n.Transform):
     array_keys = self._get_array_keys()
 
     # Get the original array's shape, except for the batch dim.
-    shape = list(self.input_shape[1:])
+    shape = list([len(self.cols)])
 
     att_dict = {}
     for key in array_keys:
@@ -190,86 +121,6 @@ class StringTransform(n.Transform):
       array_keys.append('lemmatize_diff')
     return array_keys
 
-  def _get_funnel_dict(self, array=None, prefix=''):
-    """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
-
-    Parameters
-    ----------
-    array : np.ndarray
-      The inputted array of raw information that is to be fed through the pour method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary with all funnels filled with values necessary in order to run the pour method.
-
-    """
-    if array is not None:
-      funnel_dict = {'input': array}
-    else:
-      funnel_dict = {}
-
-    if self.lemmatize and self.lemmatizer is None:
-      raise ValueError("No lemmatizer set for this Transform. Must supply one as input into pour.")
-    elif self.lemmatize:
-      funnel_dict['lemmatizer'] = self.lemmatizer
-
-    return self._pre(funnel_dict, prefix)
-
-  def _get_tap_dict(self, pour_outputs, prefix=''):
-    """Construct a dictionary where the keys are the names of the tubes, and the values are either values from the Transform itself, or are taken from the supplied pour_outputs dictionary.
-
-    Parameters
-    ----------
-    pour_outputs : dict
-      The dictionary of all the values outputted by the pour method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    The dictionary with all taps filled with values necessary in order to run the pump method.
-
-    """
-    pour_outputs = super(StringTransform, self)._get_tap_dict(pour_outputs, prefix)
-    pour_outputs = self._nopre(pour_outputs, prefix)
-    # Set all the tap values that are common across all string transforms.
-    tap_dict = {
-      'indices': pour_outputs['indices'],
-      'missing_vals': pour_outputs['missing_vals'],
-      ('CatToIndex_0', 'input_dtype'): self.input_dtype,
-      ('Tokenize_0', 'diff'): pour_outputs['tokenize_diff']
-    }
-
-    # Set the taps associated with the optional additional operation of the
-    # Transform.
-    if self.lower_case:
-      u_dict = {('lower_case_0', 'diff'): pour_outputs['lower_case_diff']}
-      tap_dict.update(u_dict)
-    if self.half_width:
-      u_dict = {('HalfWidth_0', 'diff'): pour_outputs['half_width_diff']}
-      tap_dict.update(u_dict)
-    if self.lemmatize:
-      u_dict = {
-        ('Lemmatize_0', 'diff'): pour_outputs['lemmatize_diff'],
-      }
-      tap_dict.update(u_dict)
-
-    # Find all the empty strings and locations of the unknown values.
-    mask = pour_outputs['indices'] == self.unk_index
-
-    # Add in the information needed to get back the missing_vals
-    u_dict = {
-      ('CatToIndex_0', 'missing_vals'): np.full(pour_outputs['indices'].shape, '', dtype=np.unicode),
-      ('Replace_0', 'mask'): mask,
-      # ('Replace_0', 'replace_with_shape'): (1,),
-    }
-    tap_dict.update(u_dict)
-
-    return self._pre(tap_dict, prefix)
-
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""
     save_dict = {}
@@ -277,24 +128,6 @@ class StringTransform(n.Transform):
       save_dict[key] = getattr(self, key)
     save_dict['__class__'] = str(self.__class__.__name__)
     return save_dict
-
-  def _setattributes(self, **kwargs):
-    """Set the actual attributes of the Transform and do some value checks to make sure they valid inputs.
-
-    Parameters
-    ----------
-    **kwargs :
-      The keyword arguments that set the values of the attributes defined in the attribute_dict.
-
-    """
-    super(StringTransform, self)._setattributes(**kwargs)
-
-    if self.index_to_word is None and self.max_vocab_size is None:
-      raise ValueError("Must supply index_to_word mapping or a max_vocab_size.")
-    if self.unk_index is None:
-      raise ValueError("Must specify an unk_index. The index to assign the unknown words.")
-    if self.word_tokenizer is None:
-      raise ValueError("No tokenizer set for this Transform. Must supply one as input into pour.")
 
   def _start_calc(self):
     # Create the mapping from category values to index in the vector and
@@ -330,6 +163,10 @@ class StringTransform(n.Transform):
       The entire dataset.
 
     """
+    if self.dtype is None:
+      self.dtype = array.dtype
+    else:
+      array = np.array(array, dtype=self.input_dtype)
     if self.index_to_word is None:
       # Get all the words and the number of times they appear
       strings = array.flatten()
@@ -346,7 +183,7 @@ class StringTransform(n.Transform):
           self.all_words.setdefault(token, 0)
           self.all_words[token] += 1
 
-  def define_waterwork(self, array=empty, return_tubes=None):
+  def define_waterwork(self, array=empty, return_tubes=None, prefix=''):
     """Get the waterwork that completely describes the pour and pump transformations.
 
     Parameters
@@ -368,7 +205,7 @@ class StringTransform(n.Transform):
     # them in further downstream.
     tokens['diff'].set_name('tokenize_diff')
     tokens_slots['max_len'].set_name('max_sent_len')
-    tokens_slots['strings'].set_name('input')
+    tokens_slots['strings'].set_name('array')
     tokens_slots['tokenizer'].set_name('tokenizer')
     tokens_slots['detokenizer'].set_name('detokenizer')
 
@@ -395,14 +232,25 @@ class StringTransform(n.Transform):
     # replace them with the 'unknown token'.
     isin, isin_slots = td.isin(tokens['target'], self.index_to_word + [''])
     mask, _ = td.logical_not(isin['target'])
-    tokens, _ = td.replace(isin['a'], mask['target'], self.index_to_word[self.unk_index])
+    tokens, _ = td.replace(
+      isin['a'], mask['target'], self.index_to_word[0],
+      tube_plugs={
+        'mask': lambda z: z[self._pre('indices', prefix)] == 0
+      }
+    )
 
     # Keep track values that were overwritten with a 'unknown token'
     tokens['replaced_vals'].set_name('missing_vals')
     isin_slots['b'].set_name('index_to_word')
 
     # Convert the tokens into indices.
-    indices, indices_slots = td.cat_to_index(tokens['target'], self.word_to_index)
+    indices, indices_slots = td.cat_to_index(
+      tokens['target'], self.word_to_index,
+      tube_plugs={
+        'missing_vals': lambda z: np.full(z[self._pre('indices', prefix)].shape, '', dtype=np.unicode),
+        'input_dtype': self.input_dtype
+      }
+    )
 
     # Set the names of the slots and tubes of this tank for easier referencing
     indices['target'].set_name('indices')
@@ -414,3 +262,12 @@ class StringTransform(n.Transform):
       for r_tube_key in return_tubes:
         r_tubes.append(ww.maybe_get_tube(r_tube_key))
       return r_tubes
+
+  def get_schema_dict(self, var_lim=None):
+    if var_lim is None:
+      var_lim = self.max_sent_len
+      for word in self.index_to_word:
+        if len(word) * self.max_sent_len > var_lim:
+          var_lim = len(word) * self.max_sent_len
+
+    return super(StringTransform, self).get_schema_dict(var_lim)

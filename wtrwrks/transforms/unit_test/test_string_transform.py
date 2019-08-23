@@ -63,7 +63,7 @@ class TestStringTransform(th.TestTransform):
     shutil.rmtree(self.temp_dir)
 
   def test_en_normalize(self):
-    indices = np.array([[[4, 10, 17, 11, 10, 2, -1, -1, -1, -1]], [[7, 1, 3, 0, 12, 9, 14, 16, 18, 2]], [[6, 15, 10, 13, 19, 1, 11, 0, 8, 2]]])
+    indices = np.array([[[5, 11, 18, 12, 11, 3, -1, -1, -1, -1]], [[8, 2, 4, 1, 13, 10, 15, 17, 19, 3]], [[7, 16, 11, 14, 20, 2, 12, 1, 9, 3]]])
 
     strings = np.array([
       ["It is what it is."],
@@ -72,13 +72,12 @@ class TestStringTransform(th.TestTransform):
     ])
     tokenize_diff = [['[["d", 16, 17, ""], ["d", 18, 22, ""]]'], ['[["d", 8, 9, ""], ["d", 14, 15, ""], ["d", 43, 44, ""]]'], ['[["d", 21, 22, ""], ["d", 26, 27, ""], ["i", 37, 37, "."], ["i", 38, 38, "OK"]]']]
     missing_vals = np.array([[['', '', '', '', '', '', '', '', '', '']], [['', '', '', '', '', '', '', '', '', '']], [['', '', '', '', '', '', '', '', '', '']]], dtype='|S42')
-    index_to_word = self._get_index_to_word(strings, en_tokenizer) + ['__UNK__']
+    index_to_word = ['[UNK]'] + self._get_index_to_word(strings, en_tokenizer)
     trans = n.StringTransform(
       index_to_word=index_to_word,
       word_tokenizer=en_tokenizer,
       name='string_transform',
       max_sent_len=10,
-      unk_index=len(index_to_word) - 1
     )
     trans.calc_global_values(strings)
     for i in xrange(2):
@@ -95,44 +94,36 @@ class TestStringTransform(th.TestTransform):
       )
       trans = self.write_read(trans, self.temp_dir)
 
-  def test_en_normalize_2(self):
+  def test_array_iter(self):
+    indices = np.array([[[0, 10, 17, 11, 10, 3, -1, -1, -1, -1]], [[7, 2, 4, 1, 12, 9, 14, 16, 18, 3]], [[6, 15, 10, 13, 19, 2, 11, 1, 8, 3]]])
 
-    indices = np.array([
-      [[8, 4, 15, 8, 4, 3, -1, -1, -1, -1]],
-      [[16, 2, 5, 1, 9, 7, 12, 14, 17, 3]],
-      [[14, 13, 4, 10, 18, 2, 8, 1, 6, 3]]
-    ])
-    lemmatize_diff = [[['[]', '[["i", 0, 2, "is"]]', '[]', '[]', '[["i", 0, 2, "is"]]', '[]', '[]', '[]', '[]', '[]']], [['[]', '[]', '[]', '[]', '[]', '[["i", 2, 4, "s"]]', '[["i", 3, 3, "n"]]', '[]', '[]', '[]']], [['[]', '[]', '[["i", 0, 2, "is"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']]]
-    lower_case_diff = [[['[["i", 0, 1, "I"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']], [['[["i", 0, 1, "W"]]', '[]', '[["i", 0, 1, "B"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']], [['[["i", 0, 1, "T"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']]]
-    tokenize_diff = [['[["d", 16, 17, ""], ["d", 18, 22, ""]]'], ['[["d", 8, 9, ""], ["d", 14, 15, ""], ["d", 43, 44, ""]]'], ['[["d", 21, 22, ""], ["d", 26, 27, ""], ["i", 37, 37, "."], ["i", 38, 38, "OK"]]']]
-    missing_vals = np.array([[['', '', '', '', '', '', '', '', '', '']], [['', '', '', '', '', '', '', '', '', '']], [['', '', '', '', '', '', '', '', '', '']]], dtype='|S8')
     strings = np.array([
       ["It is what it is."],
       ["Whatever, Bob's mother has seen the world."],
       ["The sun is not yellow, it's chicken. OK."]
     ])
-    index_to_word = self._get_index_to_word(np.char.lower(strings), en_tokenizer, basic_lemmatizer)
-    index_to_word = ['__UNK__'] + index_to_word
+    tokenize_diff = [['[["d", 16, 17, ""], ["d", 18, 22, ""]]'], ['[["d", 8, 9, ""], ["d", 14, 15, ""], ["d", 43, 44, ""]]'], ['[["d", 21, 22, ""], ["d", 26, 27, ""], ["i", 37, 37, "."], ["i", 38, 38, "OK"]]']]
+    missing_vals = np.array([[['It', '', '', '', '', '', '', '', '', '']], [['', '', '', '', '', '', '', '', '', '']], [['', '', '', '', '', '', '', '', '', '']]], dtype='|S42')
+    # index_to_word = ['[UNK]'] + self._get_index_to_word(strings, en_tokenizer)
     trans = n.StringTransform(
-      index_to_word=index_to_word,
+      # index_to_word=index_to_word,
       word_tokenizer=en_tokenizer,
-      lemmatize=True,
-      lemmatizer=basic_lemmatizer,
-      lower_case=True,
-      unk_index=0,
+      name='string_transform',
       max_sent_len=10,
+      max_vocab_size=20
     )
-    trans.calc_global_values(strings)
+
+    array_iter = [strings[0: 1], strings[1: 2], strings[2: 3]]
+
+    trans.calc_global_values(data_iter=array_iter)
     for i in xrange(2):
       self.pour_pump(
         trans,
         strings,
         {
-          'indices': indices,
-          'lower_case_diff': lower_case_diff,
-          'lemmatize_diff': lemmatize_diff,
-          'missing_vals': missing_vals,
-          'tokenize_diff': tokenize_diff,
+          'string_transform/indices': indices,
+          'string_transform/missing_vals': missing_vals,
+          'string_transform/tokenize_diff': tokenize_diff,
 
         },
         test_type=False
@@ -141,20 +132,20 @@ class TestStringTransform(th.TestTransform):
 
   def test_ja_normalize(self):
 
-    indices = np.array([[[12, 13, 16, 17, 22, 7, 21, 19, 8, 14, 15, 2, 20, -1, -1]], [[5, 11, 3, 0, 10, 14, 18, 6, 4, 9, 1, -1, -1, -1, -1]]])
+    indices = np.array([[[13, 14, 17, 18, 23, 8, 22, 20, 9, 15, 16, 3, 21, -1, -1]], [[6, 12, 4, 1, 11, 15, 19, 7, 5, 10, 2, -1, -1, -1, -1]]])
     strings = np.array([
       [u'チラシ・勧誘印刷物の無断投函は一切お断り'],
       [u'すみませんが、もう一度どお願いします。']
     ])
     tokenize_diff = [['[]'], ['[]']]
     missing_vals = np.array([[[u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'']], [[u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'']]], dtype='|U20')
-    index_to_word = self._get_index_to_word(strings, ja_tokenizer) + ['__UNK__']
+    index_to_word = ['__UNK__'] + self._get_index_to_word(strings, ja_tokenizer)
     trans = n.StringTransform(
+      name='',
       word_tokenizer=ja_tokenizer,
       index_to_word=index_to_word,
       word_detokenizer=lambda a: ''.join(a),
       max_sent_len=15,
-      unk_index=len(index_to_word) - 1
     )
     trans.calc_global_values(strings)
     for i in xrange(2):
@@ -173,22 +164,22 @@ class TestStringTransform(th.TestTransform):
 
   def test_ja_normalize_2(self):
 
-    indices = np.array([[[1, 0, 14, 15, 18, 19, 24, 9, 23, 21, 10, 16, 17, 4, 22]], [[7, 13, 5, 2, 12, 16, 20, 8, 6, 11, 3, -1, -1, -1, -1]]])
+    indices = np.array([[[2, 1, 15, 16, 19, 20, 25, 10, 24, 22, 11, 17, 18, 5, 23]], [[8, 14, 6, 3, 13, 17, 21, 9, 7, 12, 4, -1, -1, -1, -1]]])
     strings = np.array([
       [u'２０チラシ・勧誘印刷物の無断投函は一切お断り'],
       [u'すみませんが、もう一度どお願いします。']
     ])
     tokenize_diff = [['[]'], ['[]']]
     missing_vals = np.array([[[u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'']], [[u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'', u'']]], dtype='|U20')
-    index_to_word = self._get_index_to_word(strings, ja_tokenizer, half_width=True) + ['__UNK__']
+    index_to_word = ['[UNK]'] + self._get_index_to_word(strings, ja_tokenizer, half_width=True)
     half_width_diff = [[['[["i", 0, 1, "\\uff12"]]', '[["i", 0, 1, "\\uff10"]]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']], [['[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]']]]
     trans = n.StringTransform(
+      name='',
       word_tokenizer=ja_tokenizer,
       index_to_word=index_to_word,
       word_detokenizer=lambda a: ''.join(a),
       half_width=True,
       max_sent_len=15,
-      unk_index=len(index_to_word) - 1
     )
     trans.calc_global_values(strings)
     for i in xrange(2):
@@ -255,13 +246,13 @@ class TestStringTransform(th.TestTransform):
     ], dtype=np.unicode)
     index_to_word = self._get_index_to_word(np.char.lower(strings), en_tokenizer)
 
-    index_to_word = ['__UNK__'] + index_to_word[:-1]
+    index_to_word = ['[UNK]'] + index_to_word[:-1]
 
     trans = n.StringTransform(
+      name='',
       index_to_word=index_to_word,
       word_tokenizer=en_tokenizer,
       lower_case=True,
-      unk_index=0,
       max_sent_len=10,
     )
     trans.calc_global_values(strings)
@@ -295,5 +286,6 @@ class TestStringTransform(th.TestTransform):
         index_to_word.add(token)
     index_to_word = sorted(index_to_word)
     return index_to_word
+
 if __name__ == "__main__":
   unittest.main()

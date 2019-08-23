@@ -43,158 +43,30 @@ class NumTransform(n.Transform):
 
   """
 
-  attribute_dict = {'norm_mode': None, 'norm_axis': None, 'fill_nan_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': None, 'input_dtype': None, 'input_shape': None}
+  attribute_dict = {'norm_mode': None, 'norm_axis': None, 'fill_nan_func': lambda array: np.array(0), 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None}
 
-  attribute_dict.update({k: v for k, v in n.Transform.attribute_dict.iteritem() if k not in attribute_dict})
+  for k, v in n.Transform.attribute_dict.iteritems():
+    if k in attribute_dict:
+      continue
+    attribute_dict[k] = v
 
   required_params = set([])
   required_params.update(n.Transform.required_params)
 
-  def _extract_pour_outputs(self, tap_dict, prefix='', **kwargs):
-    """Pull out all the values from tap_dict that cannot be explicitly reconstructed from the transform itself. These are the values that will need to be fed back to the transform into run the tranform in the pump direction.
+  def __init__(self, from_file=None, save_dict=None, **kwargs):
+    super(NumTransform, self).__init__(from_file, save_dict, **kwargs)
 
-    Parameters
-    ----------
-    tap_dict : dict
-      The dictionary outputted by the pour (forward) transform.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
+    valid_norm_modes = ('mean_std', 'min_max', None)
+    if self.norm_mode not in valid_norm_modes:
+      raise ValueError("{} is an invalid norm_mode. Accepted norm mods are ".format(self.norm_mode, valid_norm_modes))
 
-    Returns
-    -------
-    dict
-      Dictionay of only those tap dict values which are can't be inferred from the Transform itself.
+    valid_norm_axis = (0, 1, (0, 1), None)
+    if self.norm_axis not in valid_norm_axis:
+      raise ValueError("{} is an invalid norm_axis. Accepted norm axes are ".format(self.norm_axis, valid_norm_axis))
 
-    """
-    return {self._pre(k, prefix): tap_dict[self._pre(k, prefix)] for k in ['nums', 'nans']}
-
-  def _extract_pump_outputs(self, funnel_dict, prefix=''):
-    """Pull out the original array from the funnel_dict which was produced by running pump.
-
-    Parameters
-    ----------
-    funnel_dict : dict
-      The dictionary outputted by running the transform's pump method. The keys are the names of the funnels and the values are the values of the tubes.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    np.ndarray
-      The array reconstructed from the pump method.
-
-    """
-    return funnel_dict[self._pre('IsNan_0/slots/a', prefix)]
-
-  def _get_funnel_dict(self, array=None, prefix=''):
-    """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
-
-    Parameters
-    ----------
-    array : np.ndarray
-      The inputted array of raw information that is to be fed through the pour method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary with all funnels filled with values necessary in order to run the pour method.
-
-    """
-    if array is not None:
-      funnel_dict = {
-        'Replace_0/slots/replace_with': self.fill_nan_func(array),
-        'IsNan_0/slots/a': array
-      }
-    else:
-      funnel_dict = {
-        'Replace_0/slots/replace_with': np.array([])
-      }
-    return self._pre(funnel_dict, prefix)
-
-  def _get_tap_dict(self, pour_outputs, prefix=''):
-    """Construct a dictionary where the keys are the names of the tubes, and the values are either values from the Transform itself, or are taken from the supplied pour_outputs dictionary.
-
-    Parameters
-    ----------
-    pour_outputs : dict
-      The dictionary of all the values outputted by the pour method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    The dictionary with all taps filled with values necessary in order to run the pump method.
-
-    """
-    pour_outputs = super(NumTransform, self)._get_tap_dict(pour_outputs, prefix)
-    pour_outputs = self._nopre(pour_outputs, prefix)
-
-    num_nans = len(np.where(pour_outputs['nans'])[0])
-    tap_dict = {
-      'nums': pour_outputs['nums'],
-      'nans': pour_outputs['nans'],
-      'replaced_vals': np.full(pour_outputs['nums'].shape, np.nan, dtype=self.input_dtype),
-      'Replace_0/tubes/replace_with': np.array([])
-      # 'Replace_0/tubes/replace_with_shape': (num_nans,),
-    }
-    # If there was a norm mode set then add in all the additional information.
-    if self.norm_mode == 'mean_std' or self.norm_mode == 'min_max':
-      if self.norm_mode == 'mean_std':
-        sub_val = self.mean
-        div_val = self.std
-      else:
-        sub_val = self.min
-        div_val = self.max - self.min
-      norm_mode_dict = {
-        ('Sub_0/tubes/smaller_size_array'): sub_val,
-        ('Sub_0/tubes/a_is_smaller'): False,
-        ('Div_0/tubes/smaller_size_array'): div_val,
-        ('Div_0/tubes/a_is_smaller'): False,
-        ('Div_0/tubes/remainder'): np.array([], dtype=self.input_dtype),
-        ('Div_0/tubes/missing_vals'): np.array([], dtype=float)
-      }
-      tap_dict.update(norm_mode_dict)
-    return self._pre(tap_dict, prefix)
-
-  def _parse_examples(self, arrays_dict, prefix=''):
-    """Convert the list of example_dicts into the original outputs that came from the pour method.
-
-    Parameters
-    ----------
-    arrays_dict: dict of numpy arrays
-      The stacked arrays of the all the data written to examples.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary of all the values outputted by the pour method.
-
-    """
-    pour_outputs = {}
-    pour_outputs.update(arrays_dict)
-    pour_outputs[self._pre('nans', prefix)] = pour_outputs[self._pre('nans', prefix)].astype(bool)
-    return pour_outputs
-
-  def _setattributes(self, **kwargs):
-    """Set the actual attributes of the Transform and do some value checks to make sure they valid inputs.
-
-    Parameters
-    ----------
-    **kwargs :
-      The keyword arguments that set the values of the attributes defined in the attribute_dict.
-
-    """
-    super(NumTransform, self)._setattributes(**kwargs)
-
-    if self.norm_mode not in (None, 'min_max', 'mean_std'):
-      raise ValueError(self.norm_mode + " not a valid norm mode.")
-
-    if self.fill_nan_func is None:
-      self.fill_nan_func = lambda array: np.full(array[np.isnan(array)].shape, np.array(0))
+  def __len(self):
+    # assert self.is_calc_run, ("Must run calc_global_values before taking the len.")
+    return len(self.cols)
 
   def _get_array_attributes(self, prefix=''):
     """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
@@ -212,17 +84,16 @@ class NumTransform(n.Transform):
     """
     att_dict = {}
     att_dict['nums'] = {
-      'shape': list(self.input_shape[1:]),
+      'shape': list([len(self.cols)]),
       'tf_type': feat.select_tf_dtype(self.dtype),
-      'size': feat.size_from_shape(self.input_shape[1:]),
+      'size': feat.size_from_shape([len(self.cols)]),
       'feature_func': feat.select_feature_func(self.dtype),
-      'np_type': np.int64 if self.input_dtype in (int, np.int32, np.int64) else np.float32
-      # 'np_type': self.dtype
+      'np_type': self.dtype
     }
     att_dict['nans'] = {
-      'shape': list(self.input_shape[1:]),
+      'shape': [len(self.cols)],
       'tf_type': tf.int64,
-      'size': feat.size_from_shape(self.input_shape[1:]),
+      'size': feat.size_from_shape([len(self.cols)]),
       'feature_func': feat._int_feat,
       'np_type': np.bool
     }
@@ -265,6 +136,13 @@ class NumTransform(n.Transform):
       Whether or not to print out warnings.
 
     """
+    if self.input_dtype is None:
+      self.input_dtype = array.input_dtype
+    else:
+      array = np.array(array, dtype=self.input_dtype)
+
+    if self.dtype is None:
+      self.dtype = self.input_dtype
 
     batch_size = float(array.shape[0])
     total_examples = self.num_examples + batch_size
@@ -295,8 +173,7 @@ class NumTransform(n.Transform):
         self.min = np.minimum(self.min, np.min(array, axis=self.norm_axis))
         self.max = np.maximum(self.max, np.max(array, axis=self.norm_axis))
 
-
-  def define_waterwork(self, array=empty, return_tubes=None):
+  def define_waterwork(self, array=empty, return_tubes=None, prefix=''):
     """Get the waterwork that completely describes the pour and pump transformations.
 
     Parameters
@@ -311,19 +188,42 @@ class NumTransform(n.Transform):
 
     """
     # Replace all the NaN's with the inputted replace_with function.
-    nans, _ = td.isnan(array)
-    nums, _ = td.replace(nans['a'], nans['target'])
+    nans, nans_slots = td.isnan(array)
+    nans_slots['a'].set_name('array')
+
+    nums, _ = td.replace(
+      nans['a'], nans['target'],
+      slot_plugs={
+        'replace_with': lambda z: self.fill_nan_func(z[self._pre('array', prefix)])
+      },
+      tube_plugs={
+        'replace_with': np.array([]),
+        'replaced_vals': np.array(np.nan)
+      }
+    )
 
     nums['replaced_vals'].set_name('replaced_vals')
     nums['mask'].set_name('nans')
 
     # Do any additional normalization
     if self.norm_mode == 'mean_std':
-      nums, _ = nums['target'] - self.mean
-      nums, _ = nums['target'] / self.std
+      nums, _ = td.sub(
+        nums['target'], self.mean,
+        tube_plugs={'a_is_smaller': False, 'smaller_size_array': self.mean}
+      )
+      nums, _ = td.div(
+        nums['target'], self.std,
+        tube_plugs={'a_is_smaller': False, 'smaller_size_array': self.std, 'missing_vals': np.array([]), 'remainder': np.array([])}
+      )
     elif self.norm_mode == 'min_max':
-      nums, _ = nums['target'] - self.min
-      nums, _ = nums['target'] / (self.max - self.min)
+      nums, _ = td.sub(
+        nums['target'], self.min,
+        tube_plugs={'a_is_smaller': False, 'smaller_size_array': self.min}
+      )
+      nums, _ = td.div(
+        nums['target'], (self.max - self.min),
+        tube_plugs={'a_is_smaller': False, 'smaller_size_array': (self.max - self.min), 'missing_vals': np.array([]), 'remainder': np.array([])}
+      )
 
     nums['target'].set_name('nums')
 

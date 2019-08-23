@@ -34,123 +34,32 @@ class CatTransform(n.Transform):
 
   """
 
-  attribute_dict = {'norm_mode': None, 'norm_axis': 0, 'name': '', 'mean': None, 'std': None, 'dtype': np.float64, 'input_dtype': None, 'input_shape': None, 'index_to_cat_val': None, 'cat_val_to_index': None}
-  attribute_dict.update({k: v for k, v in n.Transform.attribute_dict.iteritem() if k not in attribute_dict})
+  attribute_dict = {'norm_mode': None, 'norm_axis': 0, 'name': '', 'mean': None, 'std': None, 'dtype': np.float64, 'input_shape': None, 'index_to_cat_val': None, 'cat_val_to_index': None}
+  for k, v in n.Transform.attribute_dict.iteritems():
+    if k in attribute_dict:
+      continue
+    attribute_dict[k] = v
 
   required_params = set(['index_to_cat_val'])
   required_params.update(n.Transform.required_params)
+
   def __init__(self, from_file=None, save_dict=None, **kwargs):
     super(CatTransform, self).__init__(from_file, save_dict, **kwargs)
 
     if len(self.index_to_cat_val) != len(set(self.index_to_cat_val)):
       raise ValueError("All elements of index_to_cat_val must be unique")
 
+    valid_norm_modes = ('mean_std', None)
+    if self.norm_mode not in valid_norm_modes:
+      raise ValueError("{} is an invalid norm_mode. Accepted norm mods are ".format(self.norm_axis, valid_norm_modes))
+
+    valid_norm_axis = (0, 1, (0, 1), None)
+    if self.norm_axis not in valid_norm_axis:
+      raise ValueError("{} is an invalid norm_axis. Accepted norm axes are ".format(self.norm_mode, valid_norm_axis))
+
   def __len__(self):
-    """Get the length of the vector outputted by the row_to_vector method."""
-    assert self.input_dtype is not None, ("Run calc_global_values before attempting to get the length.")
+    # assert self.is_calc_run, ("Must run calc_global_values before taking the len.")
     return len(self.index_to_cat_val)
-
-  def _extract_pour_outputs(self, tap_dict, prefix='', **kwargs):
-    """Pull out all the values from tap_dict that cannot be explicitly reconstructed from the transform itself. These are the values that will need to be fed back to the transform into run the tranform in the pump direction.
-
-    Parameters
-    ----------
-    tap_dict : dict
-      The dictionary outputted by the pour (forward) transform.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      Dictionay of only those tap dict values which are can't be inferred from the Transform itself.
-
-    """
-    r_dict = {self._pre(k, prefix): tap_dict[self._pre(k, prefix)] for k in ['one_hots', 'missing_vals', 'indices']}
-    return r_dict
-
-  def _extract_pump_outputs(self, funnel_dict, prefix=''):
-    """Pull out the original array from the funnel_dict which was produced by running pump.
-
-    Parameters
-    ----------
-    funnel_dict : dict
-      The dictionary outputted by running the transform's pump method. The keys are the names of the funnels and the values are the values of the tubes.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    np.ndarray
-      The array reconstructed from the pump method.
-
-    """
-    array_key = self._pre('CatToIndex_0/slots/cats', prefix)
-    return funnel_dict[array_key]
-
-  def _get_funnel_dict(self, array=None, prefix=''):
-    """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
-
-    Parameters
-    ----------
-    array : np.ndarray
-      The inputted array of raw information that is to be fed through the pour method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary with all funnels filled with values necessary in order to run the pour method.
-
-    """
-    funnel_name = self._pre('CatToIndex_0/slots/cats', prefix)
-    funnel_dict = {funnel_name: array}
-
-    return funnel_dict
-
-  def _get_tap_dict(self, pour_outputs, prefix=''):
-    """Construct a dictionary where the keys are the names of the tubes, and the values are either values from the Transform itself, or are taken from the supplied pour_outputs dictionary.
-
-    Parameters
-    ----------
-    pour_outputs : dict
-      The dictionary of all the values outputted by the pour method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    The dictionary with all taps filled with values necessary in order to run the pump method.
-
-    """
-    pour_outputs = super(CatTransform, self)._get_tap_dict(pour_outputs, prefix)
-    pour_outputs = self._nopre(pour_outputs, prefix)
-    mvs = -1 * np.ones(pour_outputs['indices'].shape)
-    dtype = pour_outputs['one_hots'].dtype
-    if self.norm_mode == 'mean_std':
-      tap_dict = {
-        'OneHot_0/tubes/missing_vals': mvs,
-        'one_hots': pour_outputs['one_hots'],
-        'indices': pour_outputs['indices'],
-        'Div_0/tubes/smaller_size_array': self.std,
-        'Div_0/tubes/a_is_smaller': False,
-        'Div_0/tubes/missing_vals': np.array([], dtype=float),
-        'Div_0/tubes/remainder': np.array([], dtype=dtype),
-        'Sub_0/tubes/smaller_size_array': self.mean,
-        'Sub_0/tubes/a_is_smaller': False,
-        'missing_vals': pour_outputs['missing_vals'],
-        'CatToIndex_0/tubes/input_dtype': self.input_dtype
-      }
-    else:
-      tap_dict = {
-        'OneHot_0/tubes/missing_vals': mvs,
-        'one_hots': pour_outputs['one_hots'],
-        'indices': pour_outputs['indices'],
-        'missing_vals': pour_outputs['missing_vals'],
-        'CatToIndex_0/tubes/input_dtype': self.input_dtype
-      }
-    return self._pre(tap_dict, prefix)
 
   def _get_array_attributes(self, prefix=''):
     """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
@@ -168,13 +77,13 @@ class CatTransform(n.Transform):
     """
     att_dict = {}
     att_dict['missing_vals'] = {
-      'shape': list(self.input_shape[1:]),
+      'shape': [len(self.cols)],
       'tf_type': feat.select_tf_dtype(self.input_dtype),
-      'size': feat.size_from_shape(self.input_shape[1:]),
+      'size': feat.size_from_shape([len(self.cols)]),
       'feature_func': feat.select_feature_func(self.input_dtype),
       'np_type': self.input_dtype
     }
-    one_hots_shape = list(self.input_shape[1:]) + [len(self.index_to_cat_val)]
+    one_hots_shape = [len(self.cols)] + [len(self.index_to_cat_val)]
     att_dict['one_hots'] = {
       'shape': one_hots_shape,
       'tf_type': feat.select_tf_dtype(self.dtype),
@@ -183,9 +92,9 @@ class CatTransform(n.Transform):
       'np_type': self.dtype
     }
     att_dict['indices'] = {
-      'shape': list(self.input_shape[1:]),
+      'shape': [len(self.cols)],
       'tf_type': tf.int64,
-      'size': feat.size_from_shape(self.input_shape[1:]),
+      'size': feat.size_from_shape([len(self.cols)]),
       'feature_func': feat._int_feat,
       'np_type': np.int64
     }
@@ -197,15 +106,16 @@ class CatTransform(n.Transform):
     # Create the mapping from category values to index in the vector and
     # vice versa
     self.cat_val_to_index = {}
+
     for unique_num, unique in enumerate(self.index_to_cat_val):
       cat_val = self.index_to_cat_val[unique_num]
       self.cat_val_to_index[cat_val] = unique_num
-
     self.num_examples = 0.
 
   def _finish_calc(self):
     if self.norm_mode == 'mean_std':
       self.std = np.sqrt(self.var)
+
       # If there are any standard deviations of 0, replace them with 1's,
       # print out a warning.
       if len(self.std[self.std == 0]):
@@ -225,12 +135,16 @@ class CatTransform(n.Transform):
     array : np.ndarray
       The entire dataset.
     """
+    if self.input_dtype is None:
+      self.input_dtype = array.dtype
+    else:
+      array = np.array(array, dtype=self.input_dtype)
 
     batch_size = float(array.shape[0])
     total_examples = self.num_examples + batch_size
 
     if self.norm_mode == 'mean_std':
-      if not self.index_to_cat_val:
+      if not len(self.index_to_cat_val):
         raise ValueError("index_to_cat_val has no valid values.")
 
       # Find all the category values which are not known
@@ -255,9 +169,9 @@ class CatTransform(n.Transform):
       # a 1 should be in the one_hots array.
       one_hot_indices = np.unravel_index(np.arange(indices.size, dtype=np.int32), indices.shape)
       one_hot_indices = list(one_hot_indices) + [indices.flatten()]
-
       # Set all the proper locations to 1. And then undo the setting of the
       # not valid categories.
+      # one_hot_indices = np.array(one_hot_indices, dtype=np.int32)
       one_hots[one_hot_indices] = 1
       one_hots[~valid_cats] = 0
 
@@ -267,12 +181,11 @@ class CatTransform(n.Transform):
         self.var = np.var(one_hots, axis=self.norm_axis)
       else:
         self.mean = (self.num_examples / total_examples) * self.mean + (batch_size / total_examples) * np.mean(one_hots, axis=self.norm_axis)
-        self.var = np.var(one_hots, axis=self.norm_axis)
+        self.var = (self.num_examples / total_examples) * self.mean + (batch_size / total_examples) * np.var(one_hots, axis=self.norm_axis)
 
     self.num_examples += batch_size
 
-
-  def define_waterwork(self, array=empty, return_tubes=None):
+  def define_waterwork(self, array=empty, return_tubes=None, prefix=''):
     """Get the waterwork that completely describes the pour and pump transformations.
 
     Parameters
@@ -288,9 +201,10 @@ class CatTransform(n.Transform):
     """
     # Convert the category values to indices.
     cti, cti_slots = td.cat_to_index(
-      array,
-      self.cat_val_to_index,
+      array, self.cat_val_to_index,
+      tube_plugs={'input_dtype': lambda z: self.input_dtype}
     )
+    cti_slots['cats'].set_name('array')
     cti['missing_vals'].set_name('missing_vals')
 
     # Clone the indices so that a copy of 'indices' can be outputted as a tap.
@@ -298,12 +212,22 @@ class CatTransform(n.Transform):
     cloned['a'].set_name('indices')
 
     # Convert the indices into one-hot vectors.
-    one_hots, _ = td.one_hot(cloned['b'], len(self.cat_val_to_index))
+    one_hots, _ = td.one_hot(
+      cloned['b'], len(self.cat_val_to_index),
+      tube_plugs={
+        'missing_vals': lambda z: np.ones(z[self._pre('indices', prefix)].shape)*-2
+      }
+    )
 
-    # Normalize the one_hots if the norm_mode is set.
     if self.norm_mode == 'mean_std':
-      one_hots, _ = one_hots['target'] - self.mean
-      one_hots, _ = one_hots['target'] / self.std
+      one_hots, _ = td.sub(
+        one_hots['target'], self.mean,
+        tube_plugs={'a_is_smaller': False, 'smaller_size_array': self.mean}
+      )
+      one_hots, _ = td.div(
+        one_hots['target'], self.std,
+        tube_plugs={'a_is_smaller': False, 'smaller_size_array': self.std, 'missing_vals': np.array([]), 'remainder': np.array([])}
+      )
 
     one_hots['target'].set_name('one_hots')
 
@@ -313,3 +237,15 @@ class CatTransform(n.Transform):
       for r_tube_key in return_tubes:
         r_tubes.append(ww.maybe_get_tube(r_tube_key))
       return r_tubes
+
+  def get_schema_dict(self, var_lim=None):
+    if var_lim is None:
+      if self.input_dtype in (np.dtype('U'), np.dtype('S'), np.dtype('O')):
+        var_lim = 1
+        for cat_val in self.index_to_cat_val:
+          if len(cat_val) > var_lim:
+            var_lim = len(cat_val)
+      else:
+        var_lim = 255
+
+    return super(CatTransform, self).get_schema_dict(var_lim)

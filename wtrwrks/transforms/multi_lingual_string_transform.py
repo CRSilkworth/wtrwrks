@@ -53,97 +53,31 @@ class MultiLingualStringTransform(n.Transform):
 
   """
 
-  attribute_dict = {'name': '', 'dtype': np.int64, 'input_dtype': None, 'input_shape': None, 'index_to_word_maps': None, 'word_to_index_maps': None, 'max_sent_len': None, 'word_tokenizers': None, 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'unk_index': None, 'word_detokenizers': None, 'max_vocab_size': None}
+  attribute_dict = {'name': '', 'dtype': np.int64, 'input_shape': None, 'index_to_word_maps': None, 'word_to_index_maps': None, 'max_sent_len': None, 'word_tokenizers': None, 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'word_detokenizers': None, 'max_vocab_size': None}
 
-  attribute_dict.update({k: v for k, v in n.Transform.attribute_dict.iteritem() if k not in attribute_dict})
+  for k, v in n.Transform.attribute_dict.iteritems():
+    if k in attribute_dict:
+      continue
+    attribute_dict[k] = v
 
   required_params = set(['word_tokenizers', 'word_detokenizers'])
   required_params.update(n.Transform.required_params)
 
+
+  def __init__(self, from_file=None, save_dict=None, **kwargs):
+    super(MultiLingualStringTransform, self).__init__(from_file, save_dict, **kwargs)
+
+    if self.index_to_word_maps is None and self.max_vocab_size is None:
+      raise ValueError("Must supply index_to_word_maps mapping or a max_vocab_size.")
+    if self.word_tokenizers is None:
+      raise ValueError("No tokenizers set for this Transform. Must supply one per language.")
+    if self.word_detokenizers is None:
+      raise ValueError("No detokenizers set for this Transform. Must supply one per language.")
+    if self.max_sent_len is None:
+      raise ValueError("Must specify a max_sent_len.")
+
   def __len__(self):
     return self.max_sent_len
-
-  def _extract_pour_outputs(self, tap_dict, prefix='', **kwargs):
-    """Pull out all the values from tap_dict that cannot be explicitly reconstructed from the transform itself. These are the values that will need to be fed back to the transform into run the tranform in the pump direction.
-
-    Parameters
-    ----------
-    tap_dict : dict
-      The dictionary outputted by the pour (forward) transform.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      Dictionay of only those tap dict values which are can't be inferred from the Transform itself.
-
-    """
-    r_dict = {k: tap_dict[self._pre(k, prefix)] for k in ['indices', 'missing_vals', 'tokenize_diff', 'languages']}
-    if self.lower_case:
-      r_dict['lower_case_diff'] = tap_dict[self._pre('lower_case_diff', prefix)]
-    if self.half_width:
-      r_dict['half_width_diff'] = tap_dict[self._pre('half_width_diff', prefix)]
-    if self.lemmatize:
-      r_dict['lemmatize_diff'] = tap_dict[self._pre('lemmatize_diff', prefix)]
-    r_dict = self._pre(r_dict, prefix)
-    return r_dict
-
-  def _extract_pump_outputs(self, funnel_dict, prefix=''):
-    """Pull out the original array from the funnel_dict which was produced by running pump.
-
-    Parameters
-    ----------
-    funnel_dict : dict
-      The dictionary outputted by running the transform's pump method. The keys are the names of the funnels and the values are the values of the tubes.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    np.ndarray
-      The array reconstructed from the pump method.
-
-    """
-    return funnel_dict[self._pre('input', prefix)]
-
-  def _feature_def(self, num_cols=1, prefix=''):
-    """Get the dictionary that contain the FixedLenFeature information for each key found in the example_dicts. Needed in order to build ML input pipelines that read tfrecords.
-
-    Parameters
-    ----------
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary with keys equal to those that are found in the Transform's example dicts and values equal the FixedLenFeature defintion of the example key.
-
-    """
-    array_keys = self._get_array_keys()
-
-    size = np.prod(self.input_shape[1:])
-
-    feature_dict = {}
-    for key in array_keys:
-      if key == 'indices':
-        dtype = tf.int64
-      else:
-        dtype = tf.string
-
-      if key == 'tokenize_diff':
-        shape = [size]
-
-      elif key == 'languages':
-        shape = [1]
-      else:
-        shape = [size * self.max_sent_len]
-
-      feature_dict[key] = tf.FixedLenFeature(shape, dtype)
-
-    feature_dict = self._pre(feature_dict, prefix)
-    return feature_dict
 
   def _get_array_attributes(self, prefix=''):
     """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
@@ -193,117 +127,6 @@ class MultiLingualStringTransform(n.Transform):
       array_keys.append('lemmatize_diff')
     return array_keys
 
-  def _alter_pour_outputs(self, pour_outputs, prefix=''):
-    """Create a list of dictionaries for each example from the outputs of the pour method.
-
-    Parameters
-    ----------
-    pour_outputs : dict
-      The outputs of the _extract_pour_outputs method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    list of dicts of features
-      The example dictionaries which contain tf.train.Features.
-
-    """
-    pour_outputs = self._nopre(pour_outputs, prefix)
-
-    # Find the locations of all the missing values. i.e. those that have been
-    # replace by the unknown token.
-    # mask = pour_outputs['indices'] == self.unk_index
-    # missing_vals = pour_outputs['missing_vals']
-
-    # Convert the 1D missing vals array into a full array of the same size as
-    # the indices array. This is so it can be easily separated into individual
-    # rows that be put into separate examples.
-    # pour_outputs['missing_vals'] = self._full_missing_vals(mask, missing_vals)
-    pour_outputs = self._pre(pour_outputs, prefix)
-    return pour_outputs
-
-  def _get_funnel_dict(self, array=None, prefix=''):
-    """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
-
-    Parameters
-    ----------
-    array : np.ndarray
-      The inputted array of raw information that is to be fed through the pour method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary with all funnels filled with values necessary in order to run the pour method.
-
-    """
-    if array is not None:
-      funnel_dict = {'input': array}
-    else:
-      funnel_dict = {}
-
-    if self.lemmatize and self.lemmatizer is None:
-      raise ValueError("No lemmatizer set for this Transform. Must supply one as input into pour.")
-    elif self.lemmatize:
-      funnel_dict['lemmatizer'] = self.lemmatizer
-
-    return self._pre(funnel_dict, prefix)
-
-  def _get_tap_dict(self, pour_outputs, prefix=''):
-    """Construct a dictionary where the keys are the names of the tubes, and the values are either values from the Transform itself, or are taken from the supplied pour_outputs dictionary.
-
-    Parameters
-    ----------
-    pour_outputs : dict
-      The dictionary of all the values outputted by the pour method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    The dictionary with all taps filled with values necessary in order to run the pump method.
-
-    """
-    pour_outputs = super(MultiLingualStringTransform, self)._get_tap_dict(pour_outputs, prefix)
-    pour_outputs = self._nopre(pour_outputs, prefix)
-    # Set all the tap values that are common across all string transforms.
-    tap_dict = {
-      'indices': pour_outputs['indices'],
-      'missing_vals': pour_outputs['missing_vals'],
-      'languages': pour_outputs['languages'],
-      ('MultiCatToIndex_0', 'input_dtype'): self.input_dtype,
-      ('MultiTokenize_0', 'diff'): pour_outputs['tokenize_diff']
-    }
-
-    # Set the taps associated with the optional additional operation of the
-    # Transform.
-    if self.lower_case:
-      u_dict = {('lower_case_0', 'diff'): pour_outputs['lower_case_diff']}
-      tap_dict.update(u_dict)
-    if self.half_width:
-      u_dict = {('HalfWidth_0', 'diff'): pour_outputs['half_width_diff']}
-      tap_dict.update(u_dict)
-    if self.lemmatize:
-      u_dict = {
-        ('Lemmatize_0', 'diff'): pour_outputs['lemmatize_diff'],
-      }
-      tap_dict.update(u_dict)
-
-    # Find all the empty strings and locations of the unknown values.
-    mask = pour_outputs['indices'] == self.unk_index
-
-    # Add in the information needed to get back the missing_vals
-    u_dict = {
-      ('MultiCatToIndex_0', 'missing_vals'): np.full(pour_outputs['indices'].shape, '', dtype=np.unicode),
-      ('Replace_0', 'mask'): mask,
-      # ('Replace_0', 'replace_with_shape'): (1,),
-    }
-    tap_dict.update(u_dict)
-
-    return self._pre(tap_dict, prefix)
-
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""
     save_dict = {}
@@ -312,28 +135,6 @@ class MultiLingualStringTransform(n.Transform):
     save_dict['__class__'] = str(self.__class__.__name__)
     return save_dict
 
-  def _setattributes(self, **kwargs):
-    """Set the actual attributes of the Transform and do some value checks to make sure they valid inputs.
-
-    Parameters
-    ----------
-    **kwargs :
-      The keyword arguments that set the values of the attributes defined in the attribute_dict.
-
-    """
-    super(MultiLingualStringTransform, self)._setattributes(**kwargs)
-
-    if self.index_to_word_maps is None and self.max_vocab_size is None:
-      raise ValueError("Must supply index_to_word_maps mapping or a max_vocab_size.")
-    if self.unk_index is None and self.index_to_word_maps is not None:
-      raise ValueError("Must specify an unk_index. The index to assign the unknown words.")
-    if self.word_tokenizers is None:
-      raise ValueError("No tokenizers set for this Transform. Must supply one per language.")
-    if self.word_detokenizers is None:
-      raise ValueError("No detokenizers set for this Transform. Must supply one per language.")
-    if self.max_sent_len is None:
-      raise ValueError("Must specify a max_sent_len.")
-
   def _start_calc(self):
     # Create the mapping from category values to index in the vector and
     # vice versa
@@ -341,6 +142,7 @@ class MultiLingualStringTransform(n.Transform):
 
   def _finish_calc(self):
     if self.index_to_word_maps is None:
+      self.index_to_word_maps = {}
       for language in sorted(self.word_tokenizers):
         # Sort the dict by the number of times the words appear
         sorted_words = sorted(self.all_words[language].items(), key=operator.itemgetter(1), reverse=True)
@@ -353,7 +155,7 @@ class MultiLingualStringTransform(n.Transform):
         # vice versa
         self.index_to_word_maps[language] = ['[UNK]'] + sorted(sorted_words)
     else:
-      self.max_vocab_size = len(self.index_to_word)
+      self.max_vocab_size = max([len(self.index_to_word_maps[k]) for k in self.word_tokenizers])
       for language in sorted(self.word_tokenizers):
         token = self.index_to_word_maps[language][0]
         if token != '[UNK]':
@@ -374,6 +176,10 @@ class MultiLingualStringTransform(n.Transform):
       The entire dataset.
 
     """
+    if self.dtype is None:
+      self.dtype = array.dtype
+    else:
+      array = np.array(array, dtype=self.input_dtype)
     if len(array.shape) < 2 or array.shape[1] != 2:
       raise ValueError("Array must have exactly two columns. The first being the string, and the second being the language.")
 
@@ -383,17 +189,16 @@ class MultiLingualStringTransform(n.Transform):
         raise ValueError("All languages must appear in both word_tokenizers and word_detokenizers. {} not found".format(language))
 
     if self.index_to_word_maps is None:
-      self.index_to_word_maps = {}
       for language in sorted(self.word_tokenizers):
         mask = array[:, 1: 2] == language
         lang_array = array[:, 0: 1][mask]
 
-        if not lang_array.size:
-          self.index_to_word_maps[language] = []
-          continue
-
         # Get all the words and the number of times they appear
         strings = lang_array.flatten()
+
+        if strings.size == 0:
+          continue
+
         if self.lower_case:
           strings = np.char.lower(strings)
 
@@ -412,9 +217,7 @@ class MultiLingualStringTransform(n.Transform):
     else:
       self.max_vocab_size = max([len(v) for v in self.index_to_word_maps.items()])
 
-
-
-  def define_waterwork(self, array=empty, return_tubes=None):
+  def define_waterwork(self, array=empty, return_tubes=None, prefix=''):
     """Get the waterwork that completely describes the pour and pump transformations.
 
     Parameters
@@ -430,7 +233,7 @@ class MultiLingualStringTransform(n.Transform):
     """
     splits, splits_slots = td.split(array, [1], axis=1)
     splits_slots['a'].unplug()
-    splits_slots['a'].set_name('input')
+    splits_slots['a'].set_name('array')
 
     splits, _ = td.iter_list(splits['target'], 2)
 
@@ -477,13 +280,13 @@ class MultiLingualStringTransform(n.Transform):
     tile, _ = td.reshape(
       languages['a'], shape['target'],
       tube_plugs={
-        'old_shape': lambda z: (z[self._pre('languages')].shape[0], 1)
+        'old_shape': lambda z: (z[self._pre('languages', prefix)].shape[0], 1)
       }
     )
     tile, _ = td.tile(
       tile['target'], (1, 1, self.max_sent_len),
       tube_plugs={
-        'old_shape': lambda z: (z[self._pre('languages')].shape[0], 1, 1)
+        'old_shape': lambda z: (z[self._pre('languages', prefix)].shape[0], 1, 1)
       }
     )
 
@@ -493,7 +296,12 @@ class MultiLingualStringTransform(n.Transform):
     isin, isin_slots = td.multi_isin(tokens['target'], maps_with_empty_strings, tile['target'])
 
     mask, _ = td.logical_not(isin['target'])
-    tokens, _ = td.replace(isin['a'], mask['target'], '__UNK__')
+    tokens, _ = td.replace(
+      isin['a'], mask['target'], '[UNK]',
+      tube_plugs={
+        'mask': lambda z: z[self._pre('indices', prefix)] == 0
+      }
+    )
 
     # Keep track values that were overwritten with a 'unknown token'
     tokens['replaced_vals'].set_name('missing_vals')
@@ -504,6 +312,8 @@ class MultiLingualStringTransform(n.Transform):
       tokens['target'], tile['target'], self.word_to_index_maps,
       tube_plugs={
         'selector': lambda z: np.tile(np.reshape(z[self._pre('languages')], (z[self._pre('languages')].shape[0], 1, 1)), (1, 1, self.max_sent_len)),
+        'missing_vals': lambda z: np.full(z[self._pre('indices')].shape, '', dtype=np.unicode),
+        'input_dtype': self.input_dtype
       }
     )
 
@@ -518,3 +328,20 @@ class MultiLingualStringTransform(n.Transform):
       for r_tube_key in return_tubes:
         r_tubes.append(ww.maybe_get_tube(r_tube_key))
       return r_tubes
+
+  def get_schema_dict(self, var_lim=None):
+
+    lang_var_lim = 1
+    for lang in self.word_tokenizers:
+      if len(lang) > lang_var_lim:
+        lang_var_lim = len(lang)
+    if var_lim is None:
+      var_lim = self.max_sent_len
+      for lang in self.index_to_word_maps:
+        index_to_word = self.index_to_word_maps[lang]
+        for word in index_to_word:
+          if len(word) * self.max_sent_len > var_lim:
+            var_lim = len(word) * self.max_sent_len
+
+    schema_dict = {self.cols[0]: 'VARCHAR({})'.format(var_lim), self.cols[1]: 'VARCHAR({})'.format(lang_var_lim)}
+    return schema_dict

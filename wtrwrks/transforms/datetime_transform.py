@@ -31,53 +31,38 @@ class DateTimeTransform(n.Transform):
     The list of attributes that need to be saved in order to fully reconstruct the transform object.
 
   """
-  attribute_dict = {'norm_mode': None, 'norm_axis': None, 'num_units': 1, 'time_unit': 'D', 'fill_nat_func': None, 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': np.float64, 'input_dtype': None, 'input_shape': None, 'zero_datetime': datetime.datetime(1970, 1, 1)}
+  attribute_dict = {'norm_mode': None, 'norm_axis': None, 'num_units': 1, 'time_unit': 'D', 'fill_nat_func': lambda array: np.array(datetime.datetime(1970, 1, 1)), 'name': '', 'mean': None, 'std': None, 'min': None, 'max': None, 'dtype': np.float64, 'input_dtype': np.datetime64, 'zero_datetime': datetime.datetime(1970, 1, 1)}
 
-  attribute_dict.update({k: v for k, v in n.Transform.attribute_dict.iteritem() if k not in attribute_dict})
+  for k, v in n.Transform.attribute_dict.iteritems():
+    if k in attribute_dict:
+      continue
+    attribute_dict[k] = v
 
   required_params = set([])
   required_params.update(n.Transform.required_params)
 
+  def __init__(self, from_file=None, save_dict=None, **kwargs):
+    super(DateTimeTransform, self).__init__(from_file, save_dict, **kwargs)
+
+    valid_norm_modes = ('mean_std', 'min_max', None)
+    if self.norm_mode not in valid_norm_modes:
+      raise ValueError("{} is an invalid norm_mode. Accepted norm mods are ".format(self.norm_mode, valid_norm_modes))
+
+    valid_norm_axis = (0, 1, (0, 1), None)
+    if self.norm_axis not in valid_norm_axis:
+      raise ValueError("{} is an invalid norm_axis. Accepted norm axes are ".format(self.norm_axis, valid_norm_axis))
+
+    valid_time_units = ['Y', 'M', 'W', 'D', 'h', 'm', 's', 'ms', 'us', 'ns', 'ps', 'fs', 'as']
+    if self.time_unit not in valid_time_units:
+      raise ValueError("{} is an invalid time_unit. Accepted time units are ".format(self.time_unit, valid_time_units))
+
+    if type(self.zero_datetime) is datetime.datetime:
+      self.zero_datetime = np.datetime64(self.zero_datetime)
+
   def __len__(self):
     """Get the length of the vector outputted by the row_to_vector method."""
-    assert self.input_dtype is not None, ("Run calc_global_values before attempting to get the length.")
-    return len(self.index_to_cat_val)
-
-  def _extract_pour_outputs(self, tap_dict, prefix='', **kwargs):
-    """Pull out all the values from tap_dict that cannot be explicitly reconstructed from the transform itself. These are the values that will need to be fed back to the transform into run the tranform in the pump direction.
-
-    Parameters
-    ----------
-    tap_dict : dict
-      The dictionary outputted by the pour (forward) transform.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      Dictionay of only those tap dict values which are can't be inferred from the Transform itself.
-
-    """
-    return {self._pre(k, prefix): tap_dict[self._pre(k, prefix)] for k in ['nums', 'nats', 'diff']}
-
-  def _extract_pump_outputs(self, funnel_dict, prefix=''):
-    """Pull out the original array from the funnel_dict which was produced by running pump.
-
-    Parameters
-    ----------
-    funnel_dict : dict
-      The dictionary outputted by running the transform's pump method. The keys are the names of the funnels and the values are the values of the tubes.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    np.ndarray
-      The array reconstructed from the pump method.
-
-    """
-    return funnel_dict[self._pre('IsNat_0/slots/a', prefix)]
+    # assert self.is_calc_run, ("Must run calc_global_values before taking the len.")
+    return len(self.cols)
 
   def _feature_def(self, num_cols=1, prefix=''):
     """Get the dictionary that contain the FixedLenFeature information for each key found in the example_dicts. Needed in order to build ML input pipelines that read tfrecords.
@@ -94,138 +79,13 @@ class DateTimeTransform(n.Transform):
 
     """
     feature_dict = {}
-    size = np.prod(self.input_shape[1:])
+    size = np.prod([len(self.cols)])
     feature_dict['nums'] = tf.FixedLenFeature([size], tf.float32)
     feature_dict['nats'] = tf.FixedLenFeature([size], tf.int64)
     feature_dict['diff'] = tf.FixedLenFeature([size], tf.int64)
 
     feature_dict = self._pre(feature_dict, prefix)
     return feature_dict
-
-  def _get_funnel_dict(self, array=None, prefix=''):
-    """Construct a dictionary where the keys are the names of the slots, and the values are either values from the Transform itself, or are taken from the supplied array.
-
-    Parameters
-    ----------
-    array : np.ndarray
-      The inputted array of raw information that is to be fed through the pour method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary with all funnels filled with values necessary in order to run the pour method.
-
-    """
-    if array is not None:
-      funnel_dict = {
-        'Replace_0/slots/replace_with': self.fill_nat_func(array),
-        'IsNat_0/slots/a': array
-      }
-    else:
-      funnel_dict = {
-        'Replace_0/slots/replace_with': np.array([])
-      }
-    return self._pre(funnel_dict, prefix)
-    # if self.fill_nat_func is None:
-    #   fill_nat_func = lambda a: np.full(a[np.isnat(a)].shape, self.zero_datetime)
-    # else:
-    #   fill_nat_func = self.fill_nat_func
-    #
-    # funnel_dict = {
-    #   'Replace_0/slots/replace_with': fill_nat_func(array)
-    # }
-    # if array is not None:
-    #   funnel_dict['IsNat_0/slots/a'] = array
-    #
-    # return self._pre(funnel_dict, prefix)
-
-  def _get_tap_dict(self, pour_outputs, prefix=''):
-    """Construct a dictionary where the keys are the names of the tubes, and the values are either values from the Transform itself, or are taken from the supplied pour_outputs dictionary.
-
-    Parameters
-    ----------
-    pour_outputs : dict
-      The dictionary of all the values outputted by the pour method.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    The dictionary with all taps filled with values necessary in order to run the pump method.
-
-    """
-    pour_outputs = super(DateTimeTransform, self)._get_tap_dict(pour_outputs, prefix)
-    pour_outputs = self._nopre(pour_outputs, prefix)
-    num_nats = len(np.where(pour_outputs['nats'])[0])
-    tap_dict = {
-      'nums': pour_outputs['nums'],
-      'nats': pour_outputs['nats'],
-      'replaced_vals': np.full(pour_outputs['nums'].shape, 'NaT', dtype=self.input_dtype),
-      'diff': pour_outputs['diff'],
-      # 'dtn/tubes/zero_datetime': self.zero_datetime,
-      # 'dtn/tubes/time_unit': self.time_unit,
-      # 'dtn/tubes/num_units': self.num_units,
-      # 'Replace_0/tubes/replace_with_shape': (num_nats,),
-    }
-    # If any normalization was done
-    if self.norm_mode == 'mean_std' or self.norm_mode == 'min_max':
-      if self.norm_mode == 'mean_std':
-        sub_val = self.mean
-        div_val = self.std
-      else:
-        sub_val = self.min
-        div_val = self.max - self.min
-      norm_mode_dict = {
-        'Sub_0/tubes/smaller_size_array': sub_val,
-        'Sub_0/tubes/a_is_smaller': False,
-        'Div_0/tubes/smaller_size_array': div_val,
-        'Div_0/tubes/a_is_smaller': False,
-        'Div_0/tubes/remainder': np.array([], dtype=self.input_dtype),
-        'Div_0/tubes/missing_vals': np.array([], dtype=float)
-      }
-      tap_dict.update(norm_mode_dict)
-
-    return self._pre(tap_dict, prefix)
-
-  def _parse_examples(self, arrays_dict, prefix=''):
-    """Convert the list of example_dicts into the original outputs that came from the pour method.
-
-    Parameters
-    ----------
-    example_dicts: list of dicts of arrays
-      The example dictionaries which the arrays associated with a single example.
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary of all the values outputted by the pour method.
-
-    """
-    pour_outputs = {}
-    pour_outputs.update(arrays_dict)
-    pour_outputs[self._pre('nats', prefix)] = pour_outputs[self._pre('nats', prefix)].astype(bool)
-    return pour_outputs
-
-  def _setattributes(self, **kwargs):
-    """Set the actual attributes of the Transform and do some value checks to make sure they valid inputs.
-
-    Parameters
-    ----------
-    **kwargs :
-      The keyword arguments that set the values of the attributes defined in the attribute_dict.
-
-    """
-    super(DateTimeTransform, self)._setattributes(**kwargs)
-
-    if self.norm_mode not in (None, 'min_max', 'mean_std'):
-      raise ValueError(self.norm_mode + " not a valid norm mode.")
-
-    if type(self.zero_datetime) is datetime.datetime:
-      self.zero_datetime = np.datetime64(self.zero_datetime)
 
   def _get_array_attributes(self, prefix=''):
     """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
@@ -243,23 +103,23 @@ class DateTimeTransform(n.Transform):
     """
     att_dict = {}
     att_dict['nums'] = {
-      'shape': list(self.input_shape[1:]),
+      'shape': list([len(self.cols)]),
       'tf_type': tf.float32,
-      'size': feat.size_from_shape(self.input_shape[1:]),
+      'size': feat.size_from_shape([len(self.cols)]),
       'feature_func': feat._float_feat,
-      'np_type': np.float32
+      'np_type': self.dtype
     }
     att_dict['nats'] = {
-      'shape': list(self.input_shape[1:]),
+      'shape': list([len(self.cols)]),
       'tf_type': tf.int64,
-      'size': feat.size_from_shape(self.input_shape[1:]),
+      'size': feat.size_from_shape([len(self.cols)]),
       'feature_func': feat._int_feat,
       'np_type': np.bool
     }
     att_dict['diff'] = {
-      'shape': list(self.input_shape[1:]),
+      'shape': list([len(self.cols)]),
       'tf_type': tf.int64,
-      'size': feat.size_from_shape(self.input_shape[1:]),
+      'size': feat.size_from_shape([len(self.cols)]),
       'feature_func': feat._int_feat,
       'np_type': np.int64
     }
@@ -273,11 +133,11 @@ class DateTimeTransform(n.Transform):
       # If there are any standard deviations of 0, replace them with 1's,
       # print out a warning.
       if len(self.std[self.std == 0]):
-        zero_std_cat_vals = []
+        zero_stds = []
         for index in np.where(self.std == 0.0)[0]:
-          zero_std_cat_vals.append(self.index_to_cat_val[index])
+          zero_stds.append(index)
 
-        logging.warn(self.name + " has zero-valued stds at " + str(zero_std_cat_vals) + " replacing with 1's")
+        logging.warn(self.name + " has zero-valued stds at " + str(zero_stds) + " replacing with 1's")
 
         self.std[self.std == 0] = 1.0
     elif self.norm_mode == 'min_max':
@@ -299,6 +159,10 @@ class DateTimeTransform(n.Transform):
     array : np.ndarray
       The entire dataset.
     """
+    if self.input_dtype is None:
+      self.input_dtype = array.dtype
+    else:
+      array = np.array(array, dtype=self.input_dtype)
     array = array.astype(np.datetime64)
 
     batch_size = float(array.shape[0])
@@ -334,8 +198,7 @@ class DateTimeTransform(n.Transform):
 
     self.num_examples += batch_size
 
-
-  def define_waterwork(self, array=empty, return_tubes=None):
+  def define_waterwork(self, array=empty, return_tubes=None, prefix=''):
     """Get the waterwork that completely describes the pour and pump transformations.
 
     Parameters
@@ -350,8 +213,19 @@ class DateTimeTransform(n.Transform):
 
     """
     # Replace all the NaT's with the inputted replace_with.
-    nats, _ = td.isnat(array)
-    replaced, _ = td.replace(nats['a'], nats['target'])
+    nats, nats_slots = td.isnat(array)
+    nats_slots['a'].set_name('array')
+
+    replaced, _ = td.replace(
+      nats['a'], nats['target'],
+      slot_plugs={
+        'replace_with': lambda z: self.fill_nat_func(z[self._pre('array', prefix)])
+      },
+      tube_plugs={
+        'replace_with': np.array([]),
+        'replaced_vals': np.array([None], dtype=np.datetime64)
+      }
+    )
 
     replaced['replaced_vals'].set_name('replaced_vals')
     replaced['mask'].set_name('nats')
@@ -360,13 +234,24 @@ class DateTimeTransform(n.Transform):
     nums, _ = td.datetime_to_num(replaced['target'], self.zero_datetime, self.num_units, self.time_unit, name='dtn')
     nums['diff'].set_name('diff')
 
-    # Do any additional normalizations
     if self.norm_mode == 'mean_std':
-      nums, _ = nums['target'] - self.mean
-      nums, _ = nums['target'] / self.std
+      nums, _ = td.sub(
+        nums['target'], self.mean,
+        tube_plugs={'a_is_smaller': False, 'smaller_size_array': self.mean}
+      )
+      nums, _ = td.div(
+        nums['target'], self.std,
+        tube_plugs={'a_is_smaller': False, 'smaller_size_array': self.std, 'missing_vals': np.array([]), 'remainder': np.array([])}
+      )
     elif self.norm_mode == 'min_max':
-      nums, _ = nums['target'] - self.min
-      nums, _ = nums['target'] / (self.max - self.min)
+      nums, _ = td.sub(
+        nums['target'], self.min,
+        tube_plugs={'a_is_smaller': False, 'smaller_size_array': self.min}
+      )
+      nums, _ = td.div(
+        nums['target'], (self.max - self.min),
+        tube_plugs={'a_is_smaller': False, 'smaller_size_array': (self.max - self.min), 'missing_vals': np.array([]), 'remainder': np.array([])}
+      )
 
     nums['target'].set_name('nums')
 

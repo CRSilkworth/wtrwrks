@@ -96,7 +96,6 @@ class TestMultiStringTransform(th.TestTransform):
       name='string_transform',
       max_sent_len=10,
       max_vocab_size=20,
-      unk_index=0
     )
     trans.calc_global_values(array)
 
