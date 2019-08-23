@@ -10,6 +10,8 @@ import shutil
 import tempfile
 import wtrwrks.waterworks.waterwork as wa
 import pprint
+import pandas as pd
+
 
 class WWTest(unittest.TestCase):
   def setUp(self):
@@ -106,7 +108,7 @@ class TestTank (WWTest):
 
 class TestTransform(WWTest):
   def pour_pump(self, trans, array, output_dict, test_type=True):
-    trans.calc_global_values(array)
+    # trans.calc_global_values(array)
     tap_dict = trans.pour(array)
     out_dict = {str(k): v for k, v in tap_dict.iteritems()}
 
@@ -134,7 +136,8 @@ class TestTransform(WWTest):
 
   def write_read_example(self, trans, array, dir, test_type=True, num_cols=None):
     remade_array = None
-    example_dicts = trans.pour_examples(array)
+    tap_dict = trans.pour(array)
+    example_dicts = trans.tap_dict_to_examples(tap_dict)
     file_name = os.path.join(dir, 'temp.tfrecord')
     writer = tf.python_io.TFRecordWriter(file_name)
 
@@ -171,13 +174,17 @@ class TestTransform(WWTest):
           example_dicts.append(example_dict)
       except tf.errors.OutOfRangeError:
         pass
-    remade_array = trans.pump_examples(example_dicts)
+    tap_dict = trans.examples_to_tap_dict(example_dicts)
+    remade_array = trans.pump(tap_dict)
+    if type(array) is pd.DataFrame:
+      array = array.values
     self.equals(array, remade_array, test_type)
 
 class TestDataset (TestTransform):
   def pour_pump(self, dt, array, output_dict, test_type=True):
-    dt.calc_global_values(array)
+    # dt.calc_global_values(array)
     tap_dict = dt.pour(array)
+
     out_dict = {str(k): v for k, v in tap_dict.iteritems()}
 
     self.assertEqual(sorted(out_dict.keys()), sorted(output_dict.keys()))
@@ -185,7 +192,6 @@ class TestDataset (TestTransform):
       try:
         self.equals(out_dict[key], output_dict[key], test_type=test_type)
       except (ValueError, AssertionError) as e:
-
         raise e
 
     original = dt.pump(out_dict)
