@@ -91,13 +91,15 @@ class Replace(ta.Tank):
 
     """
     a = ut.maybe_copy(target)
-
+    replaced_vals = np.array(replaced_vals)
     if replaced_vals.dtype.itemsize > a.dtype.itemsize:
       a = a.astype(replaced_vals.dtype)
 
     replace_with = a[mask]
 
-    a[mask] = replaced_vals[mask]
-
+    if replaced_vals.size == 1:
+      a[mask] = replaced_vals
+    else:
+      a[mask] = replaced_vals[mask]
     a = a.astype(replaced_vals.dtype.type)
     return {'a': a, 'mask': mask, 'replace_with': replace_with}

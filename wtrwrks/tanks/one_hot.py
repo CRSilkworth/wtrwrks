@@ -106,7 +106,6 @@ class OneHot(ta.Tank):
     vals = unpacked_indices[-1]
 
     indices[locs] = vals
-    # print indices, missing_vals
     mask = indices == -1
     indices[mask] = missing_vals[mask]
     return {'indices': indices, 'depth': depth}
