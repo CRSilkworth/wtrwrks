@@ -573,7 +573,7 @@ class Waterwork(object):
       funnel_dict = {}
 
     # Set all the values of the funnels from the inputted arguments.
-    stand_funnel_dict = {}
+    evaled_dict = {}
     logging.debug("%s's funnel_dict - %s", self.name, sorted(funnel_dict))
     for ph, val in funnel_dict.iteritems():
       sl_obj = self.maybe_get_slot(ph)
@@ -581,7 +581,7 @@ class Waterwork(object):
         if sl_obj.plug is not None:
           raise ValueError(str(sl_obj) + ' has a plug. If you want to set the value dynamically then do funnel.unplug().')
 
-        stand_funnel_dict[sl_obj.name] = val
+        evaled_dict[sl_obj.name] = val
         sl_obj.set_val(val)
         if type(sl_obj.tube) is not Empty:
           sl_obj.tube.set_val(val)
@@ -595,7 +595,7 @@ class Waterwork(object):
       funnel = self.funnels[funnel_key]
       if funnel.plug is not None:
         logging.debug("Plugging - %s", funnel_key)
-        funnel.set_val(funnel.plug(stand_funnel_dict))
+        # funnel.set_val(funnel.plug(stand_funnel_dict))
       elif funnel.get_val() is None:
         raise ValueError("All funnels must have a set value. " + str(funnel) + " is not set.")
 
@@ -605,6 +605,14 @@ class Waterwork(object):
     logging.debug("%s's pour_tank_order - %s", self.name, [t.name for t in tanks])
     for tank in tanks:
       logging.debug("Pouring tank - %s", tank.name)
+
+      # Fill any of the slots that are to be plugged
+      kwargs = {}
+      for slot_name in tank.slots:
+        slot = tank.slots[slot_name]
+        if slot.plug is not None:
+          slot.set_val(slot.plug(evaled_dict))
+
       kwargs = {k: tank.slots[k].get_val() for k in tank.slots}
 
       logging.debug("Inputting kwargs to pour - %s", {k: v for k, v in kwargs.iteritems()})
@@ -620,7 +628,7 @@ class Waterwork(object):
 
         if type(slot) is not Empty:
           slot.set_val(tube_dict[key])
-
+          evaled_dict[slot.name] = tube_dict[key]
     # Create the dictionary to return
     r_dict = {}
     logging.debug("%s's taps - %s", self.name, sorted(self.taps))
@@ -666,7 +674,7 @@ class Waterwork(object):
     if tap_dict is None:
       tap_dict = {}
 
-    stand_tap_dict = {}
+    evaled_dict = {}
     # Set all the values of the taps from the inputted arguments.
     logging.debug("%s's tap_dict - %s", self.name, sorted(tap_dict))
     for tap, val in tap_dict.iteritems():
@@ -678,7 +686,7 @@ class Waterwork(object):
         if tu_obj.plug is not None:
           raise ValueError(str(tu_obj) + ' has a plug. Cannot set the value of a tap which is plugged.')
 
-        stand_tap_dict[tu_obj.name] = val
+        evaled_dict[tu_obj.name] = val
         tu_obj.set_val(val)
       else:
         raise ValueError(str(tap) + ' is not a supported form of input into pump function')
@@ -690,7 +698,7 @@ class Waterwork(object):
       tap = self.taps[tap_key]
       if tap.plug is not None:
         logging.debug("Plugging - %s", tap_key)
-        tap.set_val(tap.plug(stand_tap_dict))
+        tap.set_val(tap.plug(evaled_dict))
       elif tap.get_val() is None:
         raise ValueError("All taps must have a set value. " + str(tap) + " is not set.")
 
@@ -700,6 +708,10 @@ class Waterwork(object):
     logging.debug("%s's pump_tank_order - %s", self.name, [t.name for t in tanks])
     for tank in tanks:
       logging.debug("Pumping tank - %s", tank.name)
+      for tube_name in tank.tubes:
+        tube = tank.tubes[tube_name]
+        if tube.plug is not None:
+          tube.set_val(tube.plug(evaled_dict))
       kwargs = {k: tank.tubes[k].get_val() for k in tank.tubes}
 
       logging.debug("Inputting kwargs to pour - %s", {k: v for k, v in kwargs.iteritems()})
@@ -715,7 +727,7 @@ class Waterwork(object):
 
         if type(tube) is not Empty:
           tube.set_val(slot_dict[key])
-
+          evaled_dict[tube.name] = slot_dict[key]
     # Create the dictionary to return
     r_dict = {}
     logging.debug("%s's funnels - %s", self.name, sorted(self.funnels))
