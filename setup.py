@@ -71,7 +71,8 @@ setup(
     'simplejson~=3.16',
     'gensim~=3.6',
     'dill~=0.2',
-    'sqlalchemy~=1.3'
+    'sqlalchemy~=1.3',
+    'pathos~=0.2'
   ],
   cmdclass={
       'install': CustomDependencyInstallCommand
