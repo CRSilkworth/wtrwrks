@@ -70,7 +70,8 @@ setup(
     'konlpy~=0.5',
     'simplejson~=3.16',
     'gensim~=3.6',
-    'dill~=0.2'
+    'dill~=0.2',
+    'sqlalchemy~=1.3'
   ],
   cmdclass={
       'install': CustomDependencyInstallCommand
