@@ -182,7 +182,7 @@ class Transform(object):
 
     # Read and decode the dataset
     dataset = dataset.map(
-        lambda se: self.read_and_decode(se, self.name, keep_features, drop_features),
+        lambda se: self.read_and_decode(se, '', keep_features, drop_features),
         num_parallel_calls=num_threads
     )
 
@@ -750,7 +750,6 @@ class Transform(object):
 
     # Go through each row and each key of pour_outputs. Flatten the array and
     # convert it into it's proper feature. Return as list of dicts.
-
     example_dicts = []
 
     for row_num in xrange(num_examples):
@@ -831,7 +830,8 @@ class Transform(object):
 
     # Create the directory if it doesn't exist
     dir = '/'.join(file_name.split('/')[:-1])
-    d.maybe_create_dir(dir)
+    if dir:
+      d.maybe_create_dir(dir)
 
     # Batch out the data iterator into batches of batch size
     file_names = []

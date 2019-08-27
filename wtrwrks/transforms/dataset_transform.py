@@ -4,11 +4,6 @@ import wtrwrks.tanks.tank_defs as td
 import wtrwrks.waterworks.name_space as ns
 import wtrwrks.waterworks.waterwork as wa
 import wtrwrks.transforms.transform as tr
-import wtrwrks.transforms.cat_transform as ct
-import wtrwrks.transforms.datetime_transform as dt
-import wtrwrks.transforms.num_transform as nt
-import wtrwrks.transforms.string_transform as st
-import wtrwrks.transforms.multi_lingual_string_transform as mlst
 from wtrwrks.waterworks.empty import empty
 import os
 import numpy as np
@@ -46,6 +41,7 @@ class DatasetTransform(tr.Transform):
     A dicitonary which holds any additional information about the dataset the user wants to save. (e.g. num val examples)
 
   """
+
   attribute_dict = {'transforms': None, 'transform_cols': None, 'transform_names': None, 'params': None}
 
   for k, v in n.Transform.attribute_dict.iteritems():
@@ -177,12 +173,12 @@ class DatasetTransform(tr.Transform):
       The dictionary with keys equal to those that are found in the Transform's example dicts and values are the shapes of the arrays of a single example.
 
     """
-    shape_dict = {}
+    att_dict = {}
     for key in self.transform_names:
       trans = self.transforms[key]
-      trans_shape_dict = trans._get_array_attributes(prefix=os.path.join(prefix, self.name))
-      shape_dict.update(trans_shape_dict)
-    return shape_dict
+      trans_att_dict = trans._get_array_attributes(prefix=os.path.join(prefix, self.name))
+      att_dict.update(trans_att_dict)
+    return att_dict
 
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""
