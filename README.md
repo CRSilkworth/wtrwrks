@@ -188,6 +188,28 @@ pprint.pprint(taps)
  'Mul_0/tubes/target': array([12., 16., 20.])}
 ```
 Putting this into the pump function one can get back the funnel value 'b' from the 'add' tank:
+```python
+funnels = ww.pump(
+  {'Add_0/tubes/a_is_smaller': False,
+   'Add_0/tubes/smaller_size_array': np.array([3., 4., 5.]),
+   'Mul_0/tubes/a_is_smaller': False,
+   'Mul_0/tubes/missing_vals': np.array([], dtype=np.float64),
+   'Mul_0/tubes/smaller_size_array': np.array([2., 2., 2.]),
+   'Mul_0/tubes/target': np.array([8., 12., 16.])},
+  key_type='str'
+)
+pprint.pprint(funnels)
+funnels = ww.pump(
+  {'Add_0/tubes/a_is_smaller': False,
+   'Add_0/tubes/smaller_size_array': np.array([5., 6., 7.]),
+   'Mul_0/tubes/a_is_smaller': False,
+   'Mul_0/tubes/missing_vals': np.array([], dtype=np.float64),
+   'Mul_0/tubes/smaller_size_array': np.array([2., 2., 2.]),
+   'Mul_0/tubes/target': np.array([12., 16., 20.])},
+  key_type='str'
+)
+pprint.pprint(funnels)
+```
 ```
 {'Add_0/slots/b': array([3., 4., 5.])}
 
