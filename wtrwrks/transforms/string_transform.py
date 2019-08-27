@@ -20,20 +20,16 @@ class StringTransform(n.Transform):
   ----------
   name : str
     The name of the transform.
-  from_file : str
-    The path to the saved file to recreate the transform object that was saved to disk.
-  save_dict : dict
-    The dictionary to recreate the transform object
+  dtype : numpy dtype
+    The data type the transformed data should have. Defaults to np.float64.
+  input_dtype: numpy dtype
+    The datatype of the original inputted array.
   lower_case : bool
     Whether or not to lower_case all the strings.
   half_width : bool
     Whether or not to convert all full width characters to half width.
-  lemmatize : bool
-    Whether or not to stem or lemmatize the words.
   index_to_word : list
     The mapping from index number to word.
-  word_to_index : dict
-    The mapping from word to index number.
   max_sent_len : int
     The maximum allowed number of words in a sentence. Also decides the inner most dimension of the outputted indices array.
   max_vocab_size : int
@@ -45,14 +41,22 @@ class StringTransform(n.Transform):
 
   Attributes
   ----------
-  input_dtype: numpy dtype
-    The datatype of the original inputted array.
-  input_shape: list of ints
-    The shape of the original inputted array.
+  attribute_dict: dict
+    The keys are the attributes of the class while the values are the default values. It's done this way rather than defined in the __init__ because this dictionary also defines what values need to be saved when written to disk, and what values need to be displayed when printed to the terminal.
+  required_params: set of strs
+    The parameters that must be provided to the transform at definition.
+  cols : list of strs
+    The column names of the array or dataframe to be transformed.
+  num_examples : int
+    The number of rows that have passed through the calc_global_values function.
+  is_calc_run : bool
+    Whether or not calc_global_values has been run for this transform.
+  word_to_index : dict
+    The mapping from word to index number.
 
   """
 
-  attribute_dict = {'name': '', 'dtype': np.int64, 'input_shape': None, 'index_to_word': None, 'word_to_index': None, 'max_sent_len': None, 'word_tokenizer': lambda a: a.split(), 'lemmatize': False, 'lemmatizer': None, 'half_width': False, 'lower_case': False, 'word_detokenizer': lambda a: ' '.join(a), 'max_vocab_size': None}
+  attribute_dict = {'name': '', 'dtype': np.int64, 'input_shape': None, 'index_to_word': None, 'word_to_index': None, 'max_sent_len': None, 'word_tokenizer': lambda a: a.split(), 'half_width': False, 'lower_case': False, 'word_detokenizer': lambda a: ' '.join(a), 'max_vocab_size': None}
 
   for k, v in n.Transform.attribute_dict.iteritems():
     if k in attribute_dict:
@@ -63,15 +67,97 @@ class StringTransform(n.Transform):
   required_params.update(n.Transform.required_params)
 
   def __init__(self, from_file=None, save_dict=None, **kwargs):
+    """Define a transform using a dictionary, file, or by setting the attribute values in kwargs.
+
+    Parameters
+    ----------
+    from_file : None or str
+      The file path of the Tranform that was written to disk.
+    save_dict : dict or None
+      The dictionary of attributes that completely define a Transform.
+    name : str
+      The name of the transform.
+    dtype : numpy dtype
+      The data type the transformed data should have. Defaults to np.float64.
+    input_dtype: numpy dtype
+      The datatype of the original inputted array.
+    lower_case : bool
+      Whether or not to lower_case all the strings.
+    half_width : bool
+      Whether or not to convert all full width characters to half width.
+    index_to_word : list
+      The mapping from index number to word.
+    max_sent_len : int
+      The maximum allowed number of words in a sentence. Also decides the inner most dimension of the outputted indices array.
+    max_vocab_size : int
+      The maximum allowed number of words in the vocabulary.
+    word_tokenizer : func
+      A function that takes in a string and splits it up into a list of words.
+    word_detokenizer : func
+      A function that takes in a list of words and outputs a string. Doesn't have to be an exact inverse to word_tokenizer but should be close otherwise a lot of large diff strings will have to be outputted in order to reproduce the original strings.
+    **kwargs :
+      The keyword arguments that set the values of the attributes defined in the attribute_dict.
+
+    """
     super(StringTransform, self).__init__(from_file, save_dict, **kwargs)
 
+    # Require either a index to word mapping or a max vocab size if it is to be
+    # built from scratch.
     if self.index_to_word is None and self.max_vocab_size is None:
       raise ValueError("Must supply index_to_word mapping or a max_vocab_size.")
-    if self.word_tokenizer is None:
-      raise ValueError("No tokenizer set for this Transform. Must supply one as input into pour.")
 
   def __len__(self):
     return self.max_sent_len
+
+  def _calc_global_values(self, array):
+    """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
+
+    Parameters
+    ----------
+    array : np.ndarray
+      Some of the data that will be transformed.
+
+    """
+    if self.dtype is None:
+      self.dtype = array.dtype
+    else:
+      array = np.array(array, dtype=self.input_dtype)
+    if self.index_to_word is None:
+      # Get all the words and the number of times they appear
+      strings = array.flatten()
+      if self.lower_case:
+        strings = np.char.lower(strings)
+
+      if self.half_width:
+        strings = np.vectorize(_half_width)(strings)
+
+      for string in strings:
+        # Tokenize each request, add the tokens to the set of all words
+        tokens = self.word_tokenizer(string)
+        for token_num, token in enumerate(tokens):
+          self.all_words.setdefault(token, 0)
+          self.all_words[token] += 1
+
+  def _finish_calc(self):
+    """Finish up the calc global value process."""
+    if self.index_to_word is None:
+      # Sort the dict by the number of times the words appear
+      sorted_words = sorted(self.all_words.items(), key=operator.itemgetter(1), reverse=True)
+
+      # Pull out the first 'max_vocab_size' words
+      corrected_vocab_size = self.max_vocab_size - 1
+      sorted_words = [w for w, c in sorted_words[:corrected_vocab_size]]
+
+      # Create the mapping from category values to index in the vector and
+      # vice versa
+      self.index_to_word = sorted(sorted_words)
+      self.index_to_word = ['[UNK]'] + self.index_to_word
+    else:
+      self.max_vocab_size = len(self.index_to_word)
+
+    self.word_to_index = {
+      word: num for num, word in enumerate(self.index_to_word)
+    }
 
   def _get_array_attributes(self, prefix=''):
     """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
@@ -83,7 +169,7 @@ class StringTransform(n.Transform):
 
     Returns
     -------
-    dict
+    array_attributes : dict
       The dictionary with keys equal to those that are found in the Transform's example dicts and values are the shapes of the arrays of a single example.
 
     """
@@ -117,8 +203,6 @@ class StringTransform(n.Transform):
       array_keys.append('lower_case_diff')
     if self.half_width:
       array_keys.append('half_width_diff')
-    if self.lemmatize:
-      array_keys.append('lemmatize_diff')
     return array_keys
 
   def _save_dict(self):
@@ -130,58 +214,10 @@ class StringTransform(n.Transform):
     return save_dict
 
   def _start_calc(self):
+    """Start the calc global value process."""
     # Create the mapping from category values to index in the vector and
     # vice versa
     self.all_words = {}
-
-  def _finish_calc(self):
-    if self.index_to_word is None:
-      # Sort the dict by the number of times the words appear
-      sorted_words = sorted(self.all_words.items(), key=operator.itemgetter(1), reverse=True)
-
-      # Pull out the first 'max_vocab_size' words
-      corrected_vocab_size = self.max_vocab_size - 1
-      sorted_words = [w for w, c in sorted_words[:corrected_vocab_size]]
-
-      # Create the mapping from category values to index in the vector and
-      # vice versa
-      self.index_to_word = sorted(sorted_words)
-      self.index_to_word = ['[UNK]'] + self.index_to_word
-    else:
-      self.max_vocab_size = len(self.index_to_word)
-
-    self.word_to_index = {
-      word: num for num, word in enumerate(self.index_to_word)
-    }
-
-  def _calc_global_values(self, array):
-    """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
-
-    Parameters
-    ----------
-    array : np.ndarray
-      The entire dataset.
-
-    """
-    if self.dtype is None:
-      self.dtype = array.dtype
-    else:
-      array = np.array(array, dtype=self.input_dtype)
-    if self.index_to_word is None:
-      # Get all the words and the number of times they appear
-      strings = array.flatten()
-      if self.lower_case:
-        strings = np.char.lower(strings)
-
-      if self.half_width:
-        strings = np.vectorize(_half_width)(strings)
-
-      for string in strings:
-        # Tokenize each request, add the tokens to the set of all words
-        tokens = self.word_tokenizer(string)
-        for token_num, token in enumerate(tokens):
-          self.all_words.setdefault(token, 0)
-          self.all_words[token] += 1
 
   def define_waterwork(self, array=empty, return_tubes=None, prefix=''):
     """Get the waterwork that completely describes the pour and pump transformations.
@@ -221,13 +257,6 @@ class StringTransform(n.Transform):
       tokens, tokens_slots = td.half_width(tokens['target'])
       tokens['diff'].set_name('half_width_diff')
 
-    # Lemmatize the strings, and set the diff strings of the tank to
-    # 'lemmatize_dff' for easier referencing.
-    if self.lemmatize:
-      tokens, tokens_slots = td.lemmatize(tokens['target'])
-      tokens['diff'].set_name('lemmatize_diff')
-      tokens_slots['lemmatizer'].set_name('lemmatizer')
-
     # Find all the strings which are not in the list of known words and
     # replace them with the 'unknown token'.
     isin, isin_slots = td.isin(tokens['target'], self.index_to_word + [''])
@@ -264,6 +293,19 @@ class StringTransform(n.Transform):
       return r_tubes
 
   def get_schema_dict(self, var_lim=None):
+    """Create a dictionary which defines the proper fields which are needed to store the untransformed data in a (postgres) SQL database.
+
+    Parameters
+    ----------
+    var_lim : int or dict
+      The maximum size of strings. If an int is passed then all VARCHAR fields have the same limit. If a dict is passed then each field gets it's own limit. Defaults to 255 for all string fields.
+
+    Returns
+    -------
+    schema_dict : dict
+      Dictionary where the keys are the field names and the values are the SQL data types.
+
+    """
     if var_lim is None:
       var_lim = self.max_sent_len
       for word in self.index_to_word:

@@ -25,10 +25,10 @@ class DatasetTransform(tr.Transform):
   ----------
   name : str
     The name of the transform.
-  from_file : str
-    The path to the saved file to recreate the transform object that was saved to disk.
-  save_dict : dict
-    The dictionary to recreate the transform object
+  dtype : numpy dtype
+    The data type the transformed data should have. Defaults to np.float64.
+  input_dtype: numpy dtype
+    The datatype of the original inputted array.
 
   Attributes
   ----------
@@ -38,8 +38,12 @@ class DatasetTransform(tr.Transform):
     The shape of the original inputted array.
   transforms : dict
     The dictionary which holds all the Transforms that the DatasetTransform is built from.
-  transform_col_ranges : list of 2-tuples
-    The slice defintions that split up an full dataset array into subarrays which are fed to the sub transforms found in the 'transforms' dictionary.
+  transform_names : list of strs
+    The names of all the subtransforms
+  transform_cols : dict
+    A mapping from the transform name to a list of strs which define the columns of the datafram that the subtransform acts on.
+  params : dict
+    A dicitonary which holds any additional information about the dataset the user wants to save. (e.g. num val examples)
 
   """
   attribute_dict = {'transforms': None, 'transform_cols': None, 'transform_names': None, 'params': None}
@@ -53,6 +57,24 @@ class DatasetTransform(tr.Transform):
   required_params.update(n.Transform.required_params)
 
   def __init__(self, from_file=None, save_dict=None, **kwargs):
+    """Define a transform using a dictionary, file, or by setting the attribute values in kwargs.
+
+    Parameters
+    ----------
+    from_file : None or str
+      The file path of the Tranform that was written to disk.
+    save_dict : dict or None
+      The dictionary of attributes that completely define a Transform.
+    name : str
+      The name of the transform.
+    dtype : numpy dtype
+      The data type the transformed data should have. Defaults to np.float64.
+    input_dtype: numpy dtype
+      The datatype of the original inputted array.
+    **kwargs :
+      The keyword arguments that set the values of the attributes defined in the attribute_dict.
+
+    """
     super(DatasetTransform, self).__init__(from_file, save_dict, **kwargs)
 
     if self.transforms is None:
@@ -64,12 +86,67 @@ class DatasetTransform(tr.Transform):
       self.params = {}
 
   def __getitem__(self, key):
-    """Return the transform corresponding to key"""
+    """Return the transform corresponding to key."""
     return self.transforms[key]
 
   def __iter__(self):
-    """Iterator of the transform set is just the iterator of the transforms dictionary"""
+    """Iterate transform set. It is just the iterator of the transforms dictionary."""
     return iter(self.transforms)
+
+  def _calc_global_values(self, array):
+    """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
+
+    Parameters
+    ----------
+    array : np.ndarray
+      Some of the data that will be transformed.
+
+    """
+    df = pd.DataFrame(
+      data=array,
+      index=range(array.shape[0]),
+      columns=self.cols
+    )
+    for key in self.transform_names:
+      trans = self.transforms[key]
+
+      cols = self.transform_cols[key]
+      if np.array(cols).dtype.type not in (np.dtype('O'), np.dtype('S'), np.dtype('U')):
+        cols = [self.name + '_' + str(dim) for dim in cols]
+
+      self.transform_cols[key] = cols
+      self.transforms[key].cols = cols
+      # Get the subarrays and cast them to valid dtypes.
+      subarray = df[cols].values
+      if trans.input_dtype is None:
+        raise ValueError("Must explicitly set the input dtype if using the transform as part of a dataset_transform.")
+
+      subarray = subarray.astype(trans.input_dtype)
+
+      # Calculate the global values for this transform.
+      self.transforms[key]._calc_global_values(subarray)
+      self.transforms[key].is_calc_run = True
+
+  def _finish_calc(self):
+    """Finish up the calc global value process."""
+    # Run the finsh calc of it's constituents
+    for key in self:
+      trans = self.transforms[key]
+      trans._finish_calc()
+
+    # Verify that all the columns were used from the array, otherwise throw
+    # an error.
+    all_ranges = set(range(len(self.cols)))
+    for key in self:
+      cols = self.transform_cols[key]
+      if np.array(cols).dtype.type in (np.dtype('O'), np.dtype('S'), np.dtype('U')):
+        cols = [list(self.cols).index(c) for c in cols]
+      for index in cols:
+        if index in all_ranges:
+          all_ranges.remove(index)
+
+    if all_ranges:
+      raise ValueError("Must use all columns in array. Columns " + str(sorted([self.cols[i] for i in all_ranges])) + " are unused. Either remove them from the array or all additional transforms which use them.")
 
   def _from_save_dict(self, save_dict):
     """Reconstruct the transform object from the dictionary of attributes."""
@@ -86,28 +163,26 @@ class DatasetTransform(tr.Transform):
       transforms[key] = trans
     setattr(self, 'transforms', transforms)
 
-  def _parse_examples(self, arrays_dict, prefix=''):
-    """Convert the list of example_dicts into the original outputs that came from the pour method.
+  def _get_array_attributes(self, prefix=''):
+    """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
 
     Parameters
     ----------
-    example_dicts: list of dicts of arrays
-      The example dictionaries which the arrays associated with a single example.
     prefix : str
       Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
 
     Returns
     -------
-    dict
-      The dictionary of all the values outputted by the pour method.
+    array_attributes : dict
+      The dictionary with keys equal to those that are found in the Transform's example dicts and values are the shapes of the arrays of a single example.
 
     """
-    pour_outputs = {}
+    shape_dict = {}
     for key in self.transform_names:
       trans = self.transforms[key]
-      trans_pour_outputs = trans._parse_examples(arrays_dict, prefix=os.path.join(prefix, self.name))
-      pour_outputs.update(trans_pour_outputs)
-    return pour_outputs
+      trans_shape_dict = trans._get_array_attributes(prefix=os.path.join(prefix, self.name))
+      shape_dict.update(trans_shape_dict)
+    return shape_dict
 
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""
@@ -125,26 +200,12 @@ class DatasetTransform(tr.Transform):
       save_dict['transforms'][key] = self.transforms[key]._save_dict()
     return save_dict
 
-  def _get_array_attributes(self, prefix=''):
-    """Get the dictionary that contain the original shapes of the arrays before being converted into tfrecord examples.
-
-    Parameters
-    ----------
-    prefix : str
-      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
-
-    Returns
-    -------
-    dict
-      The dictionary with keys equal to those that are found in the Transform's example dicts and values are the shapes of the arrays of a single example.
-
-    """
-    shape_dict = {}
-    for key in self.transform_names:
+  def _start_calc(self):
+    """Start the calc global value process."""
+    for key in self:
       trans = self.transforms[key]
-      trans_shape_dict = trans._get_array_attributes(prefix=os.path.join(prefix, self.name))
-      shape_dict.update(trans_shape_dict)
-    return shape_dict
+      trans._start_calc()
+    self.num_examples = 0.
 
   def add_transform(self, cols, transform):
     """Add another transform to the dataset transform. The added transform must have a unique name.
@@ -173,118 +234,6 @@ class DatasetTransform(tr.Transform):
     else:
       transform.cols = [transform.name + '_' + str(col) for col in cols]
 
-  def _start_calc(self):
-    for key in self:
-      trans = self.transforms[key]
-      trans._start_calc()
-    self.num_examples = 0.
-
-  def _finish_calc(self):
-    # Run the finsh calc of it's constituents
-    for key in self:
-      trans = self.transforms[key]
-      trans._finish_calc()
-
-    # Verify that all the columns were used from the array, otherwise throw
-    # an error.
-    all_ranges = set(range(len(self.cols)))
-    for key in self:
-      cols = self.transform_cols[key]
-      if np.array(cols).dtype.type in (np.dtype('O'), np.dtype('S'), np.dtype('U')):
-        cols = [list(self.cols).index(c) for c in cols]
-      for index in cols:
-        if index in all_ranges:
-          all_ranges.remove(index)
-
-    if all_ranges:
-      raise ValueError("Must use all columns in array. Columns " + str(sorted([self.cols[i] for i in all_ranges])) + " are unused. Either remove them from the array or all additional transforms which use them.")
-
-  def _calc_global_values(self, array):
-    """Calculate all the values of the Transform that are dependent on all the examples of the dataset. (e.g. mean, standard deviation, unique category values, etc.) This method must be run before any actual transformation can be done.
-
-    Parameters
-    ----------
-    array : np.ndarray
-      The entire dataset.
-    """
-    df = pd.DataFrame(
-      data=array,
-      index=range(array.shape[0]),
-      columns=self.cols
-    )
-    for key in self.transform_names:
-      trans = self.transforms[key]
-
-      cols = self.transform_cols[key]
-      if np.array(cols).dtype.type not in (np.dtype('O'), np.dtype('S'), np.dtype('U')):
-        cols = [self.name + '_' + str(dim) for dim in cols]
-
-      # Get the subarrays and cast them to valid dtypes.
-      subarray = df[cols].values
-      if trans.input_dtype is None:
-        raise ValueError("Must explicitly set the input dtype if using the transform as part of a dataset_transform.")
-
-      subarray = subarray.astype(trans.input_dtype)
-
-      # Calculate the global values for this transform.
-      self.transforms[key]._calc_global_values(subarray)
-      self.transforms[key].is_calc_run = True
-
-  def pour(self, data=None, data_iter=None):
-
-    all_cols = []
-    for name in self.transform_names:
-      all_cols.extend(self.transform_cols[name])
-
-    def normalize(data):
-      if type(data) is pd.DataFrame:
-        data = data[all_cols]
-      else:
-        data = data[:, all_cols]
-      return data
-
-    if data is not None and data_iter is None:
-      data = normalize(data)
-      return super(DatasetTransform, self).pour(data=data)
-    elif data_iter is not None and data is None:
-      data_iter = itertools.imap(normalize, data_iter)
-      return super(DatasetTransform, self).pour(data_iter=data_iter)
-    else:
-      raise ValueError("Must supply exactly one data or data_iter.")
-
-  def pump(self, tap_dict, df=False, index=None):
-    """Execute the transformation in the pump (backward) direction.
-
-    Parameters
-    ----------
-    kwargs: dict
-      The dictionary all information needed to completely reconstruct the original rate.
-
-    Returns
-    -------
-    array : np.ndarray
-      The original numpy array that was poured.
-
-    """
-    ww = self.get_waterwork()
-    funnel_dict = ww.pump(tap_dict, key_type='str')
-    array = funnel_dict[self._pre('array')].astype(self.input_dtype)
-    if df:
-      if index is None:
-        index = np.arange(array.shape[0])
-      data = pd.DataFrame(
-        data=array,
-        index=index,
-        columns=self.cols
-      )
-      for name in self.transform_names:
-        trans = self.transforms[name]
-        data[trans.cols] = data[trans.cols].astype(trans.input_dtype)
-    else:
-      data = array
-
-    return data
-
   def define_waterwork(self, array=empty, return_tubes=None, prefix=''):
     """Get the waterwork that completely describes the pour and pump transformations.
 
@@ -292,6 +241,10 @@ class DatasetTransform(tr.Transform):
     ----------
     array : np.ndarray or empty
       The array to be transformed.
+    return_tubes : list of str or None
+      Tube objects to be returned from the Waterwork object. Only needed if Waterworks are being stiched together.
+    prefix : str
+      Any additional prefix string/dictionary keys start with. Defaults to no additional prefix.
 
     Returns
     -------
@@ -370,43 +323,96 @@ class DatasetTransform(tr.Transform):
         r_tubes.append(ww.maybe_get_tube(r_tube_key))
       return r_tubes
 
-  def get_waterwork(self, array=empty, recreate=False):
-    """Create the Transform's waterwork or return the one that was already created.
+  def pour(self, data=None, data_iter=None):
+    """Execute the transformation in the pour (forward) direction.
 
     Parameters
     ----------
-    recreate : bool
-      Whether or not to force the transform to create a new waterwork.
+    data : np.ndarray
+      The numpy array to transform.
+    data_iter : iterator of np.array or pd.DataFrame
+      The entire dataset in the form of an iterator of numpy array or a pandas DataFrame. Needed if the dataset is too large to fit in memory. Should have the same columns as the arrays that will be fed to the pour method. Can only use if 'data' is not being used
+    Returns
+    -------
+    tap_dict : dict (or iterator of dicts)
+      The dictionary of transformed outputs as well as any additional information needed to completely reconstruct the original data. Returns an iterator of dicts if something is passed to 'data_iter' rather than the 'data' argument.
+
+    """
+
+    all_cols = []
+    for name in self.transform_names:
+      all_cols.extend(self.transform_cols[name])
+
+    # if dealing with an array use numerical columns
+    if not type(data) is pd.DataFrame:
+      new_all_cols = []
+      for col in all_cols:
+        new_all_cols.append(self.cols.index(col))
+      all_cols = new_all_cols
+
+    def normalize(data):
+      if type(data) is pd.DataFrame:
+        data = data[all_cols]
+      else:
+        data = data[:, all_cols]
+      return data
+
+    if data is not None and data_iter is None:
+      data = normalize(data)
+      return super(DatasetTransform, self).pour(data=data)
+    elif data_iter is not None and data is None:
+      data_iter = itertools.imap(normalize, data_iter)
+      return super(DatasetTransform, self).pour(data_iter=data_iter)
+    else:
+      raise ValueError("Must supply exactly one data or data_iter.")
+
+  def pump(self, tap_dict, df=False, index=None):
+    """Execute the transformation in the pump (backward) direction.
+
+    Parameters
+    ----------
+    kwargs: dict
+      The dictionary all information needed to completely reconstruct the original rate.
 
     Returns
     -------
-    Waterwork
-      The waterwork object that this transform creates.
+    array : np.ndarray
+      The original numpy array that was poured.
 
     """
-    if self.waterwork is not None and not recreate:
-      return self.waterwork
-    with wa.Waterwork() as ww:
-      self.define_waterwork(array)
-    self.waterwork = ww
-    return ww
+    ww = self.get_waterwork()
+    funnel_dict = ww.pump(tap_dict, key_type='str')
+    array = funnel_dict[self._pre('array')].astype(self.input_dtype)
+    if df:
+      if index is None:
+        index = np.arange(array.shape[0])
+      data = pd.DataFrame(
+        data=array,
+        index=index,
+        columns=self.cols
+      )
+      for name in self.transform_names:
+        trans = self.transforms[name]
+        data[trans.cols] = data[trans.cols].astype(trans.input_dtype)
+    else:
+      data = array
 
-  def get_schema_dict(self, var_lim=None):
-    schema_dict = {}
-    for name in self.transform_names:
-      trans = self.transforms[name]
-
-      if type(var_lim) is dict and name in var_lim:
-        schema_dict.update(trans.get_schema_dict(var_lim[name]))
-      elif type(var_lim) is dict:
-        schema_dict.update(trans.get_schema_dict(None))
-      else:
-        schema_dict.update(trans.get_schema_dict(var_lim))
-
-    return schema_dict
+    return data
 
   def get_eval_class(self, table_name):
+    """Create the sqlalchemy class that defines one row of data. Useful for writing evaluation data to a sql database.
 
+    Parameters
+    ----------
+    table_name : str
+      The name of the table that the class will be defined for.
+
+    Returns
+    -------
+    EvalClass : class
+      The class that defines a row of data.
+
+    """
     Base = declarative_base()
 
     class EvalClass(Base):
@@ -438,3 +444,51 @@ class DatasetTransform(tr.Transform):
         setattr(EvalClass, col, sa.Column(db_dtype))
 
     return EvalClass
+
+  def get_schema_dict(self, var_lim=None):
+    """Create a dictionary which defines the proper fields which are needed to store the untransformed data in a (postgres) SQL database.
+
+    Parameters
+    ----------
+    var_lim : int or dict
+      The maximum size of strings. If an int is passed then all VARCHAR fields have the same limit. If a dict is passed then each field gets it's own limit. Defaults to 255 for all string fields.
+
+    Returns
+    -------
+    schema_dict : dict
+      Dictionary where the keys are the field names and the values are the SQL data types.
+
+    """
+    schema_dict = {}
+    for name in self.transform_names:
+      trans = self.transforms[name]
+
+      if type(var_lim) is dict and name in var_lim:
+        schema_dict.update(trans.get_schema_dict(var_lim[name]))
+      elif type(var_lim) is dict:
+        schema_dict.update(trans.get_schema_dict(None))
+      else:
+        schema_dict.update(trans.get_schema_dict(var_lim))
+
+    return schema_dict
+
+  def get_waterwork(self, array=empty, recreate=False):
+    """Create the Transform's waterwork or return the one that was already created.
+
+    Parameters
+    ----------
+    recreate : bool
+      Whether or not to force the transform to create a new waterwork.
+
+    Returns
+    -------
+    Waterwork
+      The waterwork object that this transform creates.
+
+    """
+    if self.waterwork is not None and not recreate:
+      return self.waterwork
+    with wa.Waterwork() as ww:
+      self.define_waterwork(array)
+    self.waterwork = ww
+    return ww

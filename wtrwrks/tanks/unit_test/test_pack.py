@@ -52,13 +52,15 @@ class TestPack(th.TestTank):
       {
         'a': a,
         'default_val': 0,
-        'lengths': self.get_lengths(a)
+        'lengths': self.get_lengths(a),
+        'max_group': 2
       },
       {
         'target': target,
         'default_val': 0,
         'ends': ends,
-        'row_map': row_map
+        'row_map': row_map,
+        'max_group': 2
       },
     )
 
@@ -91,13 +93,15 @@ class TestPack(th.TestTank):
       {
         'a': a,
         'default_val': '',
-        'lengths': self.get_lengths(a, default_val='')
+        'lengths': self.get_lengths(a, default_val=''),
+        'max_group': 2
       },
       {
         'target': target,
         'default_val': '',
         'row_map': row_map,
-        'ends': ends
+        'ends': ends,
+        'max_group': 2
       },
     )
 
@@ -162,13 +166,15 @@ class TestPack(th.TestTank):
       {
         'a': a,
         'default_val': 0,
-        'lengths': self.get_lengths(a)
+        'lengths': self.get_lengths(a),
+        'max_group': 3
       },
       {
         'target': target,
         'default_val': 0,
         'row_map': row_map,
-        'ends': ends
+        'ends': ends,
+        'max_group': 3
       },
     )
 
@@ -246,13 +252,15 @@ class TestPack(th.TestTank):
       {
         'a': a,
         'default_val': 0,
-        'lengths': self.get_lengths(a)
+        'lengths': self.get_lengths(a),
+        'max_group': 2
       },
       {
         'target': target,
         'default_val': 0,
         'row_map': row_map,
-        'ends': ends
+        'ends': ends,
+        'max_group': 2
       },
     )
 

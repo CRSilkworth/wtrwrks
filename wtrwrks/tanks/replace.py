@@ -59,6 +59,11 @@ class Replace(ta.Tank):
 
     replaced_vals[mask] = target[mask]
 
+    # if len(replace_with.shape) != 1:
+    #   raise ValueError("replace_with must be numpy array of rank 1, Got {} ".format(replace_with.shape))
+    # if int(np.sum(mask)) != int(replace_with.size):
+    #   raise ValueError("Number of values to be replaced needs to match the size of replace_with. Got: {} and {}".format(np.sum(mask), replace_with.size))
+
     # Replace the values with the values found in replace_with.
     target[mask] = replace_with
 
@@ -94,8 +99,6 @@ class Replace(ta.Tank):
     replaced_vals = np.array(replaced_vals)
     if replaced_vals.dtype.itemsize > a.dtype.itemsize:
       a = a.astype(replaced_vals.dtype)
-
-    replace_with = a[mask]
 
     if replaced_vals.size == 1:
       a[mask] = replaced_vals
