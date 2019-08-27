@@ -41,21 +41,23 @@ dataset_transform = DatasetTransform(name='DT')
 # Add the categorical transform. Have it taken in column 0 from 'array'.
 # Normalize by (val - mean)/std.
 dataset_transform.add_transform(
-  col_ranges=[0, 1],
+  cols=[0],
   transform=CatTransform(
     name='CAT',
-    norm_mode='mean_std'
+    norm_mode='mean_std',
+    index_to_cat_val=['a', 'b', 'c', 'd'],
+    input_dtype=np.dtype('U')
   )
 )
 
 # Add the numerical transform. Have it take columsn, 1 and 2 from 'array'.
 # Normalize by (val - min)/(max - min). Replace nans with zeros.
 dataset_transform.add_transform(
-  col_ranges=[1, 3],
+  cols=[1, 2],
   transform=NumTransform(
     name='NUM',
     norm_mode='min_max',
-
+    input_dtype=np.float64,
     fill_nan_func=lambda a: np.array(0),
   )
 )
@@ -68,19 +70,27 @@ outputs = dataset_transform.pour(array)
 dataset_transform.pump(outputs)
 
 # Or write directly to tfrecords
-dataset_transform.write_examples(array, 'examples.tfrecord')
+dataset_transform.write_examples(array, file_name='examples.tfrecord')
 
 # Then read them and use them in an ML pipeline
-dataset = tf.data.TFRecordDataset('examples.tfrecord')
-dataset = dataset.map(dataset_transform.read_and_decode)
-iter = dataset.make_one_shot_iterator()
-features = iter.get_next()
+dataset_iter = dataset_transform.get_dataset_iter(
+  'examples_*.tfrecord', batch_size=2
+)
+dataset_init = dataset_transform.get_dataset_iter_init(
+  dataset_iter,
+  'examples_*.tfrecord',
+  num_epochs=1,
+  shuffle_buffer_size=1,  # i.e. don't shuffle
+  batch_size=2,
+)
 
+features = dataset_iter.get_next()
 with tf.Session() as sess:
+  sess.run(dataset_init)
   example_dicts = []
-  for _ in xrange(4):
-    evaled_features = sess.run(features)
 
+  for _ in xrange(2):
+    evaled_features = sess.run(features)
     # Do whatever you need to do with the outputs
     # ...
     # Reconstruct the orignal array
@@ -89,7 +99,8 @@ with tf.Session() as sess:
       example_dict[key] = evaled_features[key].flatten()
     example_dicts.append(example_dict)
 
-  remade_array = dataset_transform.pump_examples(example_dicts)
+  tap_dict = dataset_transform.examples_to_tap_dict(example_dicts)
+  remade_array = dataset_transform.pump(tap_dict)
   print remade_array
 
 ```
@@ -109,7 +120,7 @@ Basically, you build a waterwork by connecting tanks together by fitting tubes i
 
 ### Examples
 #### Example 1
-As a concrete example take the function f(a, b, c) = (a + b) * c. Let's imagine we wanted to build a waterwork that simulates this function. Because addition and multiplication are both actually quite lossy, there is a fair amount of additional information that you need to carry around in order to reconstruct a, b, and c later on. Both addition and multiplication store either the first (slot 'a') or second (slot 'b') input, depending on whichever has a fewer number of elemements. One can see this full process in action by running the code:
+As a concrete example, take the function f(a, b, c) = (a + b) * c. Let's imagine we wanted to build a waterwork that simulates this function. Because addition and multiplication are both actually quite lossy, there is a fair amount of additional information that you need to carry around in order to reconstruct a, b, and c later on. Both addition and multiplication store either the first (slot 'a') or second (slot 'b') input, depending on whichever has a fewer number of elemements. One can see this full process in action by running the code:
 ```python
 from wtrwrks import Waterwork, add, mul
 import pprint
@@ -197,8 +208,8 @@ Building transforms to prepare data to be feed into an ML pipeline was the origi
 
 The description only mentions the principal output of the transform. There are others that are required in order to make the Transform reversible.
 
-### Primitive Transforms
-These transforms are called 'primitive' because they do not require the definition of an sub tranforms. The user interacts with all of them in a very similar manner. The general flow is:
+### Basic Transforms
+These transforms are called 'Basic' because they do not require the definition of any sub tranforms. The user interacts with all of them in a very similar manner. The general flow is:
 1. Define the transform - set any attributes: normalization modes, normalization axes, any functions which handle nans, etc.
 2. Calculate any global values - find the values that depend on the entire dataset: e.g. means, stds, mins, max, complete list of categories, etc.
 3. Pour the raw data into a dictionary of normalized, vectorized data.
@@ -232,7 +243,7 @@ outputs = trans.pour(array)
 print outputs['NUM/nums']
 
 # Or just write them to disk.
-trans.write_examples(array, 'examples.tfrecord')
+trans.write_examples(array, file_name='examples.tfrecord')
 
 # Do whatever with the outputs
 # .
@@ -308,7 +319,7 @@ outputs = trans.pour(array)
 print outputs['DATE/nums']
 
 # Or just write them to disk.
-trans.write_examples(array, 'examples.tfrecord')
+trans.write_examples(array, file_name='examples.tfrecord')
 
 # Do whatever with the outputs
 # .
@@ -318,31 +329,30 @@ trans.write_examples(array, 'examples.tfrecord')
 # Pump them back to 'array'
 remade_array = trans.pump(outputs)
 print remade_array
+
 ```
 #### StringTransform
 The string transform breaks up an array of raw strings into tokens and converts them to indices according to some index_to_word map. Various string normalization transformations can also be optionally selected like: lowercase, half width (for chinese characters) or lemmatize. The user must supply a tokenizer, and optionally supply a detokenizer. The detokenzer does not have to be exact, but the closer the detokenizer is to the inverse of the tokenizer the less of a diff_string (a string which stores the difference between the raw input and the normalized input) has to be carried around.
 ```python
 from wtrwrks import StringTransform
 import numpy as np
-import datetime
+
 array = np.array([
   ["It is what it is."],
   ["Here lies one whose name was writ in water."],
   ["The sun is not yellow, it's chicken. OK."]
 ])
 
-index_to_word = ['chicken.', 'here', 'in', 'is', 'is.', 'it', "it's", 'lies', 'name', 'not', 'ok.', 'one', 'sun', 'the', 'was', 'water.', 'what', 'whose', 'writ', 'yellow,', '__UNK__']
+index_to_word = ['[UNK]', 'chicken.', 'here', 'in', 'is', 'is.', 'it', "it's", 'lies', 'name', 'not', 'ok.', 'one', 'sun', 'the', 'was', 'water.', 'what', 'whose', 'writ', 'yellow,']
 
 trans = StringTransform(
   name='STRING',
   word_tokenizer=lambda string: string.split(' '),  # function which returns a list from string,
   word_detokenizer=lambda l: ' '.join(l),  # function which returns a string from a list.
   index_to_word=index_to_word,
-  unk_index=len(index_to_word) - 1,
   max_sent_len=8,
   lower_case=True,
   half_width=False,
-  lemmatize=False,
 )
 
 trans.calc_global_values(array)
@@ -352,7 +362,7 @@ outputs = trans.pour(array)
 print outputs['STRING/indices']
 
 # Or just write them to disk.
-trans.write_examples(array, 'examples.tfrecord')
+trans.write_examples(array, file_name='examples.tfrecord')
 
 # Do whatever with the outputs
 # .
@@ -362,87 +372,7 @@ trans.write_examples(array, 'examples.tfrecord')
 # Pump them back to 'array'
 remade_array = trans.pump(outputs)
 print remade_array
+
 ```
-### Compound transforms
-There are two transforms that are built from other transforms: DatasetTransform and DocumentTransform. Dataset transform is a general purpose transform that takes in a large array of multiple input types and assigns slices of the array to the various sub transformations. An example of using this can be seen in the [TLDR](#tldr). The document transform pulls apart an array of individual documents, then uses a StringTransformation to futher break them down.
-
-#### Document Transform
-In additino to the StringTransfrom's word_tokenize the document transform has a sentence_toeknizer/detokenizer function. So the full document transform first breaks a document into sentences then words. There are separate way the sentences are arranged, and they are selected by the 'keep_dims' variable. When keep_dims is set to true then shape of the array of documents inputted into the document transform is preserved. Thus a max_doc_len (maximum document length) must be set, to decide the size of the created dimension. If, on the other hand, the keep_dims variable is set to False, then structure of the inputted array is not preserved and each sentence is given it's own line. As an example take:
-```python
-array = np.array([
-  ["It is what it is."],
-  ["Here lies one whose name was writ in water. John Keats, 5 feet high."],
-  ["The sun is not yellow, it's chicken. Look out kid, it's something you did. Holds no currency"]
-])
-```
-When keep_dims is set to True, and max_doc_len=2 this array will first be broken down into:
-```python
-array = array = np.array([
-  [["It is what it is."], ['']],
-  [["Here lies one whose name was writ in water."],  ["John Keats, 5 feet high."]],
-  [["The sun is not yellow, it's chicken."], [" Look out kid, it's something you did."]]
-])
-```
-On the otherhand, when keep_dims is set to False you'd get:
-```python
-array = array = np.array([
-  ["It is what it is."],
-  ["Here lies one whose name was writ in water."],
-  ["John Keats, 5 feet high."],
-  ["The sun is not yellow, it's chicken."],
-  [" Look out kid, it's something you did."],
-  ["Holds no currency"]
-])
-```
-When keep_dims is set to false you'll always be left with a rank 2 array after the sentence tokenize.
-
-Here's an example of the full flow:
-```python
-from waterworks import StringTransform, DocumentTransform
-import numpy as np
-import datetime
-array = np.array([
-  [
-    "It is what it is. I've seen summer and I've seen rain",
-    "The sun is not yellow, it's chicken. OK. Hey, you!"
-  ],
-  [
-    'Ended up sleeping in a doorway. Under a bodega. Lights over broadway',
-    'Look out kid. Its something you did.'
-  ]
-], dtype=np.unicode)
-
-index_to_word = ['__UNK__', u'a', u'and', u'bodega.', u'broadway', u'chicken.', u'did.', u'doorway.', u'ended', u'hey,', u"i've", u'in', u'is', u'is.', u'it', u"it's", u'its', u'kid.', u'lights', u'look', u'not', u'ok.', u'out', u'over', u'rain', u'seen', u'sleeping', u'something', u'summer', u'sun', u'the', u'under', u'up', u'what', u'yellow,', u'you']
-
-string_trans = StringTransform(
-  index_to_word=index_to_word,
-  word_tokenizer=lambda s: s.split(' '),
-  lower_case=True,
-  unk_index=0,
-  max_sent_len=10,
-  name='ST'
-)
-trans = DocumentTransform(
-  sent_tokenizer=lambda s: s.split('.'),
-  string_transform=string_trans,
-  name='DT'
-)
-
-trans.calc_global_values(array)
-
-# Get the outputs
-outputs = trans.pour(array)
-print outputs['DT/ST/indices']
-
-# Or just write them to disk.
-trans.write_examples(array, 'examples.tfrecord')
-
-# Do whatever with the outputs
-# .
-# .
-# .
-
-# Pump them back to 'array'
-remade_array = trans.pump(outputs)
-print remade_array
-```
+## Dataset Transform
+Typically, a ML model uses several inputs which are of varying type. A dataset transform can be defined to handle this case. It can be thought of as a container transform that holds other sub transforms. Then, when defining the examples for the ML, the entire dataset can be fed through the the dataset transform to get the training examples. An example on how a dataset transform is defined and used can be seen in the TLDR section.
