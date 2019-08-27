@@ -145,15 +145,6 @@ Normally, when one wants to do to run (a + b) * c, you get a single output. Howe
 
 The taps, are all the tubes from all the tanks that were not connected to some other slot. Hence, 'add_tubes\["target"\]', does not appear as a tap since it was connected to the mul_slots\['a'\].
 
-Taking these tap values and feeding them to pump, you can get back a, b and c:
-```python
-funnels = ww.pump(taps, key_type='str')
-```
-```
-{'Add_0/slots/a': array([1., 2., 3.]),
- 'Add_0/slots/b': array([3., 4., 5.]),
- 'Mul_0/slots/b': array([2., 2., 2.])}
- ```
  ### Example 2
 In the previous example, all funnels were given values at the start, so there were no additional values needed to supply to the pour method. In fact, when all the values are filled at the start, the waterwork is actually eagerly executed:
  ```python
@@ -189,13 +180,22 @@ pprint.pprint(taps)
  'Mul_0/tubes/smaller_size_array': array([2., 2., 2.]),
  'Mul_0/tubes/target': array([ 8., 12., 16.])}
 
- {'Add_0/tubes/a_is_smaller': False,
+{'Add_0/tubes/a_is_smaller': False,
  'Add_0/tubes/smaller_size_array': array([5., 6., 7.]),
  'Mul_0/tubes/a_is_smaller': False,
  'Mul_0/tubes/missing_vals': array([], dtype=float64),
  'Mul_0/tubes/smaller_size_array': array([2., 2., 2.]),
  'Mul_0/tubes/target': array([12., 16., 20.])}
 ```
+Putting this into the pump function one can get back the funnel value 'b' from the 'add' tank:
+```
+{'Add_0/slots/b': array([3., 4., 5.])}
+
+{'Add_0/slots/b': array([5., 6., 7.])}
+```
+### Other Examples
+Other more non-trivial examples can be found in the definitions of the transforms, namely in the 'define_waterwork' methods. The transforms are located in wtrkwrks/transforms/. 
+
 ## ML Reversible Transforms
 Building transforms to prepare data to be feed into an ML pipeline was the original impetus for creating a system such as waterworks. Generally, nearly identical steps are taken every time one sets up a pipeline that transforms raw data into some vector or tensor representation. The main factor that controls what tranformations need to be done to the data to prepare it, has less to do with the ML algorithm is being used for and more to do with what the data type of the input. Currently there are four primitive transformations:
 
