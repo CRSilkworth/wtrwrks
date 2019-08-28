@@ -4,7 +4,7 @@ matplotlib==2.2.3
 scipy==1.1.0
 mpu==0.14.0
 tables==3.4.4
-tensorflow==1.13.1
+tensorflow==1.14.0
 tensorflow-serving-api==1.13.0
 nltk==3.3
 spacy==2.0.16
