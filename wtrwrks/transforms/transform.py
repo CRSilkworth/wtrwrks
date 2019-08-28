@@ -531,7 +531,7 @@ class Transform(object):
     else:
       dtype = att_dict[tap_key]['tf_type']
 
-    ph = tf.placeholder(
+    ph = tf.compat.v1.placeholder(
       dtype=dtype,
       shape=shape
     )
@@ -858,7 +858,7 @@ class Transform(object):
 
       # Write the examples to disk
       logging.info("Writing batch %s", batch_num)
-      writer = tf.python_io.TFRecordWriter(fn)
+      writer = tf.io.TFRecordWriter(fn)
       for serials in all_serials:
         for serial in serials:
           writer.write(serial)
