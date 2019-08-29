@@ -111,7 +111,7 @@ class Transform(object):
   def _get_array_attributes(self, prefix):
     raise NotImplementedError()
 
-  def _get_dataset(self, file_name_pattern, batch_size, num_epochs=None, num_steps=None, filters=None, keep_features=None, drop_features=None, add_tensors=None, num_threads=1, shuffle_buffer_size=10000, random_seed=None):
+  def _get_dataset(self, file_name_pattern, batch_size, num_epochs=None, num_examples=None, filters=None, keep_features=None, drop_features=None, add_tensors=None, num_threads=1, shuffle_buffer_size=10000, random_seed=None):
     """Create the tensoflow dataset object to be used for input into training pipelines.
 
     Parameters
@@ -122,8 +122,8 @@ class Transform(object):
       The number of example to include in a single batch.
     num_epochs : int
       The number times to run through the full dataset of examples. Defaults to running indefinitely.
-    num_steps : int
-      Number of steps to run in the dataset before terminating. Cannot use when num_epochs is defined
+    num_examples : int
+      Number of examples to run in the dataset before terminating. Cannot use when num_epochs is defined
     filters : dict of functions
       Any pre preprocessing filters to put on the dataset. The keys are the filter names, the values are the filter themselves
     keep_features : list of strs
@@ -157,8 +157,8 @@ class Transform(object):
     dataset = tf.data.TFRecordDataset(shuffled_file_names)
 
     # If num steps was given then use that to define how long to run the dataset
-    if num_steps is not None:
-      dataset = dataset.take(num_steps)
+    if num_examples is not None:
+      dataset = dataset.take(num_examples)
       dataset = dataset.shuffle(
           buffer_size=shuffle_buffer_size
       )
@@ -459,7 +459,7 @@ class Transform(object):
 
     return feed_iter, handle
 
-  def get_dataset_iter_init(self, dataset_iter, file_name_pattern, batch_size, num_epochs=None, num_steps=None, filters=None, keep_features=None, drop_features=None, add_tensors=None, num_threads=1, shuffle_buffer_size=1000, random_seed=None):
+  def get_dataset_iter_init(self, dataset_iter, file_name_pattern, batch_size, num_epochs=None, num_examples=None, filters=None, keep_features=None, drop_features=None, add_tensors=None, num_threads=1, shuffle_buffer_size=1000, random_seed=None):
     """Create the tensoflow dataset object to be used for input into training pipelines.
 
     Parameters
@@ -472,7 +472,7 @@ class Transform(object):
       The number of example to include in a single batch.
     num_epochs : int
       The number times to run through the full dataset of examples. Defaults to running indefinitely.
-    num_steps : int
+    num_examples : int
       Number of steps to run in the dataset before terminating. Cannot use when num_epochs is defined
     filters : dict of functions
       Any pre preprocessing filters to put on the dataset. The keys are the filter names, the values are the filter themselves
@@ -495,7 +495,7 @@ class Transform(object):
       The dataset object to feed into tensorflow training pipelines.
 
     """
-    dataset = self._get_dataset(file_name_pattern, batch_size, num_epochs, num_steps, filters, keep_features, drop_features, add_tensors, num_threads, shuffle_buffer_size, random_seed)
+    dataset = self._get_dataset(file_name_pattern, batch_size, num_epochs, num_examples, filters, keep_features, drop_features, add_tensors, num_threads, shuffle_buffer_size, random_seed)
 
     return dataset_iter.make_initializer(dataset)
 
