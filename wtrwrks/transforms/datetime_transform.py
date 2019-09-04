@@ -208,9 +208,9 @@ class DateTimeTransform(n.Transform):
     att_dict = {}
     att_dict['nums'] = {
       'shape': list([len(self.cols)]),
-      'tf_type': tf.float32,
+      'tf_type': feat.select_tf_dtype(self.dtype),
       'size': feat.size_from_shape([len(self.cols)]),
-      'feature_func': feat._float_feat,
+      'feature_func': feat.select_feature_func(self.dtype),
       'np_type': self.dtype
     }
     att_dict['nats'] = {

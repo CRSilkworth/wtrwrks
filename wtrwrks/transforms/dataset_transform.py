@@ -11,7 +11,7 @@ import pandas as pd
 import itertools
 import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declarative_base
-
+import pprint
 
 class DatasetTransform(tr.Transform):
   """A Transform that is built out of other transform. Used to handle entire dataset which may have varied input types. Transforms an array normalized vectors and any information needed to fully reconstruct the original array.

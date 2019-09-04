@@ -206,6 +206,17 @@ class Transform(object):
         dataset = dataset.map(_add_tensor)
     return dataset
 
+  def _maybe_convert_to_df(self, data):
+    """Convert to pandas dataframe if data is array, otherwise do nothing."""
+    if type(data) is pd.DataFrame:
+      return data
+    else:
+      return pd.DataFrame(
+        data=data,
+        columns=self.cols,
+        index=np.arange(data.shape[0])
+      )
+
   def _nopre(self, to_unprefix, prefix=''):
     """Strip the self.name/prefix from a string or keys of a dictionary.
 
