@@ -50,7 +50,7 @@ setup(
   description='A system for creating reversible data transformations',
   long_description=long_description,
   long_description_content_type='text/markdown',
-  version='2.0.2',
+  version='2.0.3',
   author='Christopher Silkworth',
   author_email='crsilkworth@gmail.com',
   packages=find_packages(exclude=['unit_test', 'unitTest', '*.unitTest',
