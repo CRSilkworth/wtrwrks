@@ -50,7 +50,7 @@ setup(
   description='A system for creating reversible data transformations',
   long_description=long_description,
   long_description_content_type='text/markdown',
-  version='2.0.3',
+  version='2.0.4',
   author='Christopher Silkworth',
   author_email='crsilkworth@gmail.com',
   packages=find_packages(exclude=['unit_test', 'unitTest', '*.unitTest',
@@ -69,7 +69,7 @@ setup(
     'konlpy~=0.5',
     'simplejson~=3.16',
     'gensim~=3.6',
-    'dill~=0.2',
+    'dill~=0.3',
     'sqlalchemy~=1.3',
     'pathos~=0.2'
   ],
