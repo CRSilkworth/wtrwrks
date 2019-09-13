@@ -144,7 +144,7 @@ class CatTransform(n.Transform):
       # the corresponding value from 'indices' to get the full location of where
       # a 1 should be in the one_hots array.
       one_hot_indices = np.unravel_index(np.arange(indices.size, dtype=np.int32), indices.shape)
-      one_hot_indices = list(one_hot_indices) + [indices.flatten()]
+      one_hot_indices = tuple(list(one_hot_indices) + [indices.flatten()])
 
       # Set all the proper locations to 1. And then undo the setting of the
       # not valid categories.
