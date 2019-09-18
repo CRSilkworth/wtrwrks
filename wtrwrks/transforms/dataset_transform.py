@@ -105,13 +105,14 @@ class DatasetTransform(tr.Transform):
     )
     for key in self.transform_names:
       trans = self.transforms[key]
-
       cols = self.transform_cols[key]
+
       if np.array(cols).dtype.type not in (np.dtype('O'), np.dtype('S'), np.dtype('U')):
         cols = [self.name + '_' + str(dim) for dim in cols]
 
       self.transform_cols[key] = cols
       self.transforms[key].cols = cols
+
       # Get the subarrays and cast them to valid dtypes.
       subarray = df[cols].values
       if trans.input_dtype is None:
@@ -252,9 +253,15 @@ class DatasetTransform(tr.Transform):
 
     with ns.NameSpace(self.name):
       indices = []
+
+      all_cols = []
       for name in self.transform_names:
         trans_cols = self.transform_cols[name]
-        indices.append([list(self.cols).index(c) for c in trans_cols])
+        all_cols.extend(trans_cols)
+
+      for name in self.transform_names:
+        trans_cols = self.transform_cols[name]
+        indices.append([list(all_cols).index(c) for c in trans_cols])
 
       # Can only partition along the 0th axis so transpose it so that the
       # 'column' dimension is the first
