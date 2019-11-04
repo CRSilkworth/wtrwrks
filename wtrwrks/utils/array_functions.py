@@ -20,16 +20,16 @@ def empty_array_like(a, default_val=None):
 
   # Choose different default values, and type for the returned array depending
   # on the input_dtype
-  if dtype.type in (np.string_, np.unicode_):
-    if default_val is None:
-      default_val = ''
-  elif dtype in (np.int64, np.int32, np.float64, np.float32):
+  if dtype in (np.int64, np.int32, np.float64, np.float32):
     if default_val is None:
       default_val = 0
   elif dtype.type == np.timedelta64:
     default_val = 0
   elif dtype.type == np.datetime64:
     default_val = '1970-01-01'
+  elif dtype.type in (np.string_, np.unicode_):
+    if default_val is None:
+      default_val = ''
   else:
     raise TypeError("Only string and number types are supported. Got " + str(dtype))
 
@@ -54,10 +54,7 @@ def empty_array(shape, dtype, default_val=None):
   """
   # Choose different default values, and type for the returned array depending
   # on the input_dtype
-  if dtype.type in (np.string_, np.unicode_):
-    if default_val is None:
-      default_val = ''
-  elif dtype in (np.int64, np.int32, np.float64, np.float32):
+  if dtype in (np.int64, np.int32, np.float64, np.float32):
     if default_val is None:
       default_val = 0
   elif dtype.type == np.timedelta64:
@@ -66,6 +63,9 @@ def empty_array(shape, dtype, default_val=None):
     default_val = '1970-01-01'
   elif dtype.type == np.dtype('O'):
     pass
+  elif dtype.type in (np.string_, np.unicode_):
+    if default_val is None:
+      default_val = ''
   else:
     raise TypeError("Only string and number types are supported. Got " + str(dtype))
 

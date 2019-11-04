@@ -610,6 +610,7 @@ class Waterwork(object):
       kwargs = {}
       for slot_name in tank.slots:
         slot = tank.slots[slot_name]
+
         if slot.plug is not None:
           slot.set_val(slot.plug(evaled_dict))
 
