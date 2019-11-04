@@ -117,7 +117,6 @@ class DatasetTransform(tr.Transform):
       subarray = df[cols].values
       if trans.input_dtype is None:
         raise ValueError("Must explicitly set the input dtype if using the transform as part of a dataset_transform.")
-
       subarray = subarray.astype(trans.input_dtype)
 
       # Calculate the global values for this transform.
@@ -180,6 +179,19 @@ class DatasetTransform(tr.Transform):
       trans_att_dict = trans._get_array_attributes(prefix=os.path.join(prefix, self.name))
       att_dict.update(trans_att_dict)
     return att_dict
+
+  def _get_eval_cls_cols(self, already_added_cols=None):
+    """Get a dictionary of the sqlalchemy column types"""
+
+    if already_added_cols is None:
+      already_added_cols = set()
+
+    eval_cls_cols = {}
+    for name in self.transform_names:
+      trans = self.transforms[name]
+      eval_cls_cols.update(trans._get_eval_cls_cols(already_added_cols))
+    pprint.pprint(eval_cls_cols)
+    return eval_cls_cols
 
   def _save_dict(self):
     """Create the dictionary of values needed in order to reconstruct the transform."""
@@ -386,17 +398,34 @@ class DatasetTransform(tr.Transform):
     ww = self.get_waterwork()
     funnel_dict = ww.pump(tap_dict, key_type='str')
     array = funnel_dict[self._pre('array')].astype(self.input_dtype)
+
     if df:
+      seen_cols = set()
+      mask = []
+      cols = []
+      for name in self.transform_names:
+        trans = self.transforms[name]
+        for col in trans.cols:
+          if col in seen_cols:
+            mask.append(False)
+          else:
+            seen_cols.add(col)
+            cols.append(col)
+            mask.append(True)
+            if col == 'price':
+              temp = len(mask) - 1
+
+      array = array[:, mask]
+
       if index is None:
         index = np.arange(array.shape[0])
+
       data = pd.DataFrame(
         data=array,
         index=index,
-        columns=self.cols
+        columns=cols
       )
-      for name in self.transform_names:
-        trans = self.transforms[name]
-        data[trans.cols] = data[trans.cols].astype(trans.input_dtype)
+
     else:
       data = array
 
@@ -421,30 +450,14 @@ class DatasetTransform(tr.Transform):
     class EvalClass(Base):
       __tablename__ = table_name
       example_id = sa.Column(sa.Integer, primary_key=True)
+      # run_str = sa.Column(sa.String)
+      # model_class = sa.Column(sa.String)
+      # dataset_key = sa.Column(sa.String)
 
     already_added_cols = set(['example_id'])
-    for name in self.transform_names:
-      trans = self.transforms[name]
-      for col in trans.cols:
-
-        if col in already_added_cols:
-          continue
-        already_added_cols.add(col)
-
-        if trans.input_dtype in (np.int64, np.int32, int):
-          db_dtype = sa.Integer
-        elif trans.input_dtype in (np.float64, np.float32, float):
-          db_dtype = sa.Float
-        elif trans.input_dtype in (np.bool, bool):
-          db_dtype = sa.Boolean
-        elif trans.input_dtype in (np.dtype('S'), np.dtype('U'), np.dtype('O')):
-          db_dtype = sa.String
-        elif trans.input_dtype in (np.datetime64,):
-          db_dtype = sa.DateTime
-        else:
-          raise ValueError("{} is not a supported type to be used on the database.".format())
-
-        setattr(EvalClass, col, sa.Column(db_dtype))
+    eval_cls_cols = self._get_eval_cls_cols(already_added_cols)
+    for col in eval_cls_cols:
+      setattr(EvalClass, col, eval_cls_cols[col])
 
     return EvalClass
 
@@ -463,6 +476,21 @@ class DatasetTransform(tr.Transform):
 
     """
     schema_dict = {}
+
+    # static_var_lim = {
+    #   'run_str': 255 if type(var_lim) is not int else var_lim,
+    #   'model_class': 255 if type(var_lim) is not int else var_lim,
+    #   'dataset_key': 255 if type(var_lim) is not int else var_lim,
+    # }
+    # if type(var_lim) is dict:
+    #   for lim in static_var_lim:
+    #     if lim in var_lim:
+    #       static_var_lim[lim] = var_lim[lim]
+    #
+    # schema_dict['run_str'] = 'VARCHAR({})'.format(static_var_lim['run_str'])
+    # schema_dict['model_class'] = 'VARCHAR({})'.format(static_var_lim['model_class'])
+    # schema_dict['dataset_key'] = 'VARCHAR({})'.format(static_var_lim['dataset_key'])
+
     for name in self.transform_names:
       trans = self.transforms[name]
 

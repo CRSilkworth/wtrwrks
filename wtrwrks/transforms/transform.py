@@ -12,7 +12,7 @@ import wtrwrks.utils.batch_functions as b
 import logging
 import random
 import glob
-
+import sqlalchemy as sa
 
 class Transform(object):
   """Abstract class used to create mappings from raw to vectorized, normalized data and vice versa. These transform store all the information necessary to create a Waterwork object which can do all the necessary reversible alterations to the data and also to transform it back to its original form.
@@ -141,7 +141,7 @@ class Transform(object):
 
     Returns
     -------
-    dataset : tf.dataset
+    dataset : tf.compat.v1.dataset
       The dataset object to feed into tensorflow training pipelines.
 
     """
@@ -154,7 +154,7 @@ class Transform(object):
     shuffled_file_names = random.sample(file_names, len(file_names))
 
     # Define the dataset object from the tfrecord files
-    dataset = tf.data.TFRecordDataset(shuffled_file_names)
+    dataset = tf.compat.v1.data.TFRecordDataset(shuffled_file_names)
 
     # If num steps was given then use that to define how long to run the dataset
     if num_examples is not None:
@@ -173,12 +173,14 @@ class Transform(object):
         )
         num_epochs = int(num_epochs)
 
+      dataset = dataset.shuffle(shuffle_buffer_size, random_seed)
+      dataset = dataset.repeat(num_epochs)
       # Shuffle the dataset
-      s_and_r = tf.data.experimental.shuffle_and_repeat(
-          buffer_size=shuffle_buffer_size,
-          count=num_epochs
-      )
-      dataset = dataset.apply(s_and_r)
+      # s_and_r = tf.compat.v1.data.experimental.shuffle_and_repeat(
+      #     buffer_size=shuffle_buffer_size,
+      #     count=num_epochs
+      # )
+      # dataset = dataset.apply(s_and_r)
 
     # Read and decode the dataset
     dataset = dataset.map(
@@ -205,6 +207,34 @@ class Transform(object):
           return kwargs
         dataset = dataset.map(_add_tensor)
     return dataset
+
+  def _get_eval_cls_cols(self, already_added_cols=None):
+    """Get a dictionary of the sqlalchemy column types"""
+
+    if already_added_cols is None:
+      already_added_cols = set()
+
+    eval_cls_cols = {}
+    for col in self.cols:
+      if col in already_added_cols:
+        continue
+      if self.input_dtype in (np.int64, np.int32, int):
+        db_dtype = sa.Integer
+      elif self.input_dtype in (np.float64, np.float32, float):
+        db_dtype = sa.Float
+      elif self.input_dtype in (np.bool, bool):
+        db_dtype = sa.Boolean
+      elif self.input_dtype.type in (np.dtype('S'), np.dtype('U'), np.dtype('O')):
+        db_dtype = sa.String
+      elif self.input_dtype.type in (np.datetime64,):
+        db_dtype = sa.DateTime
+      else:
+        raise ValueError("{} is not a supported type to be used on the database.".format(self.input_dtype))
+
+      already_added_cols.add(col)
+      eval_cls_cols[col] = sa.Column(db_dtype)
+
+    return eval_cls_cols
 
   def _maybe_convert_to_df(self, data):
     """Convert to pandas dataframe if data is array, otherwise do nothing."""
@@ -428,15 +458,15 @@ class Transform(object):
 
     Returns
     -------
-    dataset_iter : tf.data.Iterator
+    dataset_iter : tf.compat.v1.data.Iterator
       The dataset object to feed into tensorflow training pipelines.
 
     """
     dataset = self._get_dataset(file_name_pattern, batch_size, keep_features=keep_features, drop_features=drop_features, add_tensors=add_tensors)
 
-    data_iter = tf.data.Iterator.from_structure(
-        dataset.output_types,
-        dataset.output_shapes
+    data_iter = tf.compat.v1.data.Iterator.from_structure(
+        tf.compat.v1.data.get_output_types(dataset),
+        tf.compat.v1.data.get_output_shapes(dataset),
     )
 
     return data_iter
@@ -455,17 +485,17 @@ class Transform(object):
 
     Returns
     -------
-    dataset_iter : tf.data.Iterator
+    dataset_iter : tf.compat.v1.data.Iterator
       The dataset object to feed into tensorflow training pipelines.
 
     """
     dataset = self._get_dataset(file_name_pattern, batch_size, keep_features=keep_features, drop_features=drop_features, add_tensors=add_tensors)
     handle = tf.placeholder(tf.string, shape=[])
 
-    feed_iter = tf.data.Iterator.from_string_handle(
+    feed_iter = tf.compat.v1.data.Iterator.from_string_handle(
         handle,
-        dataset.output_types,
-        dataset.output_shapes
+        tf.compat.v1.data.get_output_types(dataset),
+        tf.compat.v1.data.get_output_shapes(dataset),
     )
 
     return feed_iter, handle
@@ -475,7 +505,7 @@ class Transform(object):
 
     Parameters
     ----------
-    dataset_iter : tf.data.Iterator
+    dataset_iter : tf.compat.v1.data.Iterator
       The dataset object to feed into tensorflow training pipelines.
     file_name_pattern : string
       The file name pattern of the tfrecord files. Supports '*', etc.
@@ -502,7 +532,7 @@ class Transform(object):
 
     Returns
     -------
-    dataset : tf.dataset
+    dataset : tf.compat.v1.dataset
       The dataset object to feed into tensorflow training pipelines.
 
     """
@@ -564,18 +594,18 @@ class Transform(object):
 
     """
     # Select the SQL datatype by the input_dtype
-    if self.input_dtype in (np.int64, np.int32, int):
+    if self.input_dtype in (np.datetime64,):
+      db_dtype = 'TIMESTAMP'
+    elif self.input_dtype in (np.int64, np.int32, int):
       db_dtype = 'INTEGER'
     elif self.input_dtype in (np.float64, np.float32, float):
       db_dtype = 'FLOAT'
     elif self.input_dtype in (np.bool, bool):
       db_dtype = 'BOOLEAN'
-    elif self.input_dtype in (np.dtype('S'), np.dtype('U'), np.dtype('O')):
+    elif self.input_dtype.type in (np.dtype('S'), np.dtype('U'), np.dtype('O')):
       db_dtype = 'VARCHAR'
-    elif self.input_dtype in (np.datetime64,):
-      db_dtype = 'TIMESTAMP'
     else:
-      raise ValueError("{} is not a supported type to be used on the database.".format())
+      raise ValueError("{} is not a supported type to be used on the database.".format(self.input_dtype))
 
     # Create the schema dictionary.
     schema_dict = {}
@@ -713,14 +743,14 @@ class Transform(object):
         continue
 
       # Define the tf feature object and pull out the correct shape
-      feature_dict[key] = tf.FixedLenFeature(
+      feature_dict[key] = tf.io.FixedLenFeature(
         att_dict[key]['size'],
         att_dict[key]['tf_type']
       )
       shape_dict[key] = att_dict[key]['shape']
 
     # Parse the example
-    features = tf.parse_single_example(
+    features = tf.io.parse_single_example(
       serialized_example,
       features=feature_dict
     )

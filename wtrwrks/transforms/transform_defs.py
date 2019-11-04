@@ -1,6 +1,7 @@
 import cat_transform
 import num_transform
 import datetime_transform
+import fourier_transform
 import string_transform
 import multi_lingual_string_transform
 import dataset_transform
@@ -11,3 +12,4 @@ DateTimeTransform = datetime_transform.DateTimeTransform
 StringTransform = string_transform.StringTransform
 MultiLingualStringTransform = multi_lingual_string_transform.MultiLingualStringTransform
 DatasetTransform = dataset_transform.DatasetTransform
+FourierTransform = fourier_transform.FourierTransform

@@ -157,7 +157,7 @@ class NumTransform(n.Transform):
       if len(self.std[self.std == 0]):
         zero_std_cat_vals = []
         for index in np.where(self.std == 0.0)[0]:
-          zero_std_cat_vals.append(self.index_to_cat_val[index])
+          zero_std_cat_vals.append(self.cols[index])
 
         logging.warn(self.name + " has zero-valued stds at " + str(zero_std_cat_vals) + " replacing with 1's")
 
