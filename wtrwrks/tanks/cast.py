@@ -82,4 +82,5 @@ class Cast(ta.Tank):
     if np.issubdtype(input_dtype, np.number):
       a = diff + target
     a = a.astype(input_dtype)
+
     return {'a': a, 'dtype': dtype}

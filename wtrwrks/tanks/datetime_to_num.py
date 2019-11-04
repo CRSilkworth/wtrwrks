@@ -101,6 +101,6 @@ class DatetimeToNum(ta.Tank):
     # zero_date plus any diff values.
     a = target * np.timedelta64(num_units, time_unit) + zero_datetime
     if diff.size:
-       a = a + diff
+      a = a + diff
 
     return {'a': a, 'zero_datetime': zero_datetime, 'num_units': num_units, 'time_unit': time_unit}

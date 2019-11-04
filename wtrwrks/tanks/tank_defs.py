@@ -19,6 +19,7 @@ import wtrwrks.tanks.datetime_to_num as dtn
 import wtrwrks.tanks.tokenize as to
 import wtrwrks.tanks.lower_case as lc
 import wtrwrks.tanks.half_width as hw
+import wtrwrks.tanks.phase_decomp as phd
 import wtrwrks.tanks.lemmatize as lm
 import wtrwrks.tanks.split as sp
 import wtrwrks.tanks.partition as pa
@@ -1780,6 +1781,60 @@ def partition_by_index(a=empty, indices=empty, type_dict=None, waterwork=None, n
 
   """
   tank = pa.PartitionByIndex(a=a, indices=indices, waterwork=waterwork, name=name)
+
+  if slot_plugs is not None:
+    for key in slot_plugs:
+      tank.get_slots()[key].set_plug(slot_plugs[key])
+  if tube_plugs is not None:
+    for key in tube_plugs:
+      tank.get_tubes()[key].set_plug(tube_plugs[key])
+  if slot_names is not None:
+    for key in slot_names:
+      tank.get_slots()[key].set_name(slot_names[key])
+  if tube_names is not None:
+    for key in tube_names:
+      tank.get_tubes()[key].set_name(tube_names[key])
+  return tank.get_tubes(), tank.get_slots()
+
+
+def phase_decomp(a=empty, w_k=empty, waterwork=None, name=None, slot_plugs=None, tube_plugs=None, slot_names=None, tube_names=None):
+  """Create a list of array slices according to the indices. All slices are ranges of the 0th axis of the array.
+
+  Parameters
+  ----------
+  a: np.ndarray
+    The array to take slices from.
+  indices: np.ndarray
+    The indices of all the slices.
+
+  waterwork : Waterwork or None
+    The waterwork to add the tank (operation) to. Default's to the _default_waterwork.
+  name : str or None
+      The name of the tank (operation) within the waterwork
+
+  Returns
+  -------
+  tubes: dict(
+    target: list of arrays
+      The list of array slices. The length of the list is equal to the size of the first dimension of 'indices'.
+    indices: np.ndarray of ints
+      The indices of all the slices.
+    missing_cols: np.ndarray of ints
+      The columns of the array that were not selected by the slices defined by 'indices'
+    missing_array: np.ndarray
+      The slices of array that were not selected by the slices defined by 'indices'.
+  )
+    A dictionary where the keys are the tube names and the values are the tube objects of the Partition tank.
+  slots: dict(
+      a: np.ndarray
+        The array to take slices from.
+      indices: np.ndarray
+        The indices of all the slices.
+  )
+    A dictionary where the keys are the slot names and the values are the slot objects of the Partition tank.
+
+  """
+  tank = phd.PhaseDecomp(a=a, w_k=w_k, waterwork=waterwork, name=name)
 
   if slot_plugs is not None:
     for key in slot_plugs:

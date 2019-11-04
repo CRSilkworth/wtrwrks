@@ -7,8 +7,6 @@ this_directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(this_directory, 'README.md')) as f:
   long_description = f.read()
 
-print long_description
-
 class CustomDependencyInstallCommand(install):
   """Customized setuptools install command - install all dependencies."""
 
