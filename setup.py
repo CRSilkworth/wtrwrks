@@ -60,7 +60,7 @@ setup(
     'scipy~=1.1',
     'mpu~=0.14',
     'tables~=3.4',
-    'tensorflow~=1.14',
+    'tensorflow~=1.15',
     'nltk~=3.4',
     'tinysegmenter~=0.4',
     'chop~=1.0',
