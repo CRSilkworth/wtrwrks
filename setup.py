@@ -48,7 +48,7 @@ setup(
   description='A system for creating reversible data transformations',
   long_description=long_description,
   long_description_content_type='text/markdown',
-  version='2.1.1',
+  version='2.1.2',
   author='Christopher Silkworth',
   author_email='crsilkworth@gmail.com',
   packages=find_packages(exclude=['unit_test', 'unitTest', '*.unitTest',
