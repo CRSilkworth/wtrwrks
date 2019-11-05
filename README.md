@@ -1,3 +1,4 @@
+
 # wtrwrks
 + [TLDR](#tldr)
 + [Waterworks and Transforms](#waterworks-and-transforms)
@@ -216,7 +217,7 @@ pprint.pprint(funnels)
 {'Add_0/slots/b': array([5., 6., 7.])}
 ```
 ### Other Examples
-Other more non-trivial examples can be found in the definitions of the transforms, namely in the 'define_waterwork' methods. The transforms are located in wtrkwrks/transforms/. 
+Other more non-trivial examples can be found in the definitions of the transforms, namely in the 'define_waterwork' methods. The transforms are located in wtrkwrks/transforms/.
 
 ## ML Reversible Transforms
 Building transforms to prepare data to be feed into an ML pipeline was the original impetus for creating a system such as waterworks. Generally, nearly identical steps are taken every time one sets up a pipeline that transforms raw data into some vector or tensor representation. The main factor that controls what tranformations need to be done to the data to prepare it, has less to do with the ML algorithm is being used for and more to do with what the data type of the input. Currently there are four primitive transformations:

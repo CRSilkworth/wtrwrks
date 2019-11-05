@@ -59,7 +59,7 @@ setup(
     'matplotlib~=2.2',
     'scipy~=1.1',
     'mpu~=0.14',
-    'tables~=3.4',
+    'tables~=3.5',
     'tensorflow~=1.15',
     'nltk~=3.4',
     'tinysegmenter~=0.4',
