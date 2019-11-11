@@ -1,4 +1,5 @@
 """Definition of the base Transform class"""
+from __future__ import print_function
 import pandas as pd
 import wtrwrks.utils.dir_functions as d
 import wtrwrks.utils.array_functions as af
@@ -13,6 +14,7 @@ import logging
 import random
 import glob
 import sqlalchemy as sa
+
 
 class Transform(object):
   """Abstract class used to create mappings from raw to vectorized, normalized data and vice versa. These transform store all the information necessary to create a Waterwork object which can do all the necessary reversible alterations to the data and also to transform it back to its original form.
@@ -165,7 +167,7 @@ class Transform(object):
     # Otherwise use the number of epochs
     else:
       # Convert num epochs to integer
-      if num_epochs is not None and type(num_epochs) is not int and not (tf.contrib.framework.is_tensor(num_epochs) and num_epochs.dtype is tf.int64):
+      if num_epochs is not None and type(num_epochs) is not int and not (tf.is_tensor(num_epochs) and num_epochs.dtype is tf.int64):
         logging.warn(
           '%s is not a whole number. Will be converted to %s',
           num_epochs,
@@ -184,8 +186,8 @@ class Transform(object):
 
     # Read and decode the dataset
     dataset = dataset.map(
-        lambda se: self.read_and_decode(se, '', keep_features, drop_features),
-        num_parallel_calls=num_threads
+      lambda se: self.read_and_decode(se, '', keep_features, drop_features),
+      num_parallel_calls=num_threads
     )
 
     # If any filters were put in place filter the values.
@@ -471,7 +473,7 @@ class Transform(object):
 
     return data_iter
 
-  def get_dataset_feed_iter(self, file_name_pattern, batch_size, keep_features=None, drop_features=None, add_tensors=None):
+  def get_dataset_feed_iter(self, file_name_pattern, handle, batch_size, keep_features=None, drop_features=None, add_tensors=None):
     """Create the tensoflow dataset iterator object used iterator over a tensorflow dataset object. Used in input pipelines where a feed dict is used.
 
     Parameters
@@ -490,7 +492,7 @@ class Transform(object):
 
     """
     dataset = self._get_dataset(file_name_pattern, batch_size, keep_features=keep_features, drop_features=drop_features, add_tensors=add_tensors)
-    handle = tf.placeholder(tf.string, shape=[])
+    # handle = tf.placeholder(tf.string, shape=[])
 
     feed_iter = tf.compat.v1.data.Iterator.from_string_handle(
         handle,
@@ -498,7 +500,7 @@ class Transform(object):
         tf.compat.v1.data.get_output_shapes(dataset),
     )
 
-    return feed_iter, handle
+    return feed_iter
 
   def get_dataset_iter_init(self, dataset_iter, file_name_pattern, batch_size, num_epochs=None, num_examples=None, filters=None, keep_features=None, drop_features=None, add_tensors=None, num_threads=1, shuffle_buffer_size=1000, random_seed=None):
     """Create the tensoflow dataset object to be used for input into training pipelines.
@@ -751,7 +753,7 @@ class Transform(object):
 
     # Parse the example
     features = tf.io.parse_single_example(
-      serialized_example,
+      serialized=serialized_example,
       features=feature_dict
     )
 

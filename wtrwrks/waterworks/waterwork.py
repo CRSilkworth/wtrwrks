@@ -504,7 +504,7 @@ class Waterwork(object):
       file_names.append(fn)
 
       logging.info("Writing batch %s", batch_num)
-      writer = tf.python_io.TFRecordWriter(fn)
+      writer = tf.io.TFRecordWriter(fn)
       for serials in all_serials:
         for serial in serials:
           writer.write(serial)
@@ -769,10 +769,10 @@ class Waterwork(object):
     for key in feature_dict:
       shape = feature_dict[key]['shape']
       tf_dtype = feature_dict[key]['tf_dtype']
-      feat_dict[key] = tf.FixedLenFeature(shape, tf_dtype)
+      feat_dict[key] = tf.io.FixedLenFeature(shape, tf_dtype)
 
-    features = tf.parse_single_example(
-      serialized_example,
+    features = tf.io.parse_single_example(
+      serialized=serialized_example,
       features=feat_dict
     )
 
@@ -811,7 +811,7 @@ class Waterwork(object):
       dataset = tf.data.TFRecordDataset(file_name)
       dataset = dataset.map(lambda a: self.read_and_decode(a, feature_dict))
 
-      iter = tf.data.Iterator.from_structure(
+      iter = tf.compat.v1.data.Iterator.from_structure(
         dataset.output_types,
         dataset.output_shapes
       )
@@ -819,7 +819,7 @@ class Waterwork(object):
       init = iter.make_initializer(dataset)
       features = iter.get_next()
 
-      with tf.Session() as sess:
+      with tf.compat.v1.Session() as sess:
         sess.run(init)
 
         tap_dict = {}
@@ -928,7 +928,7 @@ class Waterwork(object):
 
     feature_dict, func_dict = self._get_feature_dicts(tap_dicts[0])
 
-    writer = tf.python_io.TFRecordWriter(file_name)
+    writer = tf.io.TFRecordWriter(file_name)
     for tap_dict in tap_dicts:
       if not tap_dict:
         continue
@@ -959,7 +959,7 @@ class Waterwork(object):
     dir = file_name.split('/')[:-1]
     d.maybe_create_dir(*dir)
 
-    writer = tf.python_io.TFRecordWriter(file_name)
+    writer = tf.io.TFRecordWriter(file_name)
     tap_dict = self.pour(funnel_dict, key_type='str')
 
     feature_dict, func_dict = self._get_feature_dicts(tap_dict)

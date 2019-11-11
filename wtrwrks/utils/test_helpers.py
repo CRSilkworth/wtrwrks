@@ -139,7 +139,7 @@ class TestTransform(WWTest):
     tap_dict = trans.pour(array)
     example_dicts = trans.tap_dict_to_examples(tap_dict)
     file_name = os.path.join(dir, 'temp.tfrecord')
-    writer = tf.python_io.TFRecordWriter(file_name)
+    writer = tf.io.TFRecordWriter(file_name)
 
     for feature_dict in example_dicts:
       example = tf.train.Example(
@@ -155,7 +155,7 @@ class TestTransform(WWTest):
       num_cols = array.shape[1]
 
     dataset = dataset.map(trans.read_and_decode)
-    iter = tf.data.Iterator.from_structure(
+    iter = tf.compat.v1.data.Iterator.from_structure(
       dataset.output_types,
       dataset.output_shapes
     )
@@ -164,7 +164,7 @@ class TestTransform(WWTest):
 
     for key in features:
       features[key] = tf.reshape(features[key], [-1])
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
       sess.run(init)
 
       example_dicts = []
@@ -329,12 +329,12 @@ def assert_tensor_equal_array(test_obj, a1, a2, threshold=None):
   """
   # Initialize any variables that may exist in the graph
   init_op = tf.group(
-    tf.global_variables_initializer(),
-    tf.local_variables_initializer()
+    tf.compat.v1.global_variables_initializer(),
+    tf.compat.v1.local_variables_initializer()
   )
 
   # Run the session to eval the tensor.
-  with tf.Session() as sess:
+  with tf.compat.v1.Session() as sess:
     sess.run(init_op)
     a = sess.run(a1)
 
@@ -374,12 +374,12 @@ def print_tensor(a1, to_list=False):
   """
   # Initialize any variables that may exist in the graph
   init_op = tf.group(
-    tf.global_variables_initializer(),
-    tf.local_variables_initializer()
+    tf.compat.v1.global_variables_initializer(),
+    tf.compat.v1.local_variables_initializer()
   )
 
   # Run the session to eval the tensor.
-  with tf.Session() as sess:
+  with tf.compat.v1.Session() as sess:
     sess.run(init_op)
     a = sess.run(a1)
   if to_list:
