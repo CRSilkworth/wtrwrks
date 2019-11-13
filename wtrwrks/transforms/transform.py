@@ -113,103 +113,6 @@ class Transform(object):
   def _get_array_attributes(self, prefix):
     raise NotImplementedError()
 
-  def _get_dataset(self, file_name_pattern, batch_size, num_epochs=None, num_examples=None, filters=None, keep_features=None, drop_features=None, add_tensors=None, num_threads=1, shuffle_buffer_size=10000, random_seed=None):
-    """Create the tensoflow dataset object to be used for input into training pipelines.
-
-    Parameters
-    ----------
-    file_name_pattern : string
-      The file name pattern of the tfrecord files. Supports '*', etc.
-    batch_size : int
-      The number of example to include in a single batch.
-    num_epochs : int
-      The number times to run through the full dataset of examples. Defaults to running indefinitely.
-    num_examples : int
-      Number of examples to run in the dataset before terminating. Cannot use when num_epochs is defined
-    filters : dict of functions
-      Any pre preprocessing filters to put on the dataset. The keys are the filter names, the values are the filter themselves
-    keep_features : list of strs
-      The features to keep after reading in from the tfrecords. Defaults to all of them.
-    drop_features : list of strs
-      The features to drop when reading from the tfrecords. Defaults to None. Can only use this or keep_features not both.
-    add_tensors : dict of tensors
-      Any additional tensors to add into the dataset object.
-    num_threads : int
-      The number of io threads to use. Defaults to 1, should probably not be more than 3.
-    shuffle_buffer_size : int
-      How many examples to shuffle together.
-    random_seed : int or None
-      The seed to set the random number generator
-
-    Returns
-    -------
-    dataset : tf.compat.v1.dataset
-      The dataset object to feed into tensorflow training pipelines.
-
-    """
-    # Set the random seed.
-    random.seed(random_seed)
-
-    # Get all the tfrecor file names and shuffle them
-    file_names = glob.glob(file_name_pattern)
-    file_names.sort()
-    shuffled_file_names = random.sample(file_names, len(file_names))
-
-    # Define the dataset object from the tfrecord files
-    dataset = tf.compat.v1.data.TFRecordDataset(shuffled_file_names)
-
-    # If num steps was given then use that to define how long to run the dataset
-    if num_examples is not None:
-      dataset = dataset.take(num_examples)
-      dataset = dataset.shuffle(
-          buffer_size=shuffle_buffer_size
-      )
-    # Otherwise use the number of epochs
-    else:
-      # Convert num epochs to integer
-      if num_epochs is not None and type(num_epochs) is not int and not (tf.is_tensor(num_epochs) and num_epochs.dtype is tf.int64):
-        logging.warn(
-          '%s is not a whole number. Will be converted to %s',
-          num_epochs,
-          int(num_epochs)
-        )
-        num_epochs = int(num_epochs)
-
-      dataset = dataset.shuffle(shuffle_buffer_size, random_seed)
-      dataset = dataset.repeat(num_epochs)
-      # Shuffle the dataset
-      # s_and_r = tf.compat.v1.data.experimental.shuffle_and_repeat(
-      #     buffer_size=shuffle_buffer_size,
-      #     count=num_epochs
-      # )
-      # dataset = dataset.apply(s_and_r)
-
-    # Read and decode the dataset
-    dataset = dataset.map(
-      lambda se: self.read_and_decode(se, '', keep_features, drop_features),
-      num_parallel_calls=num_threads
-    )
-
-    # If any filters were put in place filter the values.
-    if filters is not None:
-      for key in filters:
-        dataset = dataset.filter(
-          filters[key]
-        )
-
-    # Batch out the data
-    if batch_size is not None:
-      dataset = dataset.batch(batch_size)
-
-    # Add any additional tensors to the dataset.
-    if add_tensors is not None:
-      for key in add_tensors:
-        def _add_tensor(kwargs):
-          kwargs[key] = add_tensors[key]
-          return kwargs
-        dataset = dataset.map(_add_tensor)
-    return dataset
-
   def _get_eval_cls_cols(self, already_added_cols=None):
     """Get a dictionary of the sqlalchemy column types"""
 
@@ -426,89 +329,11 @@ class Transform(object):
 
     return arrays_dict
 
-  def get_default_array(self, batch_size=1):
-    """Get an array of the proper shape and type that matches the input array.
-
-    Parameters
-    ----------
-    batch_size : int
-      The number of example to include in a single batch.
-
-    Returns
-    -------
-    default_array : np.array
-      The numpy array all filled with some default value
-
-    """
-    #####################################
-    # NOTE: PUT BACK IN CHECK AFTER WORKFLOW IS RERUN
-    # assert self.is_calc_run, ("Run calc_global_values before getting default array")
-    ####################################
-    return af.empty_array([batch_size, len(self.cols)], self.input_dtype)
-
-  def get_dataset_iter(self, file_name_pattern, batch_size, keep_features=None, drop_features=None, add_tensors=None):
-    """Create the tensoflow dataset iterator object used iterator over a tensorflow dataset object.
-
-    Parameters
-    ----------
-    file_name_pattern : string
-      The file name pattern of the tfrecord files. Supports '*', etc.
-    batch_size : int
-      The number of example to include in a single batch.
-    add_tensors : dict of tensors
-      Any additional tensors to add into the dataset object.
-
-    Returns
-    -------
-    dataset_iter : tf.compat.v1.data.Iterator
-      The dataset object to feed into tensorflow training pipelines.
-
-    """
-    dataset = self._get_dataset(file_name_pattern, batch_size, keep_features=keep_features, drop_features=drop_features, add_tensors=add_tensors)
-
-    data_iter = tf.compat.v1.data.Iterator.from_structure(
-        tf.compat.v1.data.get_output_types(dataset),
-        tf.compat.v1.data.get_output_shapes(dataset),
-    )
-
-    return data_iter
-
-  def get_dataset_feed_iter(self, file_name_pattern, handle, batch_size, keep_features=None, drop_features=None, add_tensors=None):
-    """Create the tensoflow dataset iterator object used iterator over a tensorflow dataset object. Used in input pipelines where a feed dict is used.
-
-    Parameters
-    ----------
-    file_name_pattern : string
-      The file name pattern of the tfrecord files. Supports '*', etc.
-    batch_size : int
-      The number of example to include in a single batch.
-    add_tensors : dict of tensors
-      Any additional tensors to add into the dataset object.
-
-    Returns
-    -------
-    dataset_iter : tf.compat.v1.data.Iterator
-      The dataset object to feed into tensorflow training pipelines.
-
-    """
-    dataset = self._get_dataset(file_name_pattern, batch_size, keep_features=keep_features, drop_features=drop_features, add_tensors=add_tensors)
-    # handle = tf.placeholder(tf.string, shape=[])
-
-    feed_iter = tf.compat.v1.data.Iterator.from_string_handle(
-        handle,
-        tf.compat.v1.data.get_output_types(dataset),
-        tf.compat.v1.data.get_output_shapes(dataset),
-    )
-
-    return feed_iter
-
-  def get_dataset_iter_init(self, dataset_iter, file_name_pattern, batch_size, num_epochs=None, num_examples=None, filters=None, keep_features=None, drop_features=None, add_tensors=None, num_threads=1, shuffle_buffer_size=1000, random_seed=None):
+  def get_dataset(self, file_name_pattern, batch_size, num_epochs=None, num_examples=None, filters=None, keep_features=None, drop_features=None, add_tensors=None, num_threads=1, shuffle_buffer_size=10000, random_seed=None):
     """Create the tensoflow dataset object to be used for input into training pipelines.
 
     Parameters
     ----------
-    dataset_iter : tf.compat.v1.data.Iterator
-      The dataset object to feed into tensorflow training pipelines.
     file_name_pattern : string
       The file name pattern of the tfrecord files. Supports '*', etc.
     batch_size : int
@@ -516,7 +341,7 @@ class Transform(object):
     num_epochs : int
       The number times to run through the full dataset of examples. Defaults to running indefinitely.
     num_examples : int
-      Number of steps to run in the dataset before terminating. Cannot use when num_epochs is defined
+      Number of examples to run in the dataset before terminating. Cannot use when num_epochs is defined
     filters : dict of functions
       Any pre preprocessing filters to put on the dataset. The keys are the filter names, the values are the filter themselves
     keep_features : list of strs
@@ -538,9 +363,83 @@ class Transform(object):
       The dataset object to feed into tensorflow training pipelines.
 
     """
-    dataset = self._get_dataset(file_name_pattern, batch_size, num_epochs, num_examples, filters, keep_features, drop_features, add_tensors, num_threads, shuffle_buffer_size, random_seed)
+    # Set the random seed.
+    random.seed(random_seed)
 
-    return dataset_iter.make_initializer(dataset)
+    # Get all the tfrecor file names and shuffle them
+    file_names = glob.glob(file_name_pattern)
+    file_names.sort()
+    shuffled_file_names = random.sample(file_names, len(file_names))
+
+    # Define the dataset object from the tfrecord files
+    dataset = tf.data.TFRecordDataset(shuffled_file_names)
+
+    # If num steps was given then use that to define how long to run the dataset
+    if num_examples is not None:
+      dataset = dataset.take(num_examples)
+      dataset = dataset.shuffle(
+          buffer_size=shuffle_buffer_size
+      )
+    # Otherwise use the number of epochs
+    else:
+      # Convert num epochs to integer
+      if num_epochs is not None and type(num_epochs) is not int and not (tf.is_tensor(num_epochs) and num_epochs.dtype is tf.int64):
+        logging.warn(
+          '%s is not a whole number. Will be converted to %s',
+          num_epochs,
+          int(num_epochs)
+        )
+        num_epochs = int(num_epochs)
+
+      dataset = dataset.shuffle(shuffle_buffer_size, random_seed)
+      dataset = dataset.repeat(num_epochs)
+
+    # Read and decode the dataset
+    dataset = dataset.map(
+      lambda se: self.read_and_decode(se, '', keep_features, drop_features),
+      num_parallel_calls=num_threads
+    )
+
+    # If any filters were put in place filter the values.
+    if filters is not None:
+      for key in filters:
+        dataset = dataset.filter(
+          filters[key]
+        )
+
+    # Batch out the data
+    if batch_size is not None:
+      dataset = dataset.batch(batch_size)
+
+    # Add any additional tensors to the dataset.
+    if add_tensors is not None:
+      for key in add_tensors:
+        def _add_tensor(kwargs):
+          kwargs[key] = add_tensors[key]
+          return kwargs
+        dataset = dataset.map(_add_tensor)
+
+    return dataset
+
+  def get_default_array(self, batch_size=1):
+    """Get an array of the proper shape and type that matches the input array.
+
+    Parameters
+    ----------
+    batch_size : int
+      The number of example to include in a single batch.
+
+    Returns
+    -------
+    default_array : np.array
+      The numpy array all filled with some default value
+
+    """
+    #####################################
+    # NOTE: PUT BACK IN CHECK AFTER WORKFLOW IS RERUN
+    # assert self.is_calc_run, ("Run calc_global_values before getting default array")
+    ####################################
+    return af.empty_array([batch_size, len(self.cols)], self.input_dtype)
 
   def get_placeholder(self, tap_key, with_batch=True, batch_size=None):
     """Get a placehold associated with some tap of this transform.

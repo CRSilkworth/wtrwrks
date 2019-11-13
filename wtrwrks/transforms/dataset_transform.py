@@ -190,7 +190,7 @@ class DatasetTransform(tr.Transform):
     for name in self.transform_names:
       trans = self.transforms[name]
       eval_cls_cols.update(trans._get_eval_cls_cols(already_added_cols))
-    pprint.pprint(eval_cls_cols)
+
     return eval_cls_cols
 
   def _save_dict(self):
